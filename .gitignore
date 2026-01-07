@@ -1,0 +1,28 @@
+# Build
+build/
+out/
+cmake-build-*/
+
+# IDE
+.vs/
+.vscode/
+*.vcxproj*
+*.sln
+.idea/
+*.user
+
+# Generated
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+*.ilk
+*.log
+
+# Config (user-specific)
+mcp_config.json
+orpheus_layout.ini
+
+# Cache
+cache/
