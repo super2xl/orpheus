@@ -58,8 +58,13 @@ file(GLOB_RECURSE ORPHEUS_SOURCES
     "src/**/*.cpp"
 )
 
+# Windows resource file (for .exe icon)
+if(WIN32)
+    set(ORPHEUS_RESOURCES "${CMAKE_SOURCE_DIR}/resources/orpheus.rc")
+endif()
+
 # Create executable
-add_executable(orpheus ${ORPHEUS_SOURCES})
+add_executable(orpheus ${ORPHEUS_SOURCES} ${ORPHEUS_RESOURCES})
 
 # Include directories
 target_include_directories(orpheus PRIVATE

@@ -1,6 +1,10 @@
-# Orpheus
+<p align="center">
+  <img src="resources/images/banner.png" alt="Orpheus" width="600">
+</p>
 
-DMA-based memory analysis framework with MCP (Model Context Protocol) support for AI-assisted reverse engineering.
+<p align="center">
+  DMA-based memory analysis framework with MCP support for AI-assisted reverse engineering.
+</p>
 
 ## Features
 

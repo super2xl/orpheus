@@ -1,0 +1,4 @@
+// Windows resource file for Orpheus
+// Embeds the application icon into the executable
+
+IDI_ICON1 ICON "icons/orpheus.ico"
