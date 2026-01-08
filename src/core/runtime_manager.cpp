@@ -30,50 +30,73 @@ bool RuntimeManager::Initialize() {
         return true;
     }
 
-    // Create unique temp directory name using timestamp and random number
-    auto now = std::chrono::system_clock::now();
-    auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now.time_since_epoch()
-    ).count();
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(10000, 99999);
-
-    std::string dirname = "orpheus_" + std::to_string(timestamp % 1000000) +
-                          "_" + std::to_string(dis(gen));
-
     try {
-        temp_dir_ = std::filesystem::temp_directory_path() / dirname;
-
-        if (!std::filesystem::create_directories(temp_dir_)) {
-            ReportError("Failed to create temp directory: " + temp_dir_.string());
+        // Get AppData path - %APPDATA%/Orpheus
+#ifdef PLATFORM_WINDOWS
+        char* appdata = nullptr;
+        size_t len = 0;
+        if (_dupenv_s(&appdata, &len, "APPDATA") != 0 || appdata == nullptr) {
+            ReportError("Failed to get APPDATA environment variable");
             return false;
         }
+        app_data_dir_ = std::filesystem::path(appdata) / "Orpheus";
+        free(appdata);
+#else
+        const char* home = getenv("HOME");
+        if (home == nullptr) {
+            ReportError("Failed to get HOME environment variable");
+            return false;
+        }
+        app_data_dir_ = std::filesystem::path(home) / ".orpheus";
+#endif
+
+        // Create directory structure
+        auto dll_dir = app_data_dir_ / "dlls";
+        auto cache_dir = app_data_dir_ / "cache";
+        auto config_dir = app_data_dir_ / "config";
+
+        std::filesystem::create_directories(app_data_dir_);
+        std::filesystem::create_directories(dll_dir);
+        std::filesystem::create_directories(cache_dir);
+        std::filesystem::create_directories(config_dir);
+
     } catch (const std::filesystem::filesystem_error& e) {
-        ReportError("Filesystem error creating temp directory: " + std::string(e.what()));
+        ReportError("Filesystem error creating AppData directory: " + std::string(e.what()));
         return false;
     }
 
-    // Extract all embedded DLLs
+    // Extract embedded DLLs (only if missing)
     bool all_success = true;
+    auto dll_dir = app_data_dir_ / "dlls";
 
     for (const auto& resource : embedded::resources) {
-        if (!ExtractDLL(resource.name, resource.data, resource.size)) {
-            ReportError("Failed to extract: " + std::string(resource.name));
-            all_success = false;
+        auto target_path = dll_dir / resource.name;
+
+        // Check if file exists and has correct size
+        bool needs_extract = true;
+        if (std::filesystem::exists(target_path)) {
+            auto existing_size = std::filesystem::file_size(target_path);
+            if (existing_size == resource.size) {
+                needs_extract = false;
+                extracted_files_.push_back(target_path);
+            }
+        }
+
+        if (needs_extract) {
+            if (!ExtractDLL(resource.name, resource.data, resource.size)) {
+                ReportError("Failed to extract: " + std::string(resource.name));
+                all_success = false;
+            }
         }
     }
 
     if (!all_success) {
-        Cleanup();
         return false;
     }
 
     // Set up DLL search path
     if (!SetupDLLSearchPath()) {
         ReportError("Failed to set up DLL search path");
-        Cleanup();
         return false;
     }
 
@@ -84,7 +107,7 @@ bool RuntimeManager::Initialize() {
 bool RuntimeManager::ExtractDLL(std::string_view name,
                                 const unsigned char* data,
                                 size_t size) {
-    auto dll_path = temp_dir_ / name;
+    auto dll_path = app_data_dir_ / "dlls" / name;
 
     try {
         std::ofstream out(dll_path, std::ios::binary | std::ios::trunc);
@@ -111,10 +134,12 @@ bool RuntimeManager::ExtractDLL(std::string_view name,
 }
 
 bool RuntimeManager::SetupDLLSearchPath() {
+    auto dll_dir = app_data_dir_ / "dlls";
+
 #ifdef PLATFORM_WINDOWS
-    // Add temp directory to DLL search path
+    // Add DLL directory to DLL search path
     // SetDllDirectoryA sets the search path for LoadLibrary calls
-    if (!SetDllDirectoryA(temp_dir_.string().c_str())) {
+    if (!SetDllDirectoryA(dll_dir.string().c_str())) {
         return false;
     }
 
@@ -127,14 +152,14 @@ bool RuntimeManager::SetupDLLSearchPath() {
         free(path_env);
     }
 
-    std::string new_path = temp_dir_.string() + ";" + current_path;
+    std::string new_path = dll_dir.string() + ";" + current_path;
     _putenv_s("PATH", new_path.c_str());
 
     return true;
 #else
     // On Linux, add to LD_LIBRARY_PATH
     const char* current_path = getenv("LD_LIBRARY_PATH");
-    std::string new_path = temp_dir_.string();
+    std::string new_path = dll_dir.string();
     if (current_path != nullptr) {
         new_path += ":" + std::string(current_path);
     }
@@ -162,28 +187,9 @@ void RuntimeManager::Cleanup() {
     usleep(100000);
 #endif
 
-    // Remove all extracted files
-    for (const auto& file : extracted_files_) {
-        try {
-            if (std::filesystem::exists(file)) {
-                std::filesystem::remove(file);
-            }
-        } catch (const std::filesystem::filesystem_error&) {
-            // Ignore errors during cleanup - file may be in use
-        }
-    }
+    // Note: We do NOT delete AppData files - they are persistent
+    // This allows faster startup on subsequent runs
     extracted_files_.clear();
-
-    // Remove temp directory
-    try {
-        if (std::filesystem::exists(temp_dir_)) {
-            std::filesystem::remove_all(temp_dir_);
-        }
-    } catch (const std::filesystem::filesystem_error&) {
-        // Ignore errors - best effort cleanup
-    }
-
-    temp_dir_.clear();
     initialized_ = false;
 }
 
@@ -192,7 +198,7 @@ std::filesystem::path RuntimeManager::GetDLLPath(std::string_view dll_name) cons
         return {};
     }
 
-    auto path = temp_dir_ / dll_name;
+    auto path = app_data_dir_ / "dlls" / dll_name;
     if (std::filesystem::exists(path)) {
         return path;
     }

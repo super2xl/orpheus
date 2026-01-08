@@ -98,6 +98,11 @@ public:
      */
     [[nodiscard]] bool IsConnected() const { return vmm_handle_ != nullptr; }
 
+    /**
+     * Get the device type string (e.g., "fpga", "file://...")
+     */
+    [[nodiscard]] const std::string& GetDeviceType() const { return device_type_; }
+
     // =========================================================================
     // Process Operations
     // =========================================================================
@@ -241,6 +246,7 @@ private:
     void ReportError(const std::string& message);
 
     VMMHandle vmm_handle_ = nullptr;
+    std::string device_type_;
     std::string last_error_;
     std::function<void(const std::string&)> error_callback_;
 };

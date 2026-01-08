@@ -52,11 +52,13 @@ include(Dependencies)
 # Main Executable
 # ============================================================================
 
-# Collect source files
+# Collect source files (exclude installer directory)
 file(GLOB_RECURSE ORPHEUS_SOURCES
     "src/*.cpp"
     "src/**/*.cpp"
 )
+# Remove installer sources from main executable
+list(FILTER ORPHEUS_SOURCES EXCLUDE REGEX ".*installer.*")
 
 # Windows resource file (for .exe icon)
 if(WIN32)
@@ -133,10 +135,66 @@ elseif(PLATFORM_LINUX)
 endif()
 
 # ============================================================================
+# MCPinstaller - Standalone MCP Bridge Installer
+# ============================================================================
+
+set(MCPINSTALLER_SOURCES
+    "src/installer/installer_main.cpp"
+    "src/installer/installer_app.cpp"
+)
+
+# Windows resource file (for .exe icon)
+if(WIN32)
+    set(MCPINSTALLER_RESOURCES "${CMAKE_SOURCE_DIR}/resources/orpheus.rc")
+endif()
+
+add_executable(MCPinstaller ${MCPINSTALLER_SOURCES} ${MCPINSTALLER_RESOURCES})
+
+target_include_directories(MCPinstaller PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/include
+    ${EMBEDDED_RESOURCE_INCLUDE_DIR}
+    ${JSON_INCLUDE_DIR}
+    ${STB_INCLUDE_DIR}
+)
+
+target_link_libraries(MCPinstaller PRIVATE
+    imgui
+    glfw
+)
+
+if(PLATFORM_WINDOWS)
+    target_link_libraries(MCPinstaller PRIVATE
+        opengl32
+    )
+
+    set_target_properties(MCPinstaller PROPERTIES
+        WIN32_EXECUTABLE TRUE
+    )
+
+    if(MSVC)
+        target_compile_options(MCPinstaller PRIVATE
+            /W4 /MP /utf-8
+        )
+        target_link_options(MCPinstaller PRIVATE
+            /ENTRY:mainCRTStartup
+            /MANIFESTUAC:level='requireAdministrator'
+        )
+        target_compile_definitions(MCPinstaller PRIVATE
+            _CRT_SECURE_NO_WARNINGS
+        )
+    endif()
+elseif(PLATFORM_LINUX)
+    target_link_libraries(MCPinstaller PRIVATE
+        dl pthread GL
+    )
+endif()
+
+# ============================================================================
 # Installation
 # ============================================================================
 
-install(TARGETS orpheus
+install(TARGETS orpheus MCPinstaller
     RUNTIME DESTINATION bin
 )
 

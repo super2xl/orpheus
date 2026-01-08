@@ -151,6 +151,33 @@ using FN_ScatterExecute = BOOL(*)(void*);
 using FN_ScatterRead = BOOL(*)(void*, ULONG64, DWORD, PBYTE, PDWORD);
 using FN_ScatterCloseHandle = void(*)(void*);
 using FN_ConfigSet = BOOL(*)(void*, ULONG64, ULONG64);
+using FN_ConfigGet = BOOL(*)(void*, ULONG64, PULONG64);
+using FN_VfsReadU = DWORD(*)(void*, LPCSTR, PBYTE, DWORD, PDWORD, ULONG64);
+
+// LeechCore FPGA option to get device ID
+static constexpr ULONG64 LC_OPT_FPGA_FPGA_ID = 0x0300008100000000ULL;
+
+// FPGA Device ID to friendly name mapping (from LeechCore device_fpga.c)
+static const char* GetFPGADeviceName(uint64_t device_id) {
+    switch (device_id) {
+        case 0x00: return "SP605 / FT601";
+        case 0x01: return "PCIeScreamer R1";
+        case 0x02: return "AC701 / FT601";
+        case 0x03: return "PCIeScreamer R2";
+        case 0x04: return "ScreamerM2";
+        case 0x05: return "NeTV2 RawUDP";
+        case 0x08: return "FT2232H";
+        case 0x09: return "Enigma X1";
+        case 0x0A: return "Enigma X2";
+        case 0x0B: return "ScreamerM2x4";
+        case 0x0C: return "PCIeSquirrel";
+        case 0x0D: return "Device #13N";
+        case 0x0E: return "Device #14T";
+        case 0x0F: return "Device #15N";
+        case 0x10: return "Device #16T";
+        default:   return nullptr;  // Unknown device
+    }
+}
 
 // VMM config options for refresh
 static constexpr ULONG64 OPT_REFRESH_ALL = 0x2001ffff;
@@ -174,6 +201,8 @@ static FN_ScatterExecute fn_ScatterExecute = nullptr;
 static FN_ScatterRead fn_ScatterRead = nullptr;
 static FN_ScatterCloseHandle fn_ScatterClose = nullptr;
 static FN_ConfigSet fn_ConfigSet = nullptr;
+static FN_ConfigGet fn_ConfigGet = nullptr;
+static FN_VfsReadU fn_VfsReadU = nullptr;
 
 static void* vmm_module = nullptr;
 
@@ -207,6 +236,8 @@ static bool LoadVMMFunctions() {
     fn_ScatterRead = LoadFunction<FN_ScatterRead>("VMMDLL_Scatter_Read");
     fn_ScatterClose = LoadFunction<FN_ScatterCloseHandle>("VMMDLL_Scatter_CloseHandle");
     fn_ConfigSet = LoadFunction<FN_ConfigSet>("VMMDLL_ConfigSet");
+    fn_ConfigGet = LoadFunction<FN_ConfigGet>("VMMDLL_ConfigGet");
+    fn_VfsReadU = LoadFunction<FN_VfsReadU>("VMMDLL_VfsReadU");
 
     return fn_Initialize && fn_Close && fn_MemFree && fn_PidList && fn_ProcessGetInfo && fn_MemRead;
 }
@@ -269,6 +300,19 @@ bool DMAInterface::Initialize(const std::string& device) {
         ReportError("VMMDLL_Initialize failed for device: " + device);
         return false;
     }
+
+    // Try to get the actual FPGA device name via ConfigGet
+    device_type_ = device;  // Fallback to device string (e.g., "fpga")
+    if (fn_ConfigGet && device == "fpga") {
+        ULONG64 fpga_id = 0;
+        if (fn_ConfigGet(vmm_handle_, LC_OPT_FPGA_FPGA_ID, &fpga_id)) {
+            const char* name = GetFPGADeviceName(fpga_id);
+            if (name) {
+                device_type_ = name;
+            }
+        }
+    }
+
     return true;
 }
 
@@ -276,6 +320,7 @@ void DMAInterface::Close() {
     if (vmm_handle_ != nullptr && fn_Close != nullptr) {
         fn_Close(vmm_handle_);
         vmm_handle_ = nullptr;
+        device_type_.clear();
     }
 }
 

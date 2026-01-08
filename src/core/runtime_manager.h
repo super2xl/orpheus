@@ -10,13 +10,13 @@
 namespace orpheus {
 
 /**
- * RuntimeManager - Handles embedded DLL extraction and cleanup
+ * RuntimeManager - Handles embedded resource extraction and AppData management
  *
  * This singleton class is responsible for:
- * - Creating a temporary directory for extracted DLLs
- * - Extracting embedded DLLs from the executable
+ * - Creating %APPDATA%/Orpheus directory structure
+ * - Extracting embedded DLLs (only if missing or outdated)
  * - Setting up DLL search paths
- * - Cleaning up on application exit
+ * - Providing paths for cache, config, and MCP bridge
  *
  * CRITICAL: Initialize() MUST be called before any DMA operations
  */
@@ -59,9 +59,24 @@ public:
     [[nodiscard]] std::filesystem::path GetDLLPath(std::string_view dll_name) const;
 
     /**
-     * Get the temporary directory path
+     * Get the Orpheus AppData directory path
      */
-    [[nodiscard]] const std::filesystem::path& GetTempDirectory() const { return temp_dir_; }
+    [[nodiscard]] const std::filesystem::path& GetAppDataDirectory() const { return app_data_dir_; }
+
+    /**
+     * Get the DLLs directory path
+     */
+    [[nodiscard]] std::filesystem::path GetDLLDirectory() const { return app_data_dir_ / "dlls"; }
+
+    /**
+     * Get the cache directory path
+     */
+    [[nodiscard]] std::filesystem::path GetCacheDirectory() const { return app_data_dir_ / "cache"; }
+
+    /**
+     * Get the config directory path
+     */
+    [[nodiscard]] std::filesystem::path GetConfigDirectory() const { return app_data_dir_ / "config"; }
 
     /**
      * Get list of all extracted files
@@ -112,7 +127,7 @@ private:
      */
     void ReportError(const std::string& message);
 
-    std::filesystem::path temp_dir_;
+    std::filesystem::path app_data_dir_;
     std::vector<std::filesystem::path> extracted_files_;
     std::vector<void*> loaded_dlls_;
     std::function<void(const std::string&)> error_callback_;

@@ -245,27 +245,36 @@ void Application::RebuildFonts() {
 
 void Application::ToggleFullscreen() {
     if (is_fullscreen_) {
-        // Restore windowed mode
+        // Restore windowed mode - use nullptr for monitor to exit fullscreen
         glfwSetWindowMonitor(window_, nullptr,
                              windowed_x_, windowed_y_,
                              windowed_width_, windowed_height_,
                              GLFW_DONT_CARE);
         is_fullscreen_ = false;
+
+        // Reset ImGui/docking layout to handle new size
+        first_frame_ = true;
+
         LOG_INFO("Exited fullscreen mode");
     } else {
         // Save current window position/size before going fullscreen
         glfwGetWindowPos(window_, &windowed_x_, &windowed_y_);
         glfwGetWindowSize(window_, &windowed_width_, &windowed_height_);
 
-        // Get primary monitor and its video mode
+        // Get primary monitor and its current video mode
         GLFWmonitor* monitor = glfwGetPrimaryMonitor();
         const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 
-        // Set borderless fullscreen
+        // Use borderless fullscreen - matching current video mode avoids mode switch
+        // This is smoother than exclusive fullscreen as it doesn't change display modes
         glfwSetWindowMonitor(window_, monitor, 0, 0,
                              mode->width, mode->height,
                              mode->refreshRate);
         is_fullscreen_ = true;
+
+        // Reset ImGui/docking layout to handle new size
+        first_frame_ = true;
+
         LOG_INFO("Entered fullscreen mode ({}x{} @ {}Hz)",
                  mode->width, mode->height, mode->refreshRate);
     }
@@ -705,8 +714,12 @@ int Application::Run() {
 }
 
 void Application::ProcessInput() {
+    static std::map<int, bool> key_states;
+
     for (const auto& kb : keybinds_) {
-        if (glfwGetKey(window_, kb.key) == GLFW_PRESS) {
+        bool key_pressed = glfwGetKey(window_, kb.key) == GLFW_PRESS;
+
+        if (key_pressed) {
             bool mods_ok = true;
             if (kb.modifiers & GLFW_MOD_CONTROL) {
                 mods_ok &= (glfwGetKey(window_, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
@@ -721,14 +734,13 @@ void Application::ProcessInput() {
                            glfwGetKey(window_, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS);
             }
 
-            static std::map<int, bool> key_states;
             if (mods_ok && !key_states[kb.key]) {
                 key_states[kb.key] = true;
                 if (kb.action) kb.action();
             }
-            if (!mods_ok || glfwGetKey(window_, kb.key) == GLFW_RELEASE) {
-                key_states[kb.key] = false;
-            }
+        } else {
+            // Key released - reset state so it can trigger again
+            key_states[kb.key] = false;
         }
     }
 }
@@ -986,7 +998,12 @@ void Application::RenderMenuBar() {
 
         if (dma_ && dma_->IsConnected()) {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.3f, 0.9f, 0.3f, 1.0f));
-            ImGui::Text("DMA: Connected");
+            std::string device = dma_->GetDeviceType();
+            // If just "fpga" fallback, uppercase it; otherwise use as-is (e.g., "Enigma X1")
+            if (device == "fpga") {
+                device = "FPGA";
+            }
+            ImGui::Text("DMA: %s", device.c_str());
             ImGui::PopStyleColor();
         } else {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.3f, 0.3f, 1.0f));

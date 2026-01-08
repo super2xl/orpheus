@@ -13,9 +13,15 @@ const { URL } = require('url');
 // Configuration
 // ============================================================================
 
-const MCP_URL = process.env.ORPHEUS_MCP_URL || 'http://10.0.0.120:8765';
-const API_KEY = process.env.ORPHEUS_API_KEY || 'oph_cb3fe9a44d96ce8f4f87bc745dbbd50451c0c47b43c9c33ebb53d092d0e7c5c4';
+const MCP_URL = process.env.ORPHEUS_MCP_URL || 'http://localhost:8765';
+const API_KEY = process.env.ORPHEUS_API_KEY;
 const DEBUG = process.env.DEBUG === 'true';
+
+if (!API_KEY) {
+  console.error('Error: ORPHEUS_API_KEY environment variable is required');
+  console.error('Set it in your MCP server configuration or export it before running');
+  process.exit(1);
+}
 
 // ============================================================================
 // Request Queue (Serialization)

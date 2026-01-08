@@ -107,6 +107,19 @@ function(embed_all_dlls)
         message(STATUS "Icon not found (optional): ${ICON_FILE}")
     endif()
 
+    # Process MCP bridge script
+    set(MCP_BRIDGE_FILE "${CMAKE_SOURCE_DIR}/mcp_bridge.js")
+    set(HAS_MCP_BRIDGE FALSE)
+    if(EXISTS "${MCP_BRIDGE_FILE}")
+        set(output_file "${OUTPUT_DIR}/embedded_mcp_bridge.h")
+        embed_resource("${MCP_BRIDGE_FILE}" "${output_file}")
+        list(APPEND EMBEDDED_HEADERS "${output_file}")
+        set(HAS_MCP_BRIDGE TRUE)
+        message(STATUS "Embedded MCP bridge: mcp_bridge.js")
+    else()
+        message(WARNING "MCP bridge not found: ${MCP_BRIDGE_FILE}")
+    endif()
+
     # Generate a master header that includes all embedded resources
     set(MASTER_HEADER "${OUTPUT_DIR}/embedded_resources.h")
     file(WRITE "${MASTER_HEADER}"
@@ -155,13 +168,29 @@ function(embed_all_dlls)
     if(HAS_ICON)
         file(APPEND "${MASTER_HEADER}"
             "inline constexpr bool has_icon = true;\n"
-            "// orpheus_png and orpheus_png_size defined in embedded_orpheus_icon.h\n"
+            "// orpheus_png and orpheus_png_size defined in embedded_orpheus_icon.h\n\n"
         )
     else()
         file(APPEND "${MASTER_HEADER}"
             "inline constexpr bool has_icon = false;\n"
             "inline constexpr unsigned char orpheus_png[] = {0};  // Placeholder byte\n"
-            "inline constexpr size_t orpheus_png_size = 0;\n"
+            "inline constexpr size_t orpheus_png_size = 0;\n\n"
+        )
+    endif()
+
+    # MCP Bridge resource
+    if(HAS_MCP_BRIDGE)
+        file(APPEND "${MASTER_HEADER}"
+            "// MCP Bridge script\n"
+            "inline constexpr bool has_mcp_bridge = true;\n"
+            "// mcp_bridge_js and mcp_bridge_js_size defined in embedded_mcp_bridge.h\n"
+        )
+    else()
+        file(APPEND "${MASTER_HEADER}"
+            "// MCP Bridge script (not found)\n"
+            "inline constexpr bool has_mcp_bridge = false;\n"
+            "inline constexpr unsigned char mcp_bridge_js[] = {0};\n"
+            "inline constexpr size_t mcp_bridge_js_size = 0;\n"
         )
     endif()
 

@@ -30,6 +30,7 @@ jobs:
       run: |
         mkdir release
         copy build\bin\Release\orpheus.exe release\
+        copy build\bin\Release\MCPinstaller.exe release\
         copy LICENSE release\
         copy README.md release\
 

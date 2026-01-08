@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    LOG_INFO("Runtime initialized: {}", runtime.GetTempDirectory().string());
+    LOG_INFO("Runtime initialized: {}", runtime.GetAppDataDirectory().string());
 
     // Register cleanup on exit
     std::atexit([]() {

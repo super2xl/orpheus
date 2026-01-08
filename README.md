@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resources/images/banner.png" alt="Orpheus" width="600">
+  <img src="resources/images/banner.png" alt="Orpheus" width="400">
 </p>
 
 <p align="center">
@@ -31,7 +31,9 @@ cmake ..
 cmake --build . --config Release
 ```
 
-Output: `build/bin/Release/orpheus.exe`
+Output:
+- `build/bin/Release/orpheus.exe` - Main application
+- `build/bin/Release/MCPinstaller.exe` - MCP client configuration tool (includes embedded bridge)
 
 ## Usage
 
@@ -45,23 +47,41 @@ orpheus.exe --connect
 
 ### MCP Integration
 
+#### Quick Setup (Recommended)
+
+Use **MCPinstaller** to automatically configure all your MCP clients:
+
 1. Start Orpheus and enable MCP server in settings
-2. Configure Claude Code to use the MCP bridge:
+2. Copy the API key from Orpheus (Settings > MCP > Copy API Key)
+3. Run `MCPinstaller.exe` (included in releases)
+4. Enter your Orpheus server URL and API key
+5. Select which clients to configure (Claude Desktop, Cursor, VS Code, etc.)
+6. Click Install - restart your MCP clients to apply
+
+MCPinstaller auto-detects and configures: Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline, Roo Code, LM Studio, Zed, Amazon Q, Warp, and more.
+
+#### Manual Configuration
+
+Alternatively, manually add to your MCP client config (e.g., `~/.claude/claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "orpheus": {
       "command": "node",
-      "args": ["path/to/mcp_bridge.js"],
+      "args": ["C:/path/to/mcp_bridge.js"],
       "env": {
-        "ORPHEUS_MCP_URL": "http://localhost:8765",
-        "ORPHEUS_API_KEY": "your-api-key"
+        "ORPHEUS_MCP_URL": "http://192.168.1.100:8765",
+        "ORPHEUS_API_KEY": "oph_your_key_here"
       }
     }
   }
 }
 ```
+
+**Notes:**
+- `ORPHEUS_MCP_URL`: Use `localhost` if on the same machine, otherwise use the Orpheus server IP
+- `ORPHEUS_API_KEY`: Required - copy from Orpheus GUI
 
 ## Project Structure
 
@@ -73,6 +93,7 @@ orpheus/
 │   ├── emulation/     # Unicorn CPU emulator
 │   ├── dumper/        # Game-specific SDK dumpers
 │   ├── mcp/           # MCP server implementation
+│   ├── installer/     # MCPinstaller standalone tool
 │   ├── ui/            # ImGui application
 │   └── utils/         # Logging, bookmarks
 ├── cmake/             # CMake modules (dependencies, resource embedding)
