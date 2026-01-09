@@ -51,7 +51,7 @@ include(Dependencies)
 # ============================================================================
 # Ghidra Decompiler (optional)
 # ============================================================================
-option(ORPHEUS_BUILD_DECOMPILER "Build with Ghidra decompiler support" OFF)
+option(ORPHEUS_BUILD_DECOMPILER "Build with Ghidra decompiler support" ON)
 
 if(ORPHEUS_BUILD_DECOMPILER)
     message(STATUS "Building with Ghidra decompiler support")

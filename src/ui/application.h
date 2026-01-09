@@ -39,7 +39,9 @@ namespace emulation {
     class Emulator;
 }
 
+#ifdef ORPHEUS_HAS_GHIDRA_DECOMPILER
 class Decompiler;
+#endif
 
 } // namespace orpheus
 
@@ -224,12 +226,14 @@ private:
     std::unique_ptr<emulation::Emulator> emulator_;
     uint32_t emulator_pid_ = 0;
 
+    #ifdef ORPHEUS_HAS_GHIDRA_DECOMPILER
     // Decompiler
     std::unique_ptr<Decompiler> decompiler_;
     std::string decompiled_code_;
     uint64_t decompile_address_ = 0;
     char decompile_address_input_[32] = {};
     bool decompiler_initialized_ = false;
+#endif
 
     // Panel visibility
     PanelState panels_;

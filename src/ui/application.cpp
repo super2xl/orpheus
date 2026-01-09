@@ -626,9 +626,11 @@ void Application::RegisterKeybinds() {
         {"Disassembly", "Toggle disassembly", GLFW_KEY_4, GLFW_MOD_CONTROL, [this]() {
             panels_.disassembly = !panels_.disassembly;
         }},
+        #ifdef ORPHEUS_HAS_GHIDRA_DECOMPILER
         {"Decompiler", "Toggle decompiler", GLFW_KEY_D, GLFW_MOD_CONTROL | GLFW_MOD_SHIFT, [this]() {
             panels_.decompiler = !panels_.decompiler;
         }},
+#endif
         {"Pattern Scanner", "Toggle pattern scanner", GLFW_KEY_5, GLFW_MOD_CONTROL, [this]() {
             panels_.pattern_scanner = !panels_.pattern_scanner;
         }},
@@ -824,7 +826,9 @@ void Application::RenderDockspace() {
     if (panels_.module_list) RenderModuleList();
     if (panels_.memory_viewer) RenderMemoryViewer();
     if (panels_.disassembly) RenderDisassembly();
+    #ifdef ORPHEUS_HAS_GHIDRA_DECOMPILER
     if (panels_.decompiler) RenderDecompiler();
+#endif
     if (panels_.pattern_scanner) RenderPatternScanner();
     if (panels_.string_scanner) RenderStringScanner();
     if (panels_.memory_watcher) RenderMemoryWatcher();
@@ -877,7 +881,9 @@ void Application::RenderMenuBar() {
             ImGui::MenuItem("Modules", "Ctrl+2", &panels_.module_list);
             ImGui::MenuItem("Memory", "Ctrl+3", &panels_.memory_viewer);
             ImGui::MenuItem("Disassembly", "Ctrl+4", &panels_.disassembly);
+            #ifdef ORPHEUS_HAS_GHIDRA_DECOMPILER
             ImGui::MenuItem("Decompiler", "Ctrl+Shift+D", &panels_.decompiler);
+#endif
             ImGui::Separator();
             ImGui::MenuItem("Pattern Scanner", "Ctrl+5", &panels_.pattern_scanner);
             ImGui::MenuItem("String Scanner", "Ctrl+6", &panels_.string_scanner);
