@@ -215,27 +215,28 @@ void InstallerApp::DetectMCPClients() {
     std::string home = std::filesystem::path(getenv("USERPROFILE")).string();
 
     // Define all supported MCP clients
+    // Format: {name, config_dir, config_file, detected, selected, json_key, nested_key, use_cli}
     std::vector<MCPClientInfo> all_clients = {
-        {"Claude Desktop", appdata_path + "\\Claude", "claude_desktop_config.json", false, true, "mcpServers", ""},
-        {"Cursor", home + "\\.cursor", "mcp.json", false, true, "mcpServers", ""},
-        {"Claude Code", home, ".claude.json", false, true, "mcpServers", ""},
-        {"Windsurf", home + "\\.codeium\\windsurf", "mcp_config.json", false, true, "mcpServers", ""},
-        {"VS Code", appdata_path + "\\Code\\User", "settings.json", false, true, "mcp", "servers"},
-        {"Cline", appdata_path + "\\Code\\User\\globalStorage\\saoudrizwan.claude-dev\\settings", "cline_mcp_settings.json", false, true, "mcpServers", ""},
-        {"Roo Code", appdata_path + "\\Code\\User\\globalStorage\\rooveterinaryinc.roo-cline\\settings", "mcp_settings.json", false, true, "mcpServers", ""},
-        {"LM Studio", home + "\\.lmstudio", "mcp.json", false, true, "mcpServers", ""},
-        {"Zed", appdata_path + "\\Zed", "settings.json", false, true, "mcpServers", ""},
-        {"Amazon Q", home + "\\.aws\\amazonq", "mcp_config.json", false, true, "mcpServers", ""},
-        {"Warp", home + "\\.warp", "mcp_config.json", false, true, "mcpServers", ""},
+        {"Claude Desktop", appdata_path + "\\Claude", "claude_desktop_config.json", false, true, "mcpServers", "", false},
+        {"Cursor", home + "\\.cursor", "mcp.json", false, true, "mcpServers", "", false},
+        {"Claude Code", home + "\\.claude", "", false, true, "", "", true},  // Uses CLI
+        {"Windsurf", home + "\\.codeium\\windsurf", "mcp_config.json", false, true, "mcpServers", "", false},
+        {"VS Code", appdata_path + "\\Code\\User", "settings.json", false, true, "mcp", "servers", false},
+        {"Cline", appdata_path + "\\Code\\User\\globalStorage\\saoudrizwan.claude-dev\\settings", "cline_mcp_settings.json", false, true, "mcpServers", "", false},
+        {"Roo Code", appdata_path + "\\Code\\User\\globalStorage\\rooveterinaryinc.roo-cline\\settings", "mcp_settings.json", false, true, "mcpServers", "", false},
+        {"LM Studio", home + "\\.lmstudio", "mcp.json", false, true, "mcpServers", "", false},
+        {"Zed", appdata_path + "\\Zed", "settings.json", false, true, "mcpServers", "", false},
+        {"Amazon Q", home + "\\.aws\\amazonq", "mcp_config.json", false, true, "mcpServers", "", false},
+        {"Warp", home + "\\.warp", "mcp_config.json", false, true, "mcpServers", "", false},
     };
 #else
     std::string home = std::filesystem::path(getenv("HOME")).string();
 
     std::vector<MCPClientInfo> all_clients = {
-        {"Claude Desktop", home + "/Library/Application Support/Claude", "claude_desktop_config.json", false, true, "mcpServers", ""},
-        {"Cursor", home + "/.cursor", "mcp.json", false, true, "mcpServers", ""},
-        {"Claude Code", home, ".claude.json", false, true, "mcpServers", ""},
-        {"Windsurf", home + "/.codeium/windsurf", "mcp_config.json", false, true, "mcpServers", ""},
+        {"Claude Desktop", home + "/Library/Application Support/Claude", "claude_desktop_config.json", false, true, "mcpServers", "", false},
+        {"Cursor", home + "/.cursor", "mcp.json", false, true, "mcpServers", "", false},
+        {"Claude Code", home + "/.claude", "", false, true, "", "", true},  // Uses CLI
+        {"Windsurf", home + "/.codeium/windsurf", "mcp_config.json", false, true, "mcpServers", "", false},
     };
 #endif
 
@@ -311,8 +312,6 @@ std::string InstallerApp::GenerateMCPConfig() {
 }
 
 bool InstallerApp::InstallToClient(MCPClientInfo& client) {
-    std::filesystem::path config_path = std::filesystem::path(client.config_dir) / client.config_file;
-
     // Extract embedded mcp_bridge.js to AppData
     std::filesystem::path bridge_path = ExtractMCPBridge();
     if (bridge_path.empty()) {
@@ -320,6 +319,34 @@ bool InstallerApp::InstallToClient(MCPClientInfo& client) {
         status_is_error_ = true;
         return false;
     }
+
+    // Handle CLI-based installation (Claude Code)
+    if (client.use_cli) {
+        // Build command: claude mcp add orpheus -e ORPHEUS_MCP_URL=... -e ORPHEUS_API_KEY=... -- node /path/to/bridge.js
+        std::string cmd = "claude mcp add orpheus";
+
+        // Add environment variables
+        if (strlen(orpheus_url_) > 0) {
+            cmd += " -e ORPHEUS_MCP_URL=" + std::string(orpheus_url_);
+        }
+        if (strlen(api_key_) > 0) {
+            cmd += " -e ORPHEUS_API_KEY=" + std::string(api_key_);
+        }
+
+        // Add command and args
+        cmd += " -- node " + bridge_path.string();
+
+        int result = system(cmd.c_str());
+        if (result != 0) {
+            status_message_ = "Failed to run 'claude mcp add'. Is Claude Code installed?";
+            status_is_error_ = true;
+            return false;
+        }
+        return true;
+    }
+
+    // JSON file-based installation for other clients
+    std::filesystem::path config_path = std::filesystem::path(client.config_dir) / client.config_file;
 
     json config;
 

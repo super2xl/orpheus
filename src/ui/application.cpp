@@ -32,6 +32,7 @@
 #include <sstream>
 #include <iomanip>
 #include <filesystem>
+#include <regex>
 
 #ifdef PLATFORM_WINDOWS
 #include <windows.h>
@@ -802,6 +803,40 @@ void Application::RenderDockspace() {
                 RefreshProcesses();
             } else {
                 LOG_ERROR("DMA connection failed");
+#ifdef PLATFORM_LINUX
+                // On Linux, DMA failure is often due to USB permission issues
+                // Scan sysfs for FTDI devices (common FPGA vendors)
+                // Known FPGA device vendor IDs: 0403 (FTDI), 0d7d (Phison - some DMA cards)
+                std::vector<std::pair<std::string, std::string>> ftdi_vendors = {
+                    {"0403", "FTDI"},  // Most common for DMA cards
+                };
+
+                for (const auto& [vendor_id, vendor_name] : ftdi_vendors) {
+                    // Check /sys/bus/usb/devices for this vendor
+                    for (const auto& entry : std::filesystem::directory_iterator("/sys/bus/usb/devices")) {
+                        std::filesystem::path id_vendor_path = entry.path() / "idVendor";
+                        std::filesystem::path id_product_path = entry.path() / "idProduct";
+
+                        if (std::filesystem::exists(id_vendor_path) && std::filesystem::exists(id_product_path)) {
+                            std::ifstream vendor_file(id_vendor_path);
+                            std::ifstream product_file(id_product_path);
+                            std::string found_vendor, found_product;
+
+                            if (vendor_file >> found_vendor && product_file >> found_product) {
+                                if (found_vendor == vendor_id) {
+                                    udev_vendor_id_ = found_vendor;
+                                    udev_product_id_ = found_product;
+                                    show_udev_dialog_ = true;
+                                    LOG_INFO("Detected {} device {}:{}, offering udev rule install",
+                                        vendor_name, found_vendor, found_product);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (show_udev_dialog_) break;
+                }
+#endif
             }
         }
     }
@@ -863,6 +898,9 @@ void Application::RenderDockspace() {
     if (show_dump_dialog_) RenderDumpDialog();
     if (show_settings_) RenderSettingsDialog();
     if (show_demo_) ImGui::ShowDemoWindow(&show_demo_);
+#ifdef PLATFORM_LINUX
+    if (show_udev_dialog_) RenderUdevPermissionDialog();
+#endif
 
     RenderStatusBar();
 }
@@ -4937,5 +4975,100 @@ void Application::Shutdown() {
 
     LOG_INFO("Application shutdown complete");
 }
+
+#ifdef PLATFORM_LINUX
+void Application::RenderUdevPermissionDialog() {
+    ImGui::OpenPopup("USB Permission Required");
+
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+    if (ImGui::BeginPopupModal("USB Permission Required", &show_udev_dialog_, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "USB Device Access Denied");
+        ImGui::Spacing();
+        ImGui::TextWrapped(
+            "Your FPGA device was detected but Orpheus doesn't have permission to access it.\n\n"
+            "This can be fixed by installing a udev rule that grants access to your user."
+        );
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::Text("Detected Device:");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "%s:%s",
+            udev_vendor_id_.c_str(), udev_product_id_.c_str());
+
+        ImGui::Spacing();
+        ImGui::TextWrapped("The following udev rule will be installed:");
+        ImGui::Spacing();
+
+        // Show the rule that will be installed
+        std::string rule = "SUBSYSTEM==\"usb\", ATTR{idVendor}==\"" + udev_vendor_id_ +
+                          "\", ATTR{idProduct}==\"" + udev_product_id_ + "\", MODE=\"0666\"";
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+        ImGui::TextWrapped("%s", rule.c_str());
+        ImGui::PopStyleColor();
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        static bool install_in_progress = false;
+        static bool install_success = false;
+        static std::string install_message;
+
+        if (install_in_progress) {
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Installing...");
+        } else if (!install_message.empty()) {
+            if (install_success) {
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "%s", install_message.c_str());
+                ImGui::Spacing();
+                ImGui::TextWrapped("Please unplug and replug your device, then try connecting again.");
+            } else {
+                ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", install_message.c_str());
+            }
+        }
+
+        ImGui::Spacing();
+
+        if (!install_in_progress && install_message.empty()) {
+            if (ImGui::Button("Install udev Rule", ImVec2(150, 0))) {
+                install_in_progress = true;
+
+                // Create the udev rule - use single quotes in shell to preserve double quotes
+                std::string rule_escaped = "SUBSYSTEM==\\\"usb\\\", ATTR{idVendor}==\\\"" + udev_vendor_id_ +
+                    "\\\", ATTR{idProduct}==\\\"" + udev_product_id_ + "\\\", MODE=\\\"0666\\\"";
+
+                // Use pkexec to install the rule with elevated privileges
+                std::string cmd = "pkexec sh -c 'printf \"%s\\n\" \"# Orpheus FPGA DMA device\" \"" +
+                    rule_escaped + "\" > /etc/udev/rules.d/99-orpheus-fpga.rules && udevadm control --reload-rules && udevadm trigger'";
+
+                int result = system(cmd.c_str());
+                install_in_progress = false;
+
+                if (result == 0) {
+                    install_success = true;
+                    install_message = "udev rule installed successfully!";
+                    LOG_INFO("Installed udev rule for device {}:{}", udev_vendor_id_, udev_product_id_);
+                } else {
+                    install_success = false;
+                    install_message = "Failed to install udev rule. You may need to install it manually.";
+                    LOG_ERROR("Failed to install udev rule, exit code: {}", result);
+                }
+            }
+            ImGui::SameLine();
+        }
+
+        if (ImGui::Button("Close", ImVec2(80, 0))) {
+            show_udev_dialog_ = false;
+            install_message.clear();
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+}
+#endif
 
 } // namespace orpheus::ui

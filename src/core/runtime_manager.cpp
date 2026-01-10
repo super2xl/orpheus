@@ -12,6 +12,7 @@
 #else
     #include <dlfcn.h>
     #include <cstdlib>
+    #include <unistd.h>
 #endif
 
 namespace orpheus {

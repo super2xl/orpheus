@@ -169,6 +169,9 @@ private:
     void RenderDumpDialog();
     void RenderGotoDialog();
     void RenderSettingsDialog();
+#ifdef PLATFORM_LINUX
+    void RenderUdevPermissionDialog();
+#endif
 
     // Helpers
     void RefreshProcesses();
@@ -249,6 +252,11 @@ private:
     bool show_goto_dialog_ = false;
     bool show_settings_ = false;
     bool show_demo_ = false;
+#ifdef PLATFORM_LINUX
+    bool show_udev_dialog_ = false;
+    std::string udev_vendor_id_;
+    std::string udev_product_id_;
+#endif
 
     // Process state
     uint32_t selected_pid_ = 0;

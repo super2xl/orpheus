@@ -7,23 +7,27 @@
 
 #ifdef PLATFORM_WINDOWS
     #include <windows.h>
+    #define VMM_LIBRARY_NAME "vmm.dll"
 #else
     #include <dlfcn.h>
-    typedef int BOOL;
-    typedef unsigned long DWORD;
+    // Windows compatibility types - must match Windows sizes exactly!
+    // On 64-bit Linux, 'long' is 8 bytes but Windows DWORD is always 4 bytes
+    typedef int BOOL;                       // 4 bytes (same as Windows)
+    typedef unsigned int DWORD;             // 4 bytes (NOT unsigned long!)
     typedef DWORD* PDWORD;
     typedef unsigned char BYTE;
     typedef BYTE* PBYTE;
-    typedef unsigned long long ULONG64;
+    typedef unsigned long long ULONG64;     // 8 bytes
     typedef ULONG64* PULONG64;
     typedef char* LPSTR;
     typedef const char* LPCSTR;
     typedef size_t SIZE_T;
     typedef SIZE_T* PSIZE_T;
-    typedef unsigned short WORD;
+    typedef unsigned short WORD;            // 2 bytes
     #define TRUE 1
     #define FALSE 0
     #define MAX_PATH 260
+    #define VMM_LIBRARY_NAME "vmm.so"
 #endif
 
 namespace orpheus {
@@ -313,9 +317,9 @@ bool DMAInterface::Initialize(const std::string& device) {
     }
 
     if (vmm_module == nullptr) {
-        vmm_module = runtime.LoadExtractedDLL("vmm.dll");
+        vmm_module = runtime.LoadExtractedDLL(VMM_LIBRARY_NAME);
         if (vmm_module == nullptr) {
-            ReportError("Failed to load vmm.dll");
+            ReportError("Failed to load " VMM_LIBRARY_NAME);
             return false;
         }
         if (!LoadVMMFunctions()) {

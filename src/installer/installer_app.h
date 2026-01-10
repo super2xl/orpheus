@@ -20,6 +20,7 @@ struct MCPClientInfo {
     bool selected;              // Whether to install to this client
     std::string json_key;       // Top-level key ("mcpServers" or special)
     std::string nested_key;     // Nested key (for VS Code style)
+    bool use_cli;               // Use CLI command instead of JSON file (Claude Code)
 };
 
 /**
