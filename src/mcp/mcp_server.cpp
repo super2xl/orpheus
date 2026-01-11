@@ -296,6 +296,25 @@ void MCPServer::SetupRoutes() {
         res.set_content(response.dump(), "application/json");
     });
 
+    // Dedicated version endpoint with full details
+    server->Get("/version", [](const httplib::Request&, httplib::Response& res) {
+        json response;
+        response["version"] = orpheus::version::VERSION;
+        response["version_full"] = orpheus::version::VERSION_FULL;
+        response["version_major"] = orpheus::version::VERSION_MAJOR;
+        response["version_minor"] = orpheus::version::VERSION_MINOR;
+        response["version_patch"] = orpheus::version::VERSION_PATCH;
+        response["git_hash"] = orpheus::version::GIT_HASH;
+        response["git_hash_short"] = orpheus::version::GIT_HASH_SHORT;
+        response["git_branch"] = orpheus::version::GIT_BRANCH;
+        response["git_dirty"] = orpheus::version::GIT_DIRTY;
+        response["build_date"] = orpheus::version::BUILD_DATE;
+        response["build_timestamp"] = orpheus::version::BUILD_TIMESTAMP;
+        response["platform"] = orpheus::version::PLATFORM;
+        response["build_info"] = orpheus::version::GetBuildInfo();
+        res.set_content(response.dump(), "application/json");
+    });
+
     // Core tool endpoints (no permission check)
     ROUTE_GET("/tools/processes", HandleGetProcesses);
     ROUTE_POST("/tools/modules", HandleGetModules);
