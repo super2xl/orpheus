@@ -355,4 +355,204 @@ std::string MCPServer::HandleGetFunctionContaining(const std::string& body) {
     }
 }
 
+std::string MCPServer::HandleFindFunctionBounds(const std::string& body) {
+    try {
+        auto req = json::parse(body);
+        uint32_t pid = req["pid"];
+        uint64_t address = std::stoull(req["address"].get<std::string>(), nullptr, 16);
+        int max_search_up = req.value("max_search_up", 4096);    // Max bytes to search backwards
+        int max_search_down = req.value("max_search_down", 8192); // Max bytes to search forwards
+
+        // Validate parameters
+        if (address == 0) {
+            return CreateErrorResponse("Invalid address: cannot find function at NULL (0x0)");
+        }
+
+        auto* dma = app_->GetDMA();
+        if (!dma || !dma->IsConnected()) {
+            return CreateErrorResponse("DMA not connected");
+        }
+
+        // Verify process exists
+        auto proc_info = dma->GetProcessInfo(pid);
+        if (!proc_info) {
+            return CreateErrorResponse("Process not found: PID " + std::to_string(pid));
+        }
+
+        // Read memory region around the address
+        uint64_t search_start = address > (uint64_t)max_search_up ? address - max_search_up : 0;
+        size_t total_size = max_search_up + max_search_down;
+        auto data = dma->ReadMemory(pid, search_start, total_size);
+
+        if (data.empty()) {
+            return CreateErrorResponse("Failed to read memory around address " + FormatAddress(address));
+        }
+
+        size_t offset_in_data = address - search_start;
+        uint64_t function_start = 0;
+        uint64_t function_end = 0;
+        std::string start_reason;
+        std::string end_reason;
+
+        // Common x64 function prologues (scan backwards)
+        // Pattern: push rbp; mov rbp, rsp = 55 48 89 E5 or 55 48 8B EC
+        // Pattern: sub rsp, imm8/imm32 = 48 83 EC xx or 48 81 EC xx xx xx xx
+        // Pattern: After int3 padding (CC CC CC ...)
+        // Pattern: After ret (C3) followed by int3 or NOP padding
+
+        // Scan backwards for function start
+        for (size_t i = offset_in_data; i >= 4; i--) {
+            // Check for int3 padding before a prologue
+            if (i >= 1 && data[i - 1] == 0xCC) {
+                // Look for push rbp or sub rsp at current position
+                if (data[i] == 0x55 ||  // push rbp
+                    (data[i] == 0x48 && i + 1 < data.size() && (data[i + 1] == 0x83 || data[i + 1] == 0x81))) {
+                    function_start = search_start + i;
+                    start_reason = "int3_padding";
+                    break;
+                }
+            }
+
+            // Check for common prologues at position i
+            // push rbp
+            if (data[i] == 0x55) {
+                // Verify this looks like a real prologue
+                if (i + 3 < data.size() && data[i + 1] == 0x48 && data[i + 2] == 0x89 && data[i + 3] == 0xE5) {
+                    // push rbp; mov rbp, rsp
+                    function_start = search_start + i;
+                    start_reason = "push_rbp_mov_rbp_rsp";
+                    break;
+                }
+                if (i + 3 < data.size() && data[i + 1] == 0x48 && data[i + 2] == 0x8B && data[i + 3] == 0xEC) {
+                    // push rbp; mov rbp, rsp (alternate encoding)
+                    function_start = search_start + i;
+                    start_reason = "push_rbp_mov_rbp_rsp_alt";
+                    break;
+                }
+            }
+
+            // sub rsp, imm (common in functions without frame pointer)
+            if (data[i] == 0x48 && i + 2 < data.size()) {
+                if (data[i + 1] == 0x83 && data[i + 2] == 0xEC) {
+                    // sub rsp, imm8
+                    // Verify previous byte isn't code (check for int3, ret, or call/jmp target)
+                    if (i >= 1 && (data[i - 1] == 0xCC || data[i - 1] == 0xC3 || data[i - 1] == 0x90)) {
+                        function_start = search_start + i;
+                        start_reason = "sub_rsp_imm8";
+                        break;
+                    }
+                }
+                if (data[i + 1] == 0x81 && data[i + 2] == 0xEC) {
+                    // sub rsp, imm32
+                    if (i >= 1 && (data[i - 1] == 0xCC || data[i - 1] == 0xC3 || data[i - 1] == 0x90)) {
+                        function_start = search_start + i;
+                        start_reason = "sub_rsp_imm32";
+                        break;
+                    }
+                }
+            }
+
+            // ret followed by start
+            if (i >= 1 && data[i - 1] == 0xC3) {
+                function_start = search_start + i;
+                start_reason = "after_ret";
+                break;
+            }
+        }
+
+        // If no start found, use conservative estimate
+        if (function_start == 0) {
+            // Find nearest int3 sequence or ret going backwards
+            for (size_t i = offset_in_data; i > 0; i--) {
+                if (data[i] == 0xCC) {
+                    // Count consecutive int3s
+                    size_t count = 0;
+                    while (i + count < data.size() && data[i + count] == 0xCC) count++;
+                    if (count >= 2) {  // At least 2 int3s = padding
+                        function_start = search_start + i + count;
+                        start_reason = "int3_sequence";
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Scan forwards for function end
+        for (size_t i = offset_in_data; i < data.size() - 1; i++) {
+            // ret instruction
+            if (data[i] == 0xC3) {
+                // Check if followed by int3 padding or another function
+                if (i + 1 < data.size()) {
+                    uint8_t next = data[i + 1];
+                    if (next == 0xCC || next == 0x90 ||  // int3 or nop
+                        next == 0x55 ||                   // push rbp (next function)
+                        next == 0x48 ||                   // Possible sub rsp or mov
+                        next == 0x40) {                   // rex prefix
+                        function_end = search_start + i + 1;
+                        end_reason = "ret_instruction";
+                        break;
+                    }
+                }
+                // If followed by meaningful code, might be a conditional return
+                // Continue searching
+            }
+
+            // int3 after instruction indicates function end
+            if (data[i] == 0xC3 || (data[i] == 0xC2 && i + 2 < data.size())) {
+                // ret or ret imm16
+                function_end = search_start + i + (data[i] == 0xC2 ? 3 : 1);
+                end_reason = data[i] == 0xC2 ? "ret_imm16" : "ret";
+                break;
+            }
+
+            // jmp rax/rcx/rdx etc (tail call or switch) can indicate function end
+            if (data[i] == 0xFF && i + 1 < data.size()) {
+                uint8_t modrm = data[i + 1];
+                if ((modrm & 0xF8) == 0xE0) {  // jmp reg
+                    // Check if followed by int3
+                    if (i + 2 < data.size() && data[i + 2] == 0xCC) {
+                        function_end = search_start + i + 2;
+                        end_reason = "jmp_reg_tail_call";
+                        break;
+                    }
+                }
+            }
+        }
+
+        json result;
+        result["address"] = FormatAddress(address);
+        result["context"] = FormatAddressWithContext(pid, address);
+
+        if (function_start != 0) {
+            result["function_start"] = FormatAddress(function_start);
+            result["start_context"] = FormatAddressWithContext(pid, function_start);
+            result["start_reason"] = start_reason;
+            result["offset_in_function"] = address - function_start;
+        } else {
+            result["function_start_found"] = false;
+            result["hint_start"] = "Could not detect function start - consider using recover_functions for more accurate results";
+        }
+
+        if (function_end != 0) {
+            result["function_end"] = FormatAddress(function_end);
+            result["end_context"] = FormatAddressWithContext(pid, function_end);
+            result["end_reason"] = end_reason;
+            if (function_start != 0) {
+                result["estimated_size"] = function_end - function_start;
+            }
+        } else {
+            result["function_end_found"] = false;
+            result["hint_end"] = "Could not detect function end - function may be very large or use unusual control flow";
+        }
+
+        result["confidence"] = (function_start != 0 && function_end != 0) ? "high" :
+                               (function_start != 0 || function_end != 0) ? "medium" : "low";
+
+        return CreateSuccessResponse(result.dump());
+
+    } catch (const std::exception& e) {
+        return CreateErrorResponse(std::string("Error: ") + e.what());
+    }
+}
+
 } // namespace orpheus::mcp

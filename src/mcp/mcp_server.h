@@ -155,6 +155,9 @@ private:
     std::string HandleRTTICacheGet(const std::string& body);
     std::string HandleRTTICacheClear(const std::string& body);
 
+    // VTable helper tool
+    std::string HandleReadVTable(const std::string& body);
+
     // Emulation tool endpoints
     std::string HandleEmuCreate(const std::string& body);
     std::string HandleEmuDestroy(const std::string& body);
@@ -198,6 +201,7 @@ private:
     std::string HandleRecoverFunctions(const std::string& body);
     std::string HandleGetFunctionAt(const std::string& body);
     std::string HandleGetFunctionContaining(const std::string& body);
+    std::string HandleFindFunctionBounds(const std::string& body);
 
     // CFG analysis endpoints
     std::string HandleBuildCFG(const std::string& body);

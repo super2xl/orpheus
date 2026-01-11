@@ -228,6 +228,11 @@ std::string MCPServer::HandleDecompile(const std::string& body) {
         // Optional: specify 'this' type for field name resolution
         std::string this_type = req.value("this_type", "");
 
+        // Optional: max_instructions limit for flow analysis
+        // Increase for large functions that hit "Flow exceeded maximum allowable instructions"
+        // Default 0 = use library default (100000)
+        uint32_t max_instructions = req.value("max_instructions", 0);
+
         // Validate parameters
         if (address == 0) {
             return CreateErrorResponse("Invalid address: cannot decompile NULL (0x0)");
@@ -302,7 +307,7 @@ std::string MCPServer::HandleDecompile(const std::string& body) {
         }
 
         // Decompile the function
-        auto result = decompiler->DecompileFunction(address, func_name, this_type);
+        auto result = decompiler->DecompileFunction(address, func_name, this_type, max_instructions);
 
         json response;
         response["success"] = result.success;
@@ -319,6 +324,11 @@ std::string MCPServer::HandleDecompile(const std::string& body) {
         // Include this_type info if specified
         if (!this_type.empty()) {
             response["this_type"] = this_type;
+        }
+
+        // Include max_instructions if specified
+        if (max_instructions > 0) {
+            response["max_instructions"] = max_instructions;
         }
 
         if (result.success) {

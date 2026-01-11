@@ -17,6 +17,8 @@
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <iomanip>
+#include <algorithm>
+#include <cctype>
 
 using json = nlohmann::json;
 using namespace orpheus::core;
@@ -99,6 +101,10 @@ std::string MCPServer::HandleScanStrings(const std::string& body) {
         uint32_t size = req["size"];
         int min_length = req.value("min_length", 4);
 
+        // Optional filter: only include strings containing this substring
+        std::string contains_filter = req.value("contains", "");
+        int max_results = req.value("max_results", 1000);
+
         // Validate parameters
         if (base == 0) {
             return CreateErrorResponse("Invalid base address: cannot scan from NULL (0x0)");
@@ -139,10 +145,33 @@ std::string MCPServer::HandleScanStrings(const std::string& body) {
 
         json result;
         result["base"] = req["base"];
-        result["count"] = results.size();
 
+        // Apply contains filter and max_results limit
         json strings = json::array();
+        int matched = 0;
+        int total_scanned = 0;
+
         for (const auto& str : results) {
+            total_scanned++;
+
+            // Apply filter if specified
+            if (!contains_filter.empty()) {
+                // Case-insensitive contains check
+                std::string lower_value = str.value;
+                std::string lower_filter = contains_filter;
+                std::transform(lower_value.begin(), lower_value.end(), lower_value.begin(), ::tolower);
+                std::transform(lower_filter.begin(), lower_filter.end(), lower_filter.begin(), ::tolower);
+
+                if (lower_value.find(lower_filter) == std::string::npos) {
+                    continue;  // Skip strings that don't match filter
+                }
+            }
+
+            // Check max_results limit
+            if (matched >= max_results) {
+                break;
+            }
+
             json s;
             std::stringstream ss;
             ss << "0x" << std::hex << str.address;
@@ -150,6 +179,17 @@ std::string MCPServer::HandleScanStrings(const std::string& body) {
             s["value"] = str.value;
             s["type"] = str.type == analysis::StringType::ASCII ? "ASCII" : "UTF16";
             strings.push_back(s);
+            matched++;
+        }
+
+        result["count"] = matched;
+        result["total_scanned"] = total_scanned;
+        if (!contains_filter.empty()) {
+            result["filter"] = contains_filter;
+        }
+        if (matched >= max_results) {
+            result["truncated"] = true;
+            result["max_results"] = max_results;
         }
         result["strings"] = strings;
 
@@ -363,6 +403,10 @@ std::string MCPServer::HandleScanStringsAsync(const std::string& body) {
         uint32_t size = req["size"];
         int min_length = req.value("min_length", 4);
 
+        // Optional filter parameters
+        std::string contains_filter = req.value("contains", "");
+        int max_results = req.value("max_results", 1000);
+
         // Validate parameters
         if (base == 0) {
             return CreateErrorResponse("Invalid base address: cannot scan from NULL (0x0)");
@@ -392,11 +436,14 @@ std::string MCPServer::HandleScanStringsAsync(const std::string& body) {
 
         std::stringstream desc;
         desc << "String scan: " << (size / 1024) << "KB (min_length=" << min_length << ")";
+        if (!contains_filter.empty()) {
+            desc << " filter=\"" << contains_filter << "\"";
+        }
 
         auto task_id = TaskManager::Instance().StartTask(
             "string_scan",
             desc.str(),
-            [app, pid, base, size, min_length, base_str](
+            [app, pid, base, size, min_length, base_str, contains_filter, max_results](
                 CancellationTokenPtr cancel,
                 ProgressCallback progress
             ) -> json {
@@ -430,10 +477,30 @@ std::string MCPServer::HandleScanStringsAsync(const std::string& body) {
 
                 json result;
                 result["base"] = base_str;
-                result["count"] = results.size();
 
+                // Apply filter and max_results
                 json strings = json::array();
+                int matched = 0;
+                int total_scanned = 0;
+
                 for (const auto& str : results) {
+                    total_scanned++;
+
+                    if (!contains_filter.empty()) {
+                        std::string lower_value = str.value;
+                        std::string lower_filter = contains_filter;
+                        std::transform(lower_value.begin(), lower_value.end(), lower_value.begin(), ::tolower);
+                        std::transform(lower_filter.begin(), lower_filter.end(), lower_filter.begin(), ::tolower);
+
+                        if (lower_value.find(lower_filter) == std::string::npos) {
+                            continue;
+                        }
+                    }
+
+                    if (matched >= max_results) {
+                        break;
+                    }
+
                     json s;
                     std::stringstream ss;
                     ss << "0x" << std::hex << str.address;
@@ -441,6 +508,16 @@ std::string MCPServer::HandleScanStringsAsync(const std::string& body) {
                     s["value"] = str.value;
                     s["type"] = str.type == analysis::StringType::ASCII ? "ASCII" : "UTF16";
                     strings.push_back(s);
+                    matched++;
+                }
+
+                result["count"] = matched;
+                result["total_scanned"] = total_scanned;
+                if (!contains_filter.empty()) {
+                    result["filter"] = contains_filter;
+                }
+                if (matched >= max_results) {
+                    result["truncated"] = true;
                 }
                 result["strings"] = strings;
 

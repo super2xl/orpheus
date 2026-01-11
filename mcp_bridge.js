@@ -285,6 +285,15 @@ const MCP_TOOLS = [
           description: 'Minimum string length to match',
           default: 4,
           minimum: 1
+        },
+        contains: {
+          type: 'string',
+          description: 'Filter: only return strings containing this substring (case-insensitive). E.g., "Resource", "Error", "Player"'
+        },
+        max_results: {
+          type: 'integer',
+          description: 'Maximum number of strings to return. Default: 1000',
+          default: 1000
         }
       },
       required: ['pid', 'base', 'size']
@@ -313,6 +322,15 @@ const MCP_TOOLS = [
           description: 'Minimum string length to match',
           default: 4,
           minimum: 1
+        },
+        contains: {
+          type: 'string',
+          description: 'Filter: only return strings containing this substring (case-insensitive). E.g., "Resource", "Error", "Player"'
+        },
+        max_results: {
+          type: 'integer',
+          description: 'Maximum number of strings to return. Default: 1000',
+          default: 1000
         }
       },
       required: ['pid', 'base', 'size']
@@ -369,6 +387,12 @@ const MCP_TOOLS = [
         this_type: {
           type: 'string',
           description: 'Class name for the "this" pointer type (e.g., "CCSPlayerController"). When specified, sets the first parameter type to enable field name resolution. Requires inject_schema=true.'
+        },
+        max_instructions: {
+          type: 'integer',
+          description: 'Maximum instructions for flow analysis (default: 100000). Increase for large functions that fail with "Flow exceeded maximum allowable instructions", or decrease to fail faster on huge functions.',
+          minimum: 1000,
+          maximum: 10000000
         }
       },
       required: ['pid', 'address']
@@ -974,6 +998,43 @@ const MCP_TOOLS = [
       }
     }
   },
+  {
+    name: 'read_vtable',
+    description: 'Read vtable entries from a given address. Returns function pointers with context (module+offset), validity status, and optionally disassembles first instructions of each function. Also attempts to resolve class name via RTTI.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pid: {
+          type: 'integer',
+          description: 'Process ID'
+        },
+        vtable_address: {
+          type: 'string',
+          description: 'Address of the vtable (hex). This is the address of the first function pointer.'
+        },
+        count: {
+          type: 'integer',
+          description: 'Number of entries to read. Default: 20, max: 500',
+          default: 20,
+          minimum: 1,
+          maximum: 500
+        },
+        disassemble: {
+          type: 'boolean',
+          description: 'If true, disassemble first few instructions of each valid function. Default: false',
+          default: false
+        },
+        disasm_instructions: {
+          type: 'integer',
+          description: 'Number of instructions to disassemble per entry (if disassemble=true). Default: 5',
+          default: 5,
+          minimum: 1,
+          maximum: 20
+        }
+      },
+      required: ['pid', 'vtable_address']
+    }
+  },
   // ============================================================================
   // Bookmark Tools
   // ============================================================================
@@ -1425,6 +1486,34 @@ const MCP_TOOLS = [
       required: ['pid', 'address']
     }
   },
+  {
+    name: 'find_function_bounds',
+    description: 'Find function start and end addresses given any address within the function. Uses heuristics (prologue detection, int3 padding, ret instructions) without requiring prior function recovery. Returns start/end addresses with confidence level.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pid: {
+          type: 'integer',
+          description: 'Process ID'
+        },
+        address: {
+          type: 'string',
+          description: 'Address within the function (hex)'
+        },
+        max_search_up: {
+          type: 'integer',
+          description: 'Maximum bytes to search backwards for function start. Default: 4096',
+          default: 4096
+        },
+        max_search_down: {
+          type: 'integer',
+          description: 'Maximum bytes to search forwards for function end. Default: 8192',
+          default: 8192
+        }
+      },
+      required: ['pid', 'address']
+    }
+  },
   // CFG Analysis tools
   {
     name: 'build_cfg',
@@ -1601,6 +1690,7 @@ const TOOL_ENDPOINT_MAP = {
   'rtti_cache_query': { method: 'POST', path: '/tools/rtti_cache_query' },
   'rtti_cache_get': { method: 'POST', path: '/tools/rtti_cache_get' },
   'rtti_cache_clear': { method: 'POST', path: '/tools/rtti_cache_clear' },
+  'read_vtable': { method: 'POST', path: '/tools/read_vtable' },
   // Bookmark tools
   'bookmark_list': { method: 'GET', path: '/tools/bookmarks' },
   'bookmark_add': { method: 'POST', path: '/tools/bookmarks/add' },
@@ -1627,6 +1717,7 @@ const TOOL_ENDPOINT_MAP = {
   'recover_functions': { method: 'POST', path: '/tools/recover_functions' },
   'get_function_at': { method: 'POST', path: '/tools/get_function_at' },
   'get_function_containing': { method: 'POST', path: '/tools/get_function_containing' },
+  'find_function_bounds': { method: 'POST', path: '/tools/find_function_bounds' },
   // CFG analysis tools
   'build_cfg': { method: 'POST', path: '/tools/build_cfg' },
   'get_cfg_node': { method: 'POST', path: '/tools/get_cfg_node' },

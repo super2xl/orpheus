@@ -352,6 +352,7 @@ void MCPServer::SetupRoutes() {
     ROUTE_POST_PERM("/tools/rtti_cache_query", allow_rtti, "RTTI", HandleRTTICacheQuery);
     ROUTE_POST_PERM("/tools/rtti_cache_get", allow_rtti, "RTTI", HandleRTTICacheGet);
     ROUTE_POST_PERM("/tools/rtti_cache_clear", allow_rtti, "RTTI", HandleRTTICacheClear);
+    ROUTE_POST_PERM("/tools/read_vtable", allow_rtti, "RTTI", HandleReadVTable);
 
     // Emulation
     ROUTE_POST_PERM("/tools/emu_create", allow_emu, "Emulation", HandleEmuCreate);
@@ -396,6 +397,7 @@ void MCPServer::SetupRoutes() {
     ROUTE_POST_PERM("/tools/recover_functions", allow_disasm, "Analysis", HandleRecoverFunctions);
     ROUTE_POST_PERM("/tools/get_function_at", allow_disasm, "Analysis", HandleGetFunctionAt);
     ROUTE_POST_PERM("/tools/get_function_containing", allow_disasm, "Analysis", HandleGetFunctionContaining);
+    ROUTE_POST_PERM("/tools/find_function_bounds", allow_read, "Analysis", HandleFindFunctionBounds);
 
     // CFG analysis
     ROUTE_POST_PERM("/tools/build_cfg", allow_disasm, "Analysis", HandleBuildCFG);

@@ -15,6 +15,7 @@
 #include "ui/application.h"
 #include "core/dma_interface.h"
 #include "analysis/rtti_parser.h"
+#include "analysis/disassembler.h"
 #include "utils/cache_manager.h"
 #include "utils/logger.h"
 
@@ -594,6 +595,182 @@ std::string MCPServer::HandleRTTICacheClear(const std::string& body) {
         json result;
         result["cleared"] = cleared;
         result["filter"] = module_filter.empty() ? "all" : module_filter;
+
+        return CreateSuccessResponse(result.dump());
+
+    } catch (const std::exception& e) {
+        return CreateErrorResponse(std::string("Error: ") + e.what());
+    }
+}
+
+std::string MCPServer::HandleReadVTable(const std::string& body) {
+    try {
+        auto req = json::parse(body);
+        uint32_t pid = req["pid"];
+        uint64_t vtable_address = std::stoull(req["vtable_address"].get<std::string>(), nullptr, 16);
+        int count = req.value("count", 20);  // Default to 20 entries
+        bool disasm = req.value("disassemble", false);  // Optional: disassemble first instructions
+        int disasm_count = req.value("disasm_instructions", 5);  // Instructions to show per entry
+
+        // Validate parameters
+        if (vtable_address == 0) {
+            return CreateErrorResponse("Invalid vtable_address: cannot read from NULL (0x0)");
+        }
+        if (count < 1 || count > 500) {
+            return CreateErrorResponse("Invalid count: must be between 1 and 500");
+        }
+        if (disasm_count < 1 || disasm_count > 20) {
+            disasm_count = 5;  // Default to 5 if out of range
+        }
+
+        auto* dma = app_->GetDMA();
+        if (!dma || !dma->IsConnected()) {
+            return CreateErrorResponse("DMA not connected - check hardware connection");
+        }
+
+        // Verify process exists
+        auto proc_info = dma->GetProcessInfo(pid);
+        if (!proc_info) {
+            return CreateErrorResponse("Process not found: PID " + std::to_string(pid) + " does not exist or has terminated");
+        }
+
+        // Get modules for context resolution
+        std::vector<ModuleInfo> modules;
+        {
+            std::lock_guard<std::mutex> lock(modules_mutex_);
+            if (cached_modules_pid_ != pid) {
+                cached_modules_ = dma->GetModuleList(pid);
+                cached_modules_pid_ = pid;
+            }
+            modules = cached_modules_;
+        }
+
+        // Read vtable entries (array of 8-byte pointers)
+        size_t bytes_to_read = count * 8;
+        auto vtable_data = dma->ReadMemory(pid, vtable_address, bytes_to_read);
+        if (vtable_data.size() < 8) {
+            return CreateErrorResponse("Failed to read vtable at " + FormatAddress(vtable_address) +
+                                        " - memory may be unmapped or protected");
+        }
+
+        // Parse function pointers
+        json result;
+        result["vtable_address"] = FormatAddress(vtable_address);
+        result["context"] = FormatAddressWithContext(pid, vtable_address);
+
+        json entries = json::array();
+        int valid_count = 0;
+        int null_count = 0;
+
+        for (int i = 0; i < count && (size_t)(i * 8 + 8) <= vtable_data.size(); i++) {
+            uint64_t func_ptr = *reinterpret_cast<uint64_t*>(vtable_data.data() + i * 8);
+
+            json entry;
+            entry["index"] = i;
+            entry["offset"] = i * 8;
+
+            if (func_ptr == 0) {
+                entry["address"] = "0x0";
+                entry["status"] = "null";
+                null_count++;
+                entries.push_back(entry);
+                continue;
+            }
+
+            entry["address"] = FormatAddress(func_ptr);
+            entry["context"] = FormatAddressWithContext(pid, func_ptr);
+
+            // Check if this looks like a valid code pointer
+            bool is_valid = false;
+            for (const auto& mod : modules) {
+                if (func_ptr >= mod.base_address && func_ptr < mod.base_address + mod.size) {
+                    is_valid = true;
+                    break;
+                }
+            }
+
+            if (!is_valid) {
+                entry["status"] = "invalid";
+                entries.push_back(entry);
+                continue;
+            }
+
+            entry["status"] = "valid";
+            valid_count++;
+
+            // Optionally disassemble first few instructions
+            if (disasm) {
+                auto code = dma->ReadMemory(pid, func_ptr, 64);  // Read enough for a few instructions
+                if (!code.empty()) {
+                    analysis::Disassembler disassembler(true);  // x64
+                    analysis::DisassemblyOptions opts;
+                    opts.max_instructions = disasm_count;
+
+                    auto instructions = disassembler.Disassemble(code, func_ptr, opts);
+
+                    json disasm_arr = json::array();
+                    for (const auto& insn : instructions) {
+                        json insn_obj;
+                        std::stringstream addr_ss;
+                        addr_ss << "0x" << std::hex << std::uppercase << insn.address;
+                        insn_obj["address"] = addr_ss.str();
+
+                        // Format bytes
+                        std::stringstream bytes_ss;
+                        for (size_t j = 0; j < insn.bytes.size(); j++) {
+                            if (j > 0) bytes_ss << " ";
+                            bytes_ss << std::hex << std::setw(2) << std::setfill('0') << (int)insn.bytes[j];
+                        }
+                        insn_obj["bytes"] = bytes_ss.str();
+
+                        insn_obj["mnemonic"] = insn.mnemonic;
+                        insn_obj["operands"] = insn.operands;
+                        disasm_arr.push_back(insn_obj);
+                    }
+                    entry["disassembly"] = disasm_arr;
+                }
+            }
+
+            entries.push_back(entry);
+        }
+
+        result["entries"] = entries;
+        result["count"] = entries.size();
+        result["valid_count"] = valid_count;
+        result["null_count"] = null_count;
+        result["invalid_count"] = entries.size() - valid_count - null_count;
+
+        // Try to get class name via RTTI if available
+        // RTTI info is typically at vtable[-1]
+        auto rtti_ptr_data = dma->ReadMemory(pid, vtable_address - 8, 8);
+        if (rtti_ptr_data.size() == 8) {
+            uint64_t rtti_ptr = *reinterpret_cast<uint64_t*>(rtti_ptr_data.data());
+            if (rtti_ptr != 0) {
+                // Find module base for RTTI parsing
+                uint64_t module_base = 0;
+                for (const auto& mod : modules) {
+                    if (vtable_address >= mod.base_address && vtable_address < mod.base_address + mod.size) {
+                        module_base = mod.base_address;
+                        break;
+                    }
+                }
+
+                if (module_base != 0) {
+                    analysis::RTTIParser parser(
+                        [dma, pid](uint64_t addr, size_t size) {
+                            return dma->ReadMemory(pid, addr, size);
+                        },
+                        module_base
+                    );
+
+                    auto info = parser.ParseVTable(vtable_address);
+                    if (info) {
+                        result["class_name"] = info->demangled_name;
+                        result["hierarchy"] = info->GetHierarchyString();
+                    }
+                }
+            }
+        }
 
         return CreateSuccessResponse(result.dump());
 

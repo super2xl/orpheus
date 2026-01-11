@@ -263,6 +263,29 @@ std::string MCPServer::HandleResolvePointerChain(const std::string& body) {
         result["final_context"] = FormatAddressWithContext(pid, current);
         result["chain"] = chain;
 
+        // Build compact visualization: base -> [0x1234] -> +0x10 -> [0x5678] -> +0x20 -> final
+        std::stringstream viz;
+        viz << FormatAddress(base);
+
+        uint64_t viz_current = base;
+        for (size_t i = 0; i < offsets.size(); i++) {
+            auto ptr_opt = dma->Read<uint64_t>(pid, viz_current);
+            if (!ptr_opt) break;
+
+            uint64_t ptr_value = *ptr_opt;
+            viz << " -> [" << FormatAddress(ptr_value) << "]";
+
+            if (offsets[i] >= 0) {
+                viz << " + 0x" << std::hex << offsets[i];
+            } else {
+                viz << " - 0x" << std::hex << (-offsets[i]);
+            }
+
+            viz_current = ptr_value + offsets[i];
+        }
+        viz << " -> " << FormatAddress(current);
+        result["visualization"] = viz.str();
+
         // Optionally read value at final address
         if (req.value("read_final", false)) {
             int read_size = req.value("read_size", 8);

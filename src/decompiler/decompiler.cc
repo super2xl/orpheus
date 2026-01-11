@@ -95,7 +95,8 @@ void Decompiler::SetMemoryCallback(DMAReadCallback callback)
 
 DecompileResult Decompiler::DecompileFunction(uint64_t address,
                                                const std::string& function_name,
-                                               const std::string& this_type)
+                                               const std::string& this_type,
+                                               uint32_t max_instructions)
 {
     DecompileResult result;
     result.entry_point = address;
@@ -121,6 +122,15 @@ DecompileResult Decompiler::DecompileFunction(uint64_t address,
                 result.error = last_error_;
                 return result;
             }
+        }
+
+        // Set max_instructions limit if specified
+        // This controls the "Flow exceeded maximum allowable instructions" limit
+        if (max_instructions > 0) {
+            impl_->architecture->max_instructions = max_instructions;
+        } else {
+            // Reset to default (100000)
+            impl_->architecture->max_instructions = 100000;
         }
 
         // Find or create function at address

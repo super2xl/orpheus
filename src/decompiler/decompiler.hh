@@ -86,10 +86,13 @@ public:
     /// @param function_name Optional name for the function
     /// @param this_type Optional class name for 'this' pointer (e.g., "CCSPlayerController")
     ///                  When specified, sets the first parameter type to enable field name resolution
+    /// @param max_instructions Optional limit on flow analysis instructions (0 = default 100000)
+    ///                         Increase for large functions, decrease to fail faster on huge ones
     /// @return Decompilation result with C code or error
     DecompileResult DecompileFunction(uint64_t address,
                                        const std::string& function_name = "",
-                                       const std::string& this_type = "");
+                                       const std::string& this_type = "",
+                                       uint32_t max_instructions = 0);
 
     /// Decompile a range of code (useful for snippets)
     /// @param start Start address
