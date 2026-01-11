@@ -12,7 +12,7 @@ find_package(Git QUIET)
 set(ORPHEUS_GIT_HASH "unknown")
 set(ORPHEUS_GIT_HASH_SHORT "unknown")
 set(ORPHEUS_GIT_BRANCH "unknown")
-set(ORPHEUS_GIT_DIRTY FALSE)
+set(ORPHEUS_GIT_DIRTY "false")
 
 if(GIT_FOUND)
     # Get full commit hash
@@ -51,7 +51,7 @@ if(GIT_FOUND)
         ERROR_QUIET
     )
     if(NOT "${GIT_STATUS_OUTPUT}" STREQUAL "")
-        set(ORPHEUS_GIT_DIRTY TRUE)
+        set(ORPHEUS_GIT_DIRTY "true")
     endif()
 endif()
 
@@ -61,7 +61,7 @@ string(TIMESTAMP ORPHEUS_BUILD_DATE "%Y-%m-%d" UTC)
 
 # Version string with optional dirty marker
 set(ORPHEUS_VERSION_FULL "${PROJECT_VERSION}")
-if(ORPHEUS_GIT_DIRTY)
+if(ORPHEUS_GIT_DIRTY STREQUAL "true")
     set(ORPHEUS_VERSION_FULL "${ORPHEUS_VERSION_FULL}-dirty")
 endif()
 
@@ -85,6 +85,6 @@ message(STATUS "Version: ${ORPHEUS_VERSION_FULL}")
 message(STATUS "Git hash: ${ORPHEUS_GIT_HASH_SHORT}")
 message(STATUS "Git branch: ${ORPHEUS_GIT_BRANCH}")
 message(STATUS "Build date: ${ORPHEUS_BUILD_DATE}")
-if(ORPHEUS_GIT_DIRTY)
+if(ORPHEUS_GIT_DIRTY STREQUAL "true")
     message(STATUS "WARNING: Working tree has uncommitted changes")
 endif()
