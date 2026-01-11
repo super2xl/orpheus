@@ -84,13 +84,11 @@ std::vector<ExpressionEvaluator::Token> ExpressionEvaluator::Tokenize(const std:
             continue;
         }
 
-        // Decimal number or bare hex (must start with digit 0-9)
+        // Bare number (must start with digit 0-9) - always treat as hex for reversing context
         if (std::isdigit(expr[i])) {
             size_t start = i;
-            bool has_alpha = false;
 
             while (i < expr.size() && std::isxdigit(expr[i])) {
-                if (std::isalpha(expr[i])) has_alpha = true;
                 i++;
             }
 
@@ -99,18 +97,8 @@ std::vector<ExpressionEvaluator::Token> ExpressionEvaluator::Tokenize(const std:
             Token tok;
             tok.type = TokenType::Number;
             tok.text = text;
-
-            // If it contains A-F, treat as hex; otherwise decimal
-            if (has_alpha) {
-                tok.value = std::stoull(text, nullptr, 16);
-            } else {
-                // Could be decimal or hex - try hex first if it looks like an address
-                if (text.size() >= 8) {
-                    tok.value = std::stoull(text, nullptr, 16);
-                } else {
-                    tok.value = std::stoull(text, nullptr, 10);
-                }
-            }
+            // Always parse as hex - this is a reversing tool, addresses/offsets are hex
+            tok.value = std::stoull(text, nullptr, 16);
             tokens.push_back(tok);
             continue;
         }
