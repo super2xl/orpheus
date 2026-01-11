@@ -11,6 +11,11 @@ constexpr int MAJOR = @PROJECT_VERSION_MAJOR@;
 constexpr int MINOR = @PROJECT_VERSION_MINOR@;
 constexpr int PATCH = @PROJECT_VERSION_PATCH@;
 
+// Aliases for consistency
+constexpr int VERSION_MAJOR = MAJOR;
+constexpr int VERSION_MINOR = MINOR;
+constexpr int VERSION_PATCH = PATCH;
+
 // Version strings
 constexpr const char* VERSION = "@PROJECT_VERSION@";
 constexpr const char* VERSION_FULL = "@ORPHEUS_VERSION_FULL@";
