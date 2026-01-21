@@ -11,6 +11,7 @@
 #include <chrono>
 
 #include "core/dma_interface.h"
+#include "analysis/function_recovery.h"
 
 // Forward declarations
 struct GLFWwindow;
@@ -37,7 +38,6 @@ namespace analysis {
     struct ControlFlowGraph;
     struct CFGNode;
     struct CFGEdge;
-    struct FunctionInfo;
 }
 
 namespace mcp {
