@@ -33,3 +33,6 @@ ROADMAP.md
 # Claude Code
 CLAUDE.md
 .claude/
+
+# Internal project (do not commit)
+GIT-IGNORED-PROJECT/

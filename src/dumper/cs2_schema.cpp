@@ -338,59 +338,73 @@ std::vector<SchemaClass> CS2SchemaDumper::DumpScope(uint64_t scope_addr,
 
     std::vector<SchemaClass> classes;
 
-    // CSchemaList is embedded at SCOPE_CLASS_CONTAINER_OFFSET, not a pointer
-    // The structure layout is:
-    //   [at -0x74 relative to BlockContainers: int num_schemas]
-    //   [at 0x0: BlockContainers array of 256 * 0x18 bytes]
-    uint64_t container_addr = scope_addr + SCOPE_CLASS_CONTAINER_OFFSET;
+    // ClassContainer (bucket array) is directly at TypeScope + 0x5C0 (Andromeda approach)
+    uint64_t class_container_addr = scope_addr + CLASS_CONTAINER_OFFSET;
 
-    // Read number of schemas (at offset -0x74 from container start)
-    auto num_schemas = dma_->Read<int32_t>(pid_, container_addr + SCHEMA_LIST_NUM_SCHEMA_OFFSET);
-    int total_count = num_schemas ? *num_schemas : 0;
+    // NumSchema is at ClassContainer - 0x74
+    auto num_schema_opt = dma_->Read<int32_t>(pid_, class_container_addr - NUM_SCHEMA_OFFSET);
+    int num_schema = num_schema_opt ? *num_schema_opt : 0;
 
-    LOG_INFO("Reading schema count from 0x{:X}, got {}", container_addr + SCHEMA_LIST_NUM_SCHEMA_OFFSET, total_count);
+    LOG_INFO("ClassContainer at 0x{:X}: numSchema={}", class_container_addr, num_schema);
 
-    if (total_count <= 0 || total_count > 100000) {
-        LOG_WARN("Invalid schema count {} at scope 0x{:X}", total_count, scope_addr);
-        return classes;
+    // Collect bindings from bucket iteration (Andromeda approach)
+    // CSchemaList<T>::BlockContainer structure:
+    //   +0x00: void* unkn[2] (16 bytes) - lock/first committed
+    //   +0x10: SchemaBlock* m_firstBlock
+    // Andromeda only iterates +0x10 (m_firstBlock), not +0x08 (committed)
+    std::vector<uint64_t> bindings;
+    int non_empty_buckets = 0;
+
+    // Iterate 256 buckets directly at class_container_addr
+    for (int bucket = 0; bucket < SCHEMA_BUCKET_COUNT; bucket++) {
+        uint64_t bucket_addr = class_container_addr + bucket * BLOCK_CONTAINER_SIZE;
+
+        // GetFirstBlock() returns m_firstBlock at +0x10 (Andromeda approach)
+        auto first_block_opt = dma_->Read<uint64_t>(pid_, bucket_addr + BLOCK_CONTAINER_FIRST_BLOCK);
+        if (!first_block_opt || *first_block_opt == 0) continue;
+
+        uint64_t block = *first_block_opt;
+        bool has_data = false;
+
+        while (block != 0) {
+            has_data = true;
+
+            // SchemaBlock: +0x08 = next, +0x10 = binding
+            auto binding_ptr_opt = dma_->Read<uint64_t>(pid_, block + SCHEMA_BLOCK_BINDING);
+            auto next_block_opt = dma_->Read<uint64_t>(pid_, block + SCHEMA_BLOCK_NEXT);
+
+            if (binding_ptr_opt && *binding_ptr_opt != 0) {
+                bindings.push_back(*binding_ptr_opt);
+            }
+
+            block = next_block_opt ? *next_block_opt : 0;
+
+            // Safety limit per scope
+            if (bindings.size() > 10000) break;
+        }
+
+        if (has_data) non_empty_buckets++;
     }
 
-    LOG_INFO("Dumping {} classes from scope 0x{:X}", total_count, scope_addr);
+    LOG_INFO("TypeScope 0x{:X}: found {} bindings, {} non-empty buckets", scope_addr, bindings.size(), non_empty_buckets);
 
-    int block_index = 0;
+    int total_count = static_cast<int>(bindings.size());
+    int processed = 0;
 
-    // Iterate 256 bucket containers
-    for (int bucket = 0; bucket < SCHEMA_BUCKET_COUNT && block_index < total_count; bucket++) {
-        // Each bucket container is 0x18 bytes: [void*, void*, SchemaBlock*]
-        uint64_t bucket_addr = container_addr + bucket * 0x18;
+    // Process all bindings
+    for (uint64_t binding_addr : bindings) {
+        SchemaClass cls;
+        if (ReadClassBinding(binding_addr, cls)) {
+            classes.push_back(std::move(cls));
+        }
 
-        // Read first block pointer (at offset 0x10)
-        auto first_block = dma_->Read<uint64_t>(pid_, bucket_addr + 0x10);
-        if (!first_block || *first_block == 0) continue;
-
-        // Walk the linked list
-        uint64_t current_block = *first_block;
-        while (current_block != 0 && block_index < total_count) {
-            // SchemaBlock: [void*, SchemaBlock* next, CSchemaClassBinding* binding]
-            auto next_block = dma_->Read<uint64_t>(pid_, current_block + 0x8);
-            auto binding_ptr = dma_->Read<uint64_t>(pid_, current_block + 0x10);
-
-            if (binding_ptr && *binding_ptr != 0) {
-                SchemaClass cls;
-                if (ReadClassBinding(*binding_ptr, cls)) {
-                    classes.push_back(std::move(cls));
-                }
-            }
-
-            block_index++;
-            if (progress) {
-                progress(block_index, total_count);
-            }
-
-            current_block = next_block ? *next_block : 0;
+        processed++;
+        if (progress) {
+            progress(processed, total_count);
         }
     }
 
+    LOG_INFO("Processed {} classes from scope 0x{:X}", classes.size(), scope_addr);
     return classes;
 }
 

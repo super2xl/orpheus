@@ -175,11 +175,32 @@ private:
 
     std::string last_error_;
 
-    // Structure offsets (CS2 specific)
-    static constexpr uint64_t SCOPE_CLASS_CONTAINER_OFFSET = 0x580;
-    static constexpr uint64_t SCHEMA_LIST_BLOCK_CONTAINERS_OFFSET = 0x0;
-    static constexpr int64_t SCHEMA_LIST_NUM_SCHEMA_OFFSET = -0x74;  // Negative offset (int64_t)
+    // Structure offsets (CS2 specific - January 2025 patch, from Andromeda-CS2-Base)
+    //
+    // CSchemaSystemTypeScope structure:
+    //   +0x08: name[256]
+    //   +0x5C0: ClassContainer (CSchemaList<CSchemaClassBinding> buckets)
+    //
+    // CSchemaList structure (Andromeda approach):
+    //   -0x74: numSchema (int) - total class count
+    //   +0x00: BlockContainers[256] - array of 256 buckets
+    //
+    // BlockContainer structure (24 bytes):
+    //   +0x00: void* unkn[2]
+    //   +0x10: SchemaBlock* m_firstBlock
+    //
+    // SchemaBlock structure:
+    //   +0x00: void* unkn0
+    //   +0x08: SchemaBlock* m_nextBlock
+    //   +0x10: CSchemaClassBinding* m_classBinding
+
+    static constexpr uint64_t CLASS_CONTAINER_OFFSET = 0x5C0;       // CSchemaList buckets at TypeScope+0x5C0
+    static constexpr uint64_t NUM_SCHEMA_OFFSET = 0x74;             // numSchema at ClassContainer-0x74
     static constexpr int SCHEMA_BUCKET_COUNT = 256;
+    static constexpr int BLOCK_CONTAINER_SIZE = 24;                 // Each bucket is 24 bytes
+    static constexpr uint64_t BLOCK_CONTAINER_FIRST_BLOCK = 0x10;   // firstBlock at bucket+0x10
+    static constexpr uint64_t SCHEMA_BLOCK_NEXT = 0x08;             // next at block+0x08
+    static constexpr uint64_t SCHEMA_BLOCK_BINDING = 0x10;          // binding at block+0x10
 
     // CSchemaClassBinding offsets
     static constexpr uint64_t BINDING_NAME_OFFSET = 0x8;
