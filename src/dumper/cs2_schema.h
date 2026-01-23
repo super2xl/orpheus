@@ -177,8 +177,12 @@ private:
 
     // Structure offsets (CS2 specific - January 2025 patch, from Andromeda-CS2-Base)
     //
+    // CSchemaSystem structure:
+    //   +0x190: uint16_t scope_count
+    //   +0x198: CSchemaSystemTypeScope** scope_array
+    //
     // CSchemaSystemTypeScope structure:
-    //   +0x08: name[256]
+    //   +0x08: char name[256]
     //   +0x5C0: ClassContainer (CSchemaList<CSchemaClassBinding> buckets)
     //
     // CSchemaList structure (Andromeda approach):
@@ -193,6 +197,10 @@ private:
     //   +0x00: void* unkn0
     //   +0x08: SchemaBlock* m_nextBlock
     //   +0x10: CSchemaClassBinding* m_classBinding
+
+    // CSchemaSystem offsets
+    static constexpr uint64_t SCHEMA_SYSTEM_SCOPE_COUNT = 0x190;    // uint16_t at CSchemaSystem+0x190
+    static constexpr uint64_t SCHEMA_SYSTEM_SCOPE_ARRAY = 0x198;    // void** at CSchemaSystem+0x198
 
     static constexpr uint64_t CLASS_CONTAINER_OFFSET = 0x5C0;       // CSchemaList buckets at TypeScope+0x5C0
     static constexpr uint64_t NUM_SCHEMA_OFFSET = 0x74;             // numSchema at ClassContainer-0x74

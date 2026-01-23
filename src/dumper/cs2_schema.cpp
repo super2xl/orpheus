@@ -132,187 +132,123 @@ bool CS2SchemaDumper::FindSchemaSystem(uint64_t schemasystem_base) {
 bool CS2SchemaDumper::EnumerateScopes() {
     scopes_.clear();
 
-    // Read GlobalTypeScope (vfunc index 11)
+    // Method 1: Read scopes directly from CSchemaSystem structure (like anger/Andromeda)
+    // CSchemaSystem+0x190 = scope count (uint16_t)
+    // CSchemaSystem+0x198 = scope array pointer (void**)
+
+    auto scope_count_opt = dma_->Read<uint16_t>(pid_, schema_system_ + SCHEMA_SYSTEM_SCOPE_COUNT);
+    auto scope_array_ptr_opt = dma_->Read<uint64_t>(pid_, schema_system_ + SCHEMA_SYSTEM_SCOPE_ARRAY);
+
+    uint16_t scope_count = scope_count_opt ? *scope_count_opt : 0;
+    uint64_t scope_array_ptr = scope_array_ptr_opt ? *scope_array_ptr_opt : 0;
+
+    LOG_INFO("CSchemaSystem at 0x{:X}: scope_count={}, scope_array=0x{:X}",
+             schema_system_, scope_count, scope_array_ptr);
+
+    // First, try to get GlobalTypeScope via vfunc 11 (add it first like Andromeda)
     auto vtable = dma_->Read<uint64_t>(pid_, schema_system_);
-    if (!vtable) {
-        last_error_ = "Failed to read SchemaSystem vtable";
-        return false;
-    }
+    if (vtable) {
+        auto global_scope_func = dma_->Read<uint64_t>(pid_, *vtable + 11 * 8);
+        if (global_scope_func) {
+            auto func_data = dma_->ReadMemory(pid_, *global_scope_func, 64);
+            if (!func_data.empty()) {
+                // Look for: lea rax, [rip+??] or mov rax, [rip+??]
+                for (size_t i = 0; i + 7 < func_data.size(); i++) {
+                    if (func_data[i] == 0x48 &&
+                        (func_data[i+1] == 0x8D || func_data[i+1] == 0x8B) &&
+                        func_data[i+2] == 0x05) {
 
-    // GlobalTypeScope is at vfunc slot 11
-    auto global_scope_func = dma_->Read<uint64_t>(pid_, *vtable + 11 * 8);
-    if (!global_scope_func) {
-        last_error_ = "Failed to read GlobalTypeScope vfunc";
-        return false;
-    }
+                        int32_t rel_offset = *reinterpret_cast<int32_t*>(&func_data[i+3]);
+                        uint64_t target = *global_scope_func + i + 7 + rel_offset;
 
-    // The global scope is typically stored as a static and returned directly
-    // We need to find the scope pointer - scan the function for lea rax pattern
-    auto func_data = dma_->ReadMemory(pid_, *global_scope_func, 64);
-    if (func_data.empty()) {
-        last_error_ = "Failed to read GlobalTypeScope function";
-        return false;
-    }
+                        if (func_data[i+1] == 0x8B) {
+                            auto deref = dma_->Read<uint64_t>(pid_, target);
+                            if (deref && *deref != 0) {
+                                target = *deref;
+                            }
+                        }
 
-    // Look for: lea rax, [rip+??] or mov rax, [rip+??]
-    for (size_t i = 0; i + 7 < func_data.size(); i++) {
-        // lea rax, [rip+disp32] = 48 8D 05 xx xx xx xx
-        // mov rax, [rip+disp32] = 48 8B 05 xx xx xx xx
-        if (func_data[i] == 0x48 &&
-            (func_data[i+1] == 0x8D || func_data[i+1] == 0x8B) &&
-            func_data[i+2] == 0x05) {
-
-            int32_t rel_offset = *reinterpret_cast<int32_t*>(&func_data[i+3]);
-            uint64_t target = *global_scope_func + i + 7 + rel_offset;
-
-            // For mov, dereference to get actual pointer
-            if (func_data[i+1] == 0x8B) {
-                auto deref = dma_->Read<uint64_t>(pid_, target);
-                if (deref && *deref != 0) {
-                    target = *deref;
-                }
-            }
-
-            // Validate it looks like a scope
-            auto scope_data = dma_->ReadMemory(pid_, target, 16);
-            if (!scope_data.empty()) {
-                global_scope_ = target;
-
-                SchemaScope scope;
-                scope.name = "GlobalTypeScope";
-                scope.address = global_scope_;
-                scopes_.push_back(scope);
-
-                LOG_INFO("Found GlobalTypeScope at 0x{:X}", global_scope_);
-                break;
-            }
-        }
-    }
-
-    // Try to find GetAllTypeScope pattern for additional scopes
-    // Pattern from Andromeda: 48 8B 05 ?? ?? ?? ?? 48 8B D6 0F B7 CB 48 8B 3C C8
-    auto mod_opt = dma_->GetModuleByName(pid_, "schemasystem.dll");
-    if (mod_opt) {
-        auto module_data = dma_->ReadMemory(pid_, schemasystem_base_,
-            std::min((size_t)mod_opt->size, (size_t)(8 * 1024 * 1024)));
-
-        // Use the full Andromeda pattern for GetAllTypeScope
-        auto pattern = orpheus::analysis::PatternScanner::Compile(
-            "48 8B 05 ?? ?? ?? ?? 48 8B D6 0F B7 CB 48 8B 3C C8");
-        if (pattern && !module_data.empty()) {
-            auto results = orpheus::analysis::PatternScanner::Scan(module_data, *pattern, schemasystem_base_, 5);
-
-            for (uint64_t match : results) {
-                LOG_INFO("Found GetAllTypeScope pattern at 0x{:X}", match);
-
-                // Read RIP-relative offset at match+3
-                auto offset_data = dma_->ReadMemory(pid_, match + 3, 4);
-                if (offset_data.size() < 4) continue;
-
-                int32_t rel_offset = *reinterpret_cast<int32_t*>(offset_data.data());
-                uint64_t scope_array_ptr = match + 7 + rel_offset;
-
-                // Dereference to get actual array pointer
-                auto arr_ptr = dma_->Read<uint64_t>(pid_, scope_array_ptr);
-                if (!arr_ptr || *arr_ptr == 0) {
-                    LOG_WARN("Invalid scope array pointer at 0x{:X}", scope_array_ptr);
-                    continue;
-                }
-
-                LOG_INFO("Scope array at 0x{:X}", *arr_ptr);
-
-                // Try to find scope count - usually stored after the pattern
-                // In Andromeda: 0F B7 CB = movzx ecx, bx (scope count in BX)
-                // Look for the count at a nearby location
-                // For now, iterate with reasonable limit
-                for (int i = 0; i < 32; i++) {
-                    auto scope_ptr = dma_->Read<uint64_t>(pid_, *arr_ptr + i * 8);
-                    if (!scope_ptr || *scope_ptr == 0) break;
-
-                    // Verify it's not already in our list
-                    bool exists = false;
-                    for (const auto& s : scopes_) {
-                        if (s.address == *scope_ptr) {
-                            exists = true;
+                        auto scope_data = dma_->ReadMemory(pid_, target, 16);
+                        if (!scope_data.empty()) {
+                            global_scope_ = target;
+                            SchemaScope scope;
+                            scope.name = "GlobalTypeScope";
+                            scope.address = global_scope_;
+                            scopes_.push_back(scope);
+                            LOG_INFO("Found GlobalTypeScope at 0x{:X}", global_scope_);
                             break;
                         }
                     }
-                    if (exists) continue;
-
-                    // Read scope name - CSchemaSystemTypeScope has name at beginning of struct
-                    // Try multiple offsets since it varies between versions
-                    std::string scope_name;
-                    for (uint64_t name_offset : {0x8ULL, 0x0ULL, 0x10ULL}) {
-                        auto name_ptr = dma_->Read<uint64_t>(pid_, *scope_ptr + name_offset);
-                        if (name_ptr && *name_ptr != 0) {
-                            scope_name = ReadString(*name_ptr);
-                            if (!scope_name.empty() && scope_name.find(".dll") != std::string::npos) {
-                                break;
-                            }
-                            // Also try direct string (not pointer)
-                            scope_name = ReadString(*scope_ptr + name_offset);
-                            if (!scope_name.empty() && scope_name.find(".dll") != std::string::npos) {
-                                break;
-                            }
-                        }
-                    }
-
-                    if (scope_name.empty()) {
-                        scope_name = "Scope_" + std::to_string(i);
-                    }
-
-                    SchemaScope scope;
-                    scope.name = scope_name;
-                    scope.address = *scope_ptr;
-                    scopes_.push_back(scope);
-
-                    LOG_INFO("Found scope[{}]: {} at 0x{:X}", i, scope_name, *scope_ptr);
-                }
-
-                if (scopes_.size() > 1) {
-                    all_scopes_ptr_ = *arr_ptr;
-                    LOG_INFO("Found {} type scopes total", scopes_.size());
-                    break;
                 }
             }
         }
+    }
 
-        // Fallback: if specific pattern didn't work, try simpler pattern
-        if (scopes_.size() <= 1) {
-            LOG_WARN("Specific pattern failed, trying fallback pattern");
-            pattern = orpheus::analysis::PatternScanner::Compile("48 8B 05 ?? ?? ?? ?? 48 8B D6");
-            if (pattern) {
-                auto results = orpheus::analysis::PatternScanner::Scan(module_data, *pattern, schemasystem_base_, 20);
+    // Now add all scopes from the scope array (like anger does - no deduplication)
+    if (scope_array_ptr != 0 && scope_count > 0 && scope_count < 100) {
+        LOG_INFO("Reading {} scopes from CSchemaSystem structure", scope_count);
+
+        for (uint16_t i = 0; i < scope_count; i++) {
+            auto scope_ptr_opt = dma_->Read<uint64_t>(pid_, scope_array_ptr + i * 8);
+            if (!scope_ptr_opt || *scope_ptr_opt == 0) continue;
+
+            uint64_t scope_addr = *scope_ptr_opt;
+
+            // Validate pointer range
+            if (scope_addr < 0x10000 || scope_addr > 0x7FFFFFFFFFFF) continue;
+
+            // Read scope name at TypeScope+0x08 (256 byte char array, direct - not a pointer)
+            std::string scope_name = ReadString(scope_addr + 0x08);
+
+            if (scope_name.empty()) {
+                scope_name = "Scope_" + std::to_string(i);
+            }
+
+            SchemaScope scope;
+            scope.name = scope_name;
+            scope.address = scope_addr;
+            scopes_.push_back(scope);
+
+            LOG_INFO("Found scope[{}]: {} at 0x{:X}", i, scope_name, scope_addr);
+        }
+
+        all_scopes_ptr_ = scope_array_ptr;
+        all_scopes_count_ = scope_count;
+    }
+
+    // Fallback: pattern-based discovery if structure method failed
+    if (scopes_.size() <= 1) {
+        LOG_WARN("Structure-based scope discovery failed, trying pattern fallback");
+
+        auto mod_opt = dma_->GetModuleByName(pid_, "schemasystem.dll");
+        if (mod_opt) {
+            auto module_data = dma_->ReadMemory(pid_, schemasystem_base_,
+                std::min((size_t)mod_opt->size, (size_t)(8 * 1024 * 1024)));
+
+            auto pattern = orpheus::analysis::PatternScanner::Compile(
+                "48 8B 05 ?? ?? ?? ?? 48 8B D6 0F B7 CB 48 8B 3C C8");
+            if (pattern && !module_data.empty()) {
+                auto results = orpheus::analysis::PatternScanner::Scan(module_data, *pattern, schemasystem_base_, 5);
+
                 for (uint64_t match : results) {
                     auto offset_data = dma_->ReadMemory(pid_, match + 3, 4);
                     if (offset_data.size() < 4) continue;
 
                     int32_t rel_offset = *reinterpret_cast<int32_t*>(offset_data.data());
-                    uint64_t scope_array_ptr = match + 7 + rel_offset;
+                    uint64_t arr_ptr_addr = match + 7 + rel_offset;
 
-                    auto arr_ptr = dma_->Read<uint64_t>(pid_, scope_array_ptr);
+                    auto arr_ptr = dma_->Read<uint64_t>(pid_, arr_ptr_addr);
                     if (!arr_ptr || *arr_ptr == 0) continue;
 
-                    for (int i = 0; i < 32; i++) {
+                    // Scope count is 8 bytes before the array global
+                    auto count_opt = dma_->Read<uint16_t>(pid_, arr_ptr_addr - 8);
+                    int max_scopes = (count_opt && *count_opt > 0 && *count_opt < 100) ? *count_opt : 32;
+
+                    for (int i = 0; i < max_scopes; i++) {
                         auto scope_ptr = dma_->Read<uint64_t>(pid_, *arr_ptr + i * 8);
                         if (!scope_ptr || *scope_ptr == 0) break;
 
-                        bool exists = false;
-                        for (const auto& s : scopes_) {
-                            if (s.address == *scope_ptr) { exists = true; break; }
-                        }
-                        if (exists) continue;
-
-                        std::string scope_name;
-                        for (uint64_t name_offset : {0x8ULL, 0x0ULL, 0x10ULL}) {
-                            auto name_ptr = dma_->Read<uint64_t>(pid_, *scope_ptr + name_offset);
-                            if (name_ptr && *name_ptr != 0) {
-                                scope_name = ReadString(*name_ptr);
-                                if (!scope_name.empty() && scope_name.find(".dll") != std::string::npos) break;
-                                scope_name = ReadString(*scope_ptr + name_offset);
-                                if (!scope_name.empty() && scope_name.find(".dll") != std::string::npos) break;
-                            }
-                        }
+                        std::string scope_name = ReadString(*scope_ptr + 0x08);
                         if (scope_name.empty()) scope_name = "Scope_" + std::to_string(i);
 
                         SchemaScope scope;
@@ -330,6 +266,7 @@ bool CS2SchemaDumper::EnumerateScopes() {
         }
     }
 
+    LOG_INFO("EnumerateScopes complete: {} scopes found", scopes_.size());
     return !scopes_.empty();
 }
 
