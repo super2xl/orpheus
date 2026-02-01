@@ -52,11 +52,35 @@ public:
         return *this;
     }
 
-    RequestValidator& RequireSize(const std::string& param_name = "size") {
+    RequestValidator& RequireSize(const std::string& param_name = "size",
+                                   uint32_t max_size = 16 * 1024 * 1024) {
         if (!error_.empty()) return *this;
         size_ = req_.value(param_name, 0u);
         if (size_ == 0) {
             error_ = "Missing required parameter: " + param_name;
+        } else if (size_ > max_size) {
+            error_ = param_name + " too large: maximum is " + std::to_string(max_size) + " bytes";
+        }
+        return *this;
+    }
+
+    // Validate address is not NULL
+    RequestValidator& RequireNonNullAddress() {
+        if (!error_.empty()) return *this;
+        if (address_ == 0) {
+            error_ = "Invalid address: NULL pointer (0x0)";
+        }
+        return *this;
+    }
+
+    // Validate address looks like a valid usermode pointer
+    RequestValidator& RequireUsermodeAddress() {
+        if (!error_.empty()) return *this;
+        if (address_ == 0) {
+            error_ = "Invalid address: NULL pointer (0x0)";
+        } else if (address_ < 0x10000) {
+            // Very low addresses are typically reserved
+            error_ = "Invalid address: value too low (likely invalid)";
         }
         return *this;
     }

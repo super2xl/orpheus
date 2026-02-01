@@ -140,6 +140,11 @@ private:
     std::string HandleMemorySnapshotDelete(const std::string& body);
     std::string HandleMemoryDiff(const std::string& body);
 
+    // Memory cache tools
+    std::string HandleCacheStats(const std::string& body);
+    std::string HandleCacheConfig(const std::string& body);
+    std::string HandleCacheClear(const std::string& body);
+
     std::string HandleGetProcesses(const std::string& body);
     std::string HandleGetModules(const std::string& body);
     std::string HandleFindXrefs(const std::string& body);

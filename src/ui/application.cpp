@@ -4,6 +4,7 @@
 #include "core/task_manager.h"
 #include "utils/logger.h"
 #include "utils/bookmarks.h"
+#include "utils/telemetry.h"
 #include "analysis/disassembler.h"
 #include "analysis/pattern_scanner.h"
 #include "analysis/string_scanner.h"
@@ -5347,6 +5348,63 @@ void Application::RenderSettingsDialog() {
 
                 ImGui::Spacing();
                 ImGui::TextDisabled("Lower intervals = more responsive, but higher DMA overhead");
+
+                ImGui::Spacing();
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                // Telemetry settings
+                ImGui::Text("Telemetry");
+                ImGui::Spacing();
+
+                bool telemetry_enabled = Telemetry::Instance().IsEnabled();
+                if (ImGui::Checkbox("Send anonymous usage data", &telemetry_enabled)) {
+                    Telemetry::Instance().SetEnabled(telemetry_enabled);
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip(
+                        "Just want to see if this thing is actually useful!\n\n"
+                        "Only sends: version, platform, session duration,\n"
+                        "and approximate region (via Cloudflare).\n\n"
+                        "No process info, memory data, or personal details."
+                    );
+                }
+
+                ImGui::Spacing();
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                // Memory cache settings
+                ImGui::Text("Performance");
+                ImGui::Spacing();
+
+                if (dma_) {
+                    bool cache_enabled = dma_->IsCacheEnabled();
+                    if (ImGui::Checkbox("Enable DMA read cache", &cache_enabled)) {
+                        dma_->SetCacheEnabled(cache_enabled);
+                    }
+                    if (ImGui::IsItemHovered()) {
+                        auto stats = dma_->GetCacheStats();
+                        ImGui::SetTooltip(
+                            "Cache recently read memory pages to reduce DMA traffic.\n"
+                            "Reduces reads by 50-80%% for repetitive access patterns.\n\n"
+                            "Hit rate: %.1f%% (%llu hits, %llu misses)\n"
+                            "Pages cached: %zu (%.1f KB)",
+                            stats.HitRate() * 100.0,
+                            stats.hits, stats.misses,
+                            stats.current_pages,
+                            stats.current_bytes / 1024.0
+                        );
+                    }
+                } else {
+                    ImGui::BeginDisabled();
+                    bool dummy = false;
+                    ImGui::Checkbox("Enable DMA read cache", &dummy);
+                    ImGui::EndDisabled();
+                    ImGui::TextDisabled("Connect to DMA first");
+                }
 
                 ImGui::EndTabItem();
             }

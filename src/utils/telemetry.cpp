@@ -1,9 +1,13 @@
 #include "telemetry.h"
 #include "logger.h"
 #include "version.h"
+#include "core/runtime_manager.h"
 
 #include <sstream>
 #include <random>
+#include <fstream>
+#include <filesystem>
+#include <nlohmann/json.hpp>
 
 #ifdef PLATFORM_WINDOWS
 #include <windows.h>
@@ -25,8 +29,8 @@ static std::string GenerateSessionId() {
 }
 
 Telemetry::Telemetry()
-    : m_sessionId(GenerateSessionId())
-    , m_startTime(std::chrono::steady_clock::now())
+    : session_id_(GenerateSessionId())
+    , start_time_(std::chrono::steady_clock::now())
 {
 }
 
@@ -34,9 +38,81 @@ Telemetry::~Telemetry() {
     WaitForPendingRequests();
 }
 
+void Telemetry::SetEnabled(bool enabled) {
+    enabled_ = enabled;
+    SaveToConfig();
+}
+
+void Telemetry::LoadFromConfig() {
+    try {
+        auto config_path = RuntimeManager::Instance().GetConfigDirectory() / "settings.json";
+
+        if (!std::filesystem::exists(config_path)) {
+            // First run - enabled by default, save initial config
+            SaveToConfig();
+            return;
+        }
+
+        std::ifstream file(config_path);
+        if (!file.is_open()) {
+            return;
+        }
+
+        nlohmann::json j = nlohmann::json::parse(file);
+        file.close();
+
+        if (j.contains("telemetry_enabled")) {
+            enabled_ = j["telemetry_enabled"].get<bool>();
+        }
+
+        LOG_DEBUG("Telemetry: loaded config, enabled={}", enabled_.load());
+
+    } catch (const std::exception& e) {
+        LOG_DEBUG("Telemetry: failed to load config: {}", e.what());
+    }
+}
+
+void Telemetry::SaveToConfig() {
+    try {
+        auto config_dir = RuntimeManager::Instance().GetConfigDirectory();
+        auto config_path = config_dir / "settings.json";
+
+        // Ensure config directory exists
+        std::filesystem::create_directories(config_dir);
+
+        // Load existing config or create new
+        nlohmann::json j;
+        if (std::filesystem::exists(config_path)) {
+            std::ifstream in(config_path);
+            if (in.is_open()) {
+                try {
+                    j = nlohmann::json::parse(in);
+                } catch (...) {
+                    // Invalid JSON, start fresh
+                }
+                in.close();
+            }
+        }
+
+        // Update telemetry setting
+        j["telemetry_enabled"] = enabled_.load();
+
+        // Write back
+        std::ofstream out(config_path);
+        if (out.is_open()) {
+            out << j.dump(2);
+            out.close();
+            LOG_DEBUG("Telemetry: saved config, enabled={}", enabled_.load());
+        }
+
+    } catch (const std::exception& e) {
+        LOG_DEBUG("Telemetry: failed to save config: {}", e.what());
+    }
+}
+
 void Telemetry::WaitForPendingRequests() {
-    if (m_thread.joinable()) {
-        m_thread.join();
+    if (thread_.joinable()) {
+        thread_.join();
     }
 }
 
@@ -65,7 +141,7 @@ std::string Telemetry::BuildStartupEmbed() {
     json << "{\"name\": \"Platform\", \"value\": \"" << orpheus::version::PLATFORM << "\", \"inline\": true},";
     json << "{\"name\": \"Build\", \"value\": \"" << orpheus::version::BUILD_TYPE << "\", \"inline\": true},";
     json << "{\"name\": \"Git\", \"value\": \"" << orpheus::version::GIT_HASH_SHORT << "\", \"inline\": true},";
-    json << "{\"name\": \"Session\", \"value\": \"`" << m_sessionId << "`\", \"inline\": true}";
+    json << "{\"name\": \"Session\", \"value\": \"`" << session_id_ << "`\", \"inline\": true}";
     json << "],";
     json << "\"timestamp\": \"" << orpheus::version::BUILD_TIMESTAMP << "\"";
     json << "}]";
@@ -75,7 +151,7 @@ std::string Telemetry::BuildStartupEmbed() {
 
 std::string Telemetry::BuildShutdownEmbed() {
     auto now = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - m_startTime).count();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - start_time_).count();
     std::string durationStr = FormatDuration(static_cast<int>(duration));
 
     std::stringstream json;
@@ -85,7 +161,7 @@ std::string Telemetry::BuildShutdownEmbed() {
     json << "\"color\": 15158332,";  // Red
     json << "\"fields\": [";
     json << "{\"name\": \"Version\", \"value\": \"" << orpheus::version::VERSION_FULL << "\", \"inline\": true},";
-    json << "{\"name\": \"Session\", \"value\": \"`" << m_sessionId << "`\", \"inline\": true},";
+    json << "{\"name\": \"Session\", \"value\": \"`" << session_id_ << "`\", \"inline\": true},";
     json << "{\"name\": \"Duration\", \"value\": \"" << durationStr << "\", \"inline\": true}";
     json << "]";
     json << "}]";
@@ -176,7 +252,7 @@ void Telemetry::SendToWorker(const std::string& type, const std::string& discord
 
     if (async) {
         WaitForPendingRequests();
-        m_thread = std::thread(sendFunc);
+        thread_ = std::thread(sendFunc);
     } else {
         sendFunc();
     }
@@ -189,14 +265,19 @@ void Telemetry::SendToWorker(const std::string& type, const std::string& discord
 }
 
 void Telemetry::SendStartupPing() {
+    if (!enabled_) {
+        LOG_DEBUG("Telemetry: disabled, skipping startup ping");
+        return;
+    }
+
     std::string embed = BuildStartupEmbed();
     SendToWorker("usage", embed, true);  // Async
-    m_startupSent = true;
+    startup_sent_ = true;
     LOG_DEBUG("Telemetry: Startup ping queued");
 }
 
 void Telemetry::SendShutdownPing() {
-    if (!m_startupSent) {
+    if (!enabled_ || !startup_sent_) {
         return;
     }
 

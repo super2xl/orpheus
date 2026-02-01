@@ -3,7 +3,64 @@
 #include <cctype>
 #include <sstream>
 
+// SIMD intrinsics
+#ifdef _MSC_VER
+#include <intrin.h>
+#else
+#include <x86intrin.h>
+#endif
+
 namespace orpheus::analysis {
+
+// SIMD-optimized first-byte finder using SSE2
+// Returns bitmask where bits are set for positions matching first_byte
+static inline uint32_t FindFirstByteSIMD(const uint8_t* data, uint8_t first_byte) {
+    __m128i needle = _mm_set1_epi8(static_cast<char>(first_byte));
+    __m128i haystack = _mm_loadu_si128(reinterpret_cast<const __m128i*>(data));
+    __m128i cmp = _mm_cmpeq_epi8(needle, haystack);
+    return static_cast<uint32_t>(_mm_movemask_epi8(cmp));
+}
+
+// SIMD match for patterns ≤16 bytes with wildcard support
+// Uses SSE2 only for maximum compatibility
+static bool MatchSIMD16(const uint8_t* data, const uint8_t* pattern_bytes,
+                        const uint8_t* mask_bytes, size_t len) {
+    if (len > 16) return false;
+
+    // Pad pattern and mask to 16 bytes
+    alignas(16) uint8_t pattern_buf[16] = {0};
+    alignas(16) uint8_t mask_buf[16] = {0};  // 0x00 = wildcard, 0xFF = must match
+
+    for (size_t i = 0; i < len; i++) {
+        pattern_buf[i] = pattern_bytes[i];
+        mask_buf[i] = mask_bytes[i];
+    }
+
+    __m128i pat = _mm_load_si128(reinterpret_cast<const __m128i*>(pattern_buf));
+    __m128i msk = _mm_load_si128(reinterpret_cast<const __m128i*>(mask_buf));
+    __m128i dat = _mm_loadu_si128(reinterpret_cast<const __m128i*>(data));
+
+    // XOR data with pattern, then AND with mask
+    // If result is all zeros, we have a match
+    __m128i xored = _mm_xor_si128(dat, pat);
+    __m128i masked = _mm_and_si128(xored, msk);
+
+    // SSE2 compatible: compare to zero and check movemask
+    __m128i zero = _mm_setzero_si128();
+    __m128i cmp = _mm_cmpeq_epi8(masked, zero);
+    return _mm_movemask_epi8(cmp) == 0xFFFF;
+}
+
+// Scalar fallback for patterns > 16 bytes
+static bool MatchScalar(const uint8_t* data, const uint8_t* pattern_bytes,
+                        const std::vector<bool>& mask, size_t len) {
+    for (size_t i = 0; i < len; i++) {
+        if (mask[i] && data[i] != pattern_bytes[i]) {
+            return false;
+        }
+    }
+    return true;
+}
 
 std::optional<Pattern> PatternScanner::Compile(const std::string& pattern,
                                                 const std::string& name) {
@@ -86,17 +143,26 @@ std::optional<Pattern> PatternScanner::Compile(const std::string& pattern,
 bool PatternScanner::MatchAtPosition(const std::vector<uint8_t>& data,
                                       size_t pos,
                                       const Pattern& pattern) {
-    if (pos + pattern.bytes.size() > data.size()) {
+    const size_t pattern_len = pattern.bytes.size();
+
+    if (pos + pattern_len > data.size()) {
         return false;
     }
 
-    for (size_t i = 0; i < pattern.bytes.size(); i++) {
-        if (pattern.mask[i] && data[pos + i] != pattern.bytes[i]) {
-            return false;
+    const uint8_t* data_ptr = data.data() + pos;
+
+    // Use SIMD for patterns ≤16 bytes when we have enough buffer space
+    if (pattern_len <= 16 && pos + 16 <= data.size()) {
+        // Build byte mask on the fly (could optimize by caching)
+        alignas(16) uint8_t byte_mask[16] = {0};
+        for (size_t i = 0; i < pattern_len; i++) {
+            byte_mask[i] = pattern.mask[i] ? 0xFF : 0x00;
         }
+        return MatchSIMD16(data_ptr, pattern.bytes.data(), byte_mask, pattern_len);
     }
 
-    return true;
+    // Scalar fallback
+    return MatchScalar(data_ptr, pattern.bytes.data(), pattern.mask, pattern_len);
 }
 
 std::vector<uint64_t> PatternScanner::Scan(const std::vector<uint8_t>& data,
@@ -105,18 +171,87 @@ std::vector<uint64_t> PatternScanner::Scan(const std::vector<uint8_t>& data,
                                             size_t max_results) {
     std::vector<uint64_t> results;
 
-    if (!pattern.IsValid() || data.empty()) {
+    if (!pattern.IsValid() || data.empty() || pattern.bytes.size() > data.size()) {
         return results;
     }
 
-    size_t scan_end = data.size() - pattern.bytes.size() + 1;
+    const size_t pattern_len = pattern.bytes.size();
+    const size_t scan_end = data.size() - pattern_len + 1;
+    const uint8_t* data_ptr = data.data();
+    const uint8_t first_byte = pattern.bytes[0];
+    const bool first_byte_is_wildcard = !pattern.mask[0];
 
-    for (size_t i = 0; i < scan_end; i++) {
-        if (MatchAtPosition(data, i, pattern)) {
+    // Pre-compute byte mask for SIMD (0xFF = must match, 0x00 = wildcard)
+    std::vector<uint8_t> byte_mask(pattern_len);
+    for (size_t i = 0; i < pattern_len; i++) {
+        byte_mask[i] = pattern.mask[i] ? 0xFF : 0x00;
+    }
+
+    // Use SIMD for small patterns (≤16 bytes)
+    const bool use_simd = (pattern_len <= 16);
+
+    // SIMD scan: process 16 bytes at a time looking for first-byte candidates
+    size_t i = 0;
+
+    // Only use SIMD first-byte filter if first byte is not a wildcard
+    if (!first_byte_is_wildcard && scan_end >= 16) {
+        while (i + 16 <= scan_end) {
+            uint32_t mask = FindFirstByteSIMD(data_ptr + i, first_byte);
+
+            if (mask != 0) {
+                // Found potential matches - check each bit
+                while (mask != 0) {
+                    // Find position of lowest set bit
+#ifdef _MSC_VER
+                    unsigned long bit_pos;
+                    _BitScanForward(&bit_pos, mask);
+#else
+                    int bit_pos = __builtin_ctz(mask);
+#endif
+                    size_t pos = i + bit_pos;
+
+                    if (pos < scan_end) {
+                        bool matched = false;
+                        if (use_simd) {
+                            matched = MatchSIMD16(data_ptr + pos, pattern.bytes.data(),
+                                                  byte_mask.data(), pattern_len);
+                        } else {
+                            matched = MatchScalar(data_ptr + pos, pattern.bytes.data(),
+                                                  pattern.mask, pattern_len);
+                        }
+
+                        if (matched) {
+                            results.push_back(base_address + pos);
+                            if (max_results > 0 && results.size() >= max_results) {
+                                return results;
+                            }
+                        }
+                    }
+
+                    // Clear the bit we just processed
+                    mask &= mask - 1;
+                }
+            }
+
+            i += 16;
+        }
+    }
+
+    // Scalar fallback for remaining bytes or when first byte is wildcard
+    for (; i < scan_end; i++) {
+        bool matched = false;
+        if (use_simd && i + 16 <= data.size()) {
+            matched = MatchSIMD16(data_ptr + i, pattern.bytes.data(),
+                                  byte_mask.data(), pattern_len);
+        } else {
+            matched = MatchScalar(data_ptr + i, pattern.bytes.data(),
+                                  pattern.mask, pattern_len);
+        }
+
+        if (matched) {
             results.push_back(base_address + i);
-
             if (max_results > 0 && results.size() >= max_results) {
-                break;
+                return results;
             }
         }
     }

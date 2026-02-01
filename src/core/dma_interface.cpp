@@ -1,5 +1,6 @@
 #include "dma_interface.h"
 #include "runtime_manager.h"
+#include "utils/logger.h"
 
 #include <cstring>
 #include <iostream>
@@ -358,7 +359,10 @@ bool DMAInterface::Initialize(const std::string& device) {
 
     vmm_handle_ = fn_Initialize(static_cast<DWORD>(argv.size()), const_cast<LPCSTR*>(argv.data()));
     if (vmm_handle_ == nullptr) {
-        ReportError("VMMDLL_Initialize failed for device: " + device);
+        ReportError("Failed to initialize DMA connection to '" + device + "'. "
+            "Check: 1) FPGA device is powered on and connected via USB, "
+            "2) FTD3XX drivers are installed, "
+            "3) No other software is using the device");
         return false;
     }
 
@@ -570,6 +574,29 @@ std::vector<MemoryRegion> DMAInterface::GetMemoryRegions(uint32_t pid) {
 }
 
 std::vector<uint8_t> DMAInterface::ReadMemory(uint32_t pid, uint64_t address, size_t size) {
+    if (!IsConnected() || fn_MemReadEx == nullptr || size == 0) {
+        return {};
+    }
+
+    // Check cache first
+    if (cache_.IsEnabled()) {
+        if (auto cached = cache_.Get(pid, address, size)) {
+            return *cached;
+        }
+    }
+
+    // Cache miss - do actual DMA read
+    auto result = ReadMemoryDirect(pid, address, size);
+
+    // Store in cache
+    if (!result.empty() && cache_.IsEnabled()) {
+        cache_.Put(pid, address, result);
+    }
+
+    return result;
+}
+
+std::vector<uint8_t> DMAInterface::ReadMemoryDirect(uint32_t pid, uint64_t address, size_t size) {
     std::vector<uint8_t> result;
     if (!IsConnected() || fn_MemReadEx == nullptr || size == 0) return result;
 
@@ -589,8 +616,16 @@ std::vector<uint8_t> DMAInterface::ReadMemory(uint32_t pid, uint64_t address, si
 
 bool DMAInterface::WriteMemory(uint32_t pid, uint64_t address, const std::vector<uint8_t>& data) {
     if (!IsConnected() || fn_MemWrite == nullptr || data.empty()) return false;
-    return fn_MemWrite(vmm_handle_, pid, address, const_cast<PBYTE>(data.data()),
-                        static_cast<DWORD>(data.size())) != 0;
+
+    bool success = fn_MemWrite(vmm_handle_, pid, address, const_cast<PBYTE>(data.data()),
+                                static_cast<DWORD>(data.size())) != 0;
+
+    // Invalidate cache for written region
+    if (success && cache_.IsEnabled()) {
+        cache_.Invalidate(pid, address, data.size());
+    }
+
+    return success;
 }
 
 size_t DMAInterface::ScatterRead(uint32_t pid, std::vector<ScatterRequest>& requests) {
@@ -670,7 +705,7 @@ std::vector<uint8_t> DMAInterface::ReadPhysical(uint64_t physical_addr, size_t s
 void DMAInterface::ReportError(const std::string& message) {
     last_error_ = message;
     if (error_callback_) error_callback_(message);
-    else std::cerr << "[DMAInterface ERROR] " << message << std::endl;
+    else LOG_ERROR("[DMA] {}", message);
 }
 
 } // namespace orpheus

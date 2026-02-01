@@ -8,9 +8,10 @@
 #include "architecture.hh"
 #include "type.hh"
 
+#include "utils/logger.h"
+
 #include <algorithm>
 #include <regex>
-#include <iostream>
 
 namespace orpheus {
 
@@ -76,8 +77,7 @@ int TypeInjector::InjectTypes() {
                 }
             } catch (const std::exception& e) {
                 // Log but continue with other types
-                std::cerr << "[TypeInjector] Failed to create type "
-                          << class_def->name << ": " << e.what() << std::endl;
+                LOG_WARN("[TypeInjector] Failed to create type {}: {}", class_def->name, e.what());
             }
         }
 

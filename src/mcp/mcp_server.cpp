@@ -344,6 +344,11 @@ void MCPServer::SetupRoutes() {
     ROUTE_POST_PERM("/tools/write_memory", allow_write, "Write", HandleWriteMemory);
     ROUTE_POST_PERM("/tools/resolve_pointer", allow_read, "Read", HandleResolvePointerChain);
 
+    // Memory cache control
+    ROUTE_GET("/tools/cache_stats", HandleCacheStats);
+    ROUTE_POST("/tools/cache_config", HandleCacheConfig);
+    ROUTE_POST("/tools/cache_clear", HandleCacheClear);
+
     // Scan operations (sync and async variants)
     ROUTE_POST_PERM("/tools/scan_pattern", allow_scan, "Scan", HandleScanPattern);
     ROUTE_POST_PERM("/tools/scan_pattern_async", allow_scan, "Scan", HandleScanPatternAsync);

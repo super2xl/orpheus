@@ -7,6 +7,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/super2xl/orpheus/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/super2xl/orpheus/release.yml?style=flat-square&label=build" alt="Build"></a>
   <a href="https://github.com/super2xl/orpheus/releases"><img src="https://img.shields.io/github/v/release/super2xl/orpheus?style=flat-square" alt="Release"></a>
   <a href="https://github.com/super2xl/orpheus/releases"><img src="https://img.shields.io/github/downloads/super2xl/orpheus/total?style=flat-square" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/super2xl/orpheus?style=flat-square" alt="License"></a>
@@ -210,6 +211,22 @@ Fetched automatically via CMake FetchContent:
 - cpp-httplib 0.15.3
 - nlohmann/json 3.11.3
 - Ghidra Decompiler (libdecomp)
+
+## Telemetry
+
+Orpheus collects basic, anonymous usage telemetry to help improve the software. You can disable this in Settings > General > Telemetry.
+
+**What's collected:**
+- Application version, platform, and build type
+- Session start/end times (to calculate usage duration)
+- Approximate geographic region (country level, via Cloudflare)
+
+**What's NOT collected:**
+- No personal information (usernames, IPs, hardware IDs)
+- No process names, memory addresses, or analysis data
+- No file paths or system information
+
+Telemetry is sent to a Cloudflare Worker that forwards to Discord for monitoring. Session IDs are random and cannot be linked across sessions.
 
 ## License
 

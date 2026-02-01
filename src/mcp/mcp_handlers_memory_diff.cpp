@@ -11,6 +11,7 @@
 #include "mcp_server.h"
 #include "ui/application.h"
 #include "core/dma_interface.h"
+#include "utils/limits.h"
 
 #include <nlohmann/json.hpp>
 #include <sstream>
@@ -31,8 +32,7 @@ std::string MCPServer::HandleMemorySnapshot(const std::string& body) {
         std::string name = req.value("name", "");
 
         // Validate size
-        constexpr size_t MAX_SNAPSHOT_SIZE = 16 * 1024 * 1024; // 16 MB max
-        if (size > MAX_SNAPSHOT_SIZE) {
+        if (size > limits::MAX_MEMORY_SNAPSHOT) {
             return CreateErrorResponse("Snapshot size exceeds maximum (16 MB)");
         }
 

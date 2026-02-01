@@ -33,7 +33,8 @@ int main(int argc, char** argv) {
 
     LOG_INFO("Runtime initialized: {}", runtime.GetAppDataDirectory().string());
 
-    // Send telemetry startup ping (async, non-blocking)
+    // Load telemetry settings and send startup ping (async, non-blocking)
+    orpheus::Telemetry::Instance().LoadFromConfig();
     orpheus::Telemetry::Instance().SendStartupPing();
 
     // Register cleanup on exit
@@ -60,7 +61,8 @@ int main(int argc, char** argv) {
     // Create and initialize the application
     orpheus::ui::Application app;
 
-    if (!app.Initialize()) {
+    std::string window_title = "Orpheus v" + std::string(orpheus::version::VERSION);
+    if (!app.Initialize(window_title)) {
         LOG_ERROR("Failed to initialize application");
         return 1;
     }

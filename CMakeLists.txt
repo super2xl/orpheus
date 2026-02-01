@@ -203,6 +203,33 @@ elseif(PLATFORM_LINUX)
 endif()
 
 # ============================================================================
+# Build Optimizations
+# ============================================================================
+
+# Precompiled headers for faster incremental builds
+target_precompile_headers(orpheus PRIVATE
+    <string>
+    <vector>
+    <memory>
+    <optional>
+    <cstdint>
+    <functional>
+    <unordered_map>
+    <spdlog/spdlog.h>
+)
+
+# Unity builds for faster clean builds (Release only)
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set_target_properties(orpheus PROPERTIES
+        UNITY_BUILD ON
+        UNITY_BUILD_BATCH_SIZE 16
+    )
+endif()
+
+# Link-time optimization for Release builds
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+
+# ============================================================================
 # MCPinstaller - Standalone MCP Bridge Installer
 # ============================================================================
 

@@ -10,6 +10,7 @@
 #include "mcp_server.h"
 #include "ui/application.h"
 #include "core/dma_interface.h"
+#include "utils/limits.h"
 
 #include <nlohmann/json.hpp>
 #include <sstream>
@@ -34,7 +35,7 @@ std::string MCPServer::HandleReadMemory(const std::string& body) {
         if (size == 0) {
             return CreateErrorResponse("Invalid size: cannot read 0 bytes");
         }
-        if (size > 16 * 1024 * 1024) {  // 16MB limit
+        if (size > limits::MAX_MEMORY_READ) {
             return CreateErrorResponse("Size too large: maximum read is 16MB");
         }
 
@@ -315,6 +316,94 @@ std::string MCPServer::HandleResolvePointerChain(const std::string& body) {
                 }
             }
         }
+
+        return CreateSuccessResponse(result.dump());
+
+    } catch (const std::exception& e) {
+        return CreateErrorResponse(std::string("Error: ") + e.what());
+    }
+}
+
+std::string MCPServer::HandleCacheStats(const std::string&) {
+    try {
+        auto* dma = app_->GetDMA();
+        if (!dma) {
+            return CreateErrorResponse("DMA interface not available");
+        }
+
+        auto stats = dma->GetCacheStats();
+        auto config = dma->GetCacheConfig();
+
+        json result;
+        result["enabled"] = dma->IsCacheEnabled();
+        result["hits"] = stats.hits;
+        result["misses"] = stats.misses;
+        result["hit_rate"] = stats.HitRate();
+        result["evictions"] = stats.evictions;
+        result["current_pages"] = stats.current_pages;
+        result["current_bytes"] = stats.current_bytes;
+        result["max_pages"] = config.max_pages;
+        result["ttl_ms"] = config.ttl_ms;
+
+        return CreateSuccessResponse(result.dump());
+
+    } catch (const std::exception& e) {
+        return CreateErrorResponse(std::string("Error: ") + e.what());
+    }
+}
+
+std::string MCPServer::HandleCacheConfig(const std::string& body) {
+    try {
+        auto req = json::parse(body);
+
+        auto* dma = app_->GetDMA();
+        if (!dma) {
+            return CreateErrorResponse("DMA interface not available");
+        }
+
+        // Get current config
+        auto config = dma->GetCacheConfig();
+
+        // Update from request
+        if (req.contains("enabled")) {
+            config.enabled = req["enabled"].get<bool>();
+        }
+        if (req.contains("max_pages")) {
+            config.max_pages = req["max_pages"].get<size_t>();
+        }
+        if (req.contains("ttl_ms")) {
+            config.ttl_ms = req["ttl_ms"].get<uint32_t>();
+        }
+
+        dma->SetCacheConfig(config);
+
+        json result;
+        result["enabled"] = config.enabled;
+        result["max_pages"] = config.max_pages;
+        result["ttl_ms"] = config.ttl_ms;
+        result["message"] = config.enabled ? "Cache enabled" : "Cache disabled";
+
+        return CreateSuccessResponse(result.dump());
+
+    } catch (const std::exception& e) {
+        return CreateErrorResponse(std::string("Error: ") + e.what());
+    }
+}
+
+std::string MCPServer::HandleCacheClear(const std::string&) {
+    try {
+        auto* dma = app_->GetDMA();
+        if (!dma) {
+            return CreateErrorResponse("DMA interface not available");
+        }
+
+        auto stats_before = dma->GetCacheStats();
+        dma->ClearCache();
+
+        json result;
+        result["cleared_pages"] = stats_before.current_pages;
+        result["cleared_bytes"] = stats_before.current_bytes;
+        result["message"] = "Cache cleared";
 
         return CreateSuccessResponse(result.dump());
 

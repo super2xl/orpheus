@@ -8,6 +8,8 @@
 #include <functional>
 #include <cstring>
 
+#include "memory_cache.h"
+
 namespace orpheus {
 
 // Opaque handle type for VMM - use void* to avoid header conflicts
@@ -242,13 +244,50 @@ public:
         error_callback_ = std::move(callback);
     }
 
+    // =========================================================================
+    // Memory Cache
+    // =========================================================================
+
+    /**
+     * Enable/disable read caching (reduces DMA reads by ~50-80%)
+     */
+    void SetCacheEnabled(bool enabled) { cache_.SetEnabled(enabled); }
+    [[nodiscard]] bool IsCacheEnabled() const { return cache_.IsEnabled(); }
+
+    /**
+     * Configure cache parameters
+     */
+    void SetCacheConfig(const MemoryCache::Config& config) { cache_.SetConfig(config); }
+    [[nodiscard]] MemoryCache::Config GetCacheConfig() const { return cache_.GetConfig(); }
+
+    /**
+     * Get cache statistics (hits, misses, hit rate)
+     */
+    [[nodiscard]] MemoryCache::Stats GetCacheStats() const { return cache_.GetStats(); }
+
+    /**
+     * Clear cache
+     */
+    void ClearCache() { cache_.Clear(); }
+
+    /**
+     * Invalidate cache for specific address range
+     */
+    void InvalidateCache(uint32_t pid, uint64_t address, size_t size) {
+        cache_.Invalidate(pid, address, size);
+    }
+
 private:
     void ReportError(const std::string& message);
+
+    // Uncached read (bypasses cache)
+    std::vector<uint8_t> ReadMemoryDirect(uint32_t pid, uint64_t address, size_t size);
 
     VMMHandle vmm_handle_ = nullptr;
     std::string device_type_;
     std::string last_error_;
     std::function<void(const std::string&)> error_callback_;
+    mutable MemoryCache cache_;
 };
 
 } // namespace orpheus

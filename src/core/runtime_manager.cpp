@@ -1,5 +1,6 @@
 #include "runtime_manager.h"
 #include "embedded_resources.h"
+#include "utils/logger.h"
 
 #include <fstream>
 #include <random>
@@ -324,7 +325,7 @@ void RuntimeManager::ReportError(const std::string& message) {
     if (error_callback_) {
         error_callback_(message);
     } else {
-        std::cerr << "[RuntimeManager ERROR] " << message << std::endl;
+        LOG_ERROR("[Runtime] {}", message);
     }
 }
 
