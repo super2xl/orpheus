@@ -1,5 +1,30 @@
 cmake_minimum_required(VERSION 3.20)
-project(Orpheus VERSION 0.1.4 LANGUAGES CXX)
+
+# Extract version from git tags (e.g., v0.1.5 -> 0.1.5)
+# Falls back to 0.0.0 if no tags found
+find_package(Git QUIET)
+set(ORPHEUS_VERSION_DEFAULT "0.0.0")
+if(GIT_FOUND)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_TAG_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE GIT_TAG_RESULT
+    )
+    if(GIT_TAG_RESULT EQUAL 0 AND GIT_TAG_VERSION)
+        # Strip leading 'v' if present (v0.1.5 -> 0.1.5)
+        string(REGEX REPLACE "^v" "" ORPHEUS_VERSION_FROM_GIT "${GIT_TAG_VERSION}")
+        # Validate it looks like a version (X.Y.Z)
+        if(ORPHEUS_VERSION_FROM_GIT MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+")
+            set(ORPHEUS_VERSION_DEFAULT "${ORPHEUS_VERSION_FROM_GIT}")
+            message(STATUS "Version from git tag: ${ORPHEUS_VERSION_DEFAULT}")
+        endif()
+    endif()
+endif()
+
+project(Orpheus VERSION ${ORPHEUS_VERSION_DEFAULT} LANGUAGES CXX)
 
 # C++20 Standard
 set(CMAKE_CXX_STANDARD 20)
@@ -135,6 +160,7 @@ if(PLATFORM_WINDOWS)
     target_link_libraries(orpheus PRIVATE
         opengl32
         dwmapi
+        winhttp     # For telemetry webhook
     )
 
     # Set Windows subsystem (GUI app, no console window)

@@ -2,6 +2,8 @@
 #include "core/dma_interface.h"
 #include "ui/application.h"
 #include "utils/logger.h"
+#include "utils/telemetry.h"
+#include "version.h"
 
 #include <iostream>
 #include <cstdlib>
@@ -17,7 +19,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    LOG_INFO("Starting Orpheus DMA Reversing Framework v1.0.0");
+    LOG_INFO("Starting Orpheus DMA Reversing Framework v{}", orpheus::version::VERSION);
 
     // CRITICAL: Extract embedded DLLs before anything else
     LOG_INFO("Initializing runtime environment...");
@@ -31,9 +33,14 @@ int main(int argc, char** argv) {
 
     LOG_INFO("Runtime initialized: {}", runtime.GetAppDataDirectory().string());
 
+    // Send telemetry startup ping (async, non-blocking)
+    orpheus::Telemetry::Instance().SendStartupPing();
+
     // Register cleanup on exit
     std::atexit([]() {
         LOG_INFO("Cleaning up...");
+        // Send shutdown ping with session duration (blocking)
+        orpheus::Telemetry::Instance().SendShutdownPing();
         orpheus::RuntimeManager::Instance().Cleanup();
     });
 
@@ -42,6 +49,7 @@ int main(int argc, char** argv) {
     SetConsoleCtrlHandler([](DWORD type) -> BOOL {
         if (type == CTRL_C_EVENT || type == CTRL_CLOSE_EVENT) {
             LOG_INFO("Received shutdown signal");
+            orpheus::Telemetry::Instance().SendShutdownPing();
             orpheus::RuntimeManager::Instance().Cleanup();
             return TRUE;
         }
