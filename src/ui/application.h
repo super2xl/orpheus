@@ -336,6 +336,13 @@ private:
     std::vector<uint64_t> pattern_results_;
     bool pattern_scanning_ = false;
 
+    // Async pattern scanning state
+    std::future<std::vector<uint64_t>> pattern_scan_future_;
+    std::atomic<bool> pattern_scan_cancel_requested_{false};
+    std::string pattern_scan_progress_stage_;  // "Reading chunk 5/20..."
+    float pattern_scan_progress_ = 0.0f;       // 0.0 to 1.0
+    std::string pattern_scan_error_;           // Error message if failed
+
     // String scanner state
     int string_min_length_ = 4;
     bool scan_ascii_ = true;

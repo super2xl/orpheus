@@ -1891,10 +1891,15 @@ void Application::RenderDecompiler() {
         }
 
         ImGui::SameLine();
-        bool can_decompile = decompiler_initialized_ && decompile_address_ != 0;
+        bool has_address_input = strlen(decompile_address_input_) > 0;
+        bool can_decompile = decompiler_initialized_ && has_address_input;
         if (!can_decompile) ImGui::BeginDisabled();
         if (ImGui::Button("Decompile")) {
-            if (decompiler_) {
+            // Parse address from input when button is clicked
+            decompile_address_ = strtoull(decompile_address_input_, nullptr, 16);
+            if (decompile_address_ == 0) {
+                decompiled_code_ = "// Error: Invalid address (enter a hex address like 7FF600001000)";
+            } else if (decompiler_) {
                 // Set up DMA callback for memory reading
                 decompiler_->SetMemoryCallback([this](uint64_t addr, size_t size, uint8_t* buffer) -> bool {
                     auto data = dma_->ReadMemory(selected_pid_, addr, static_cast<uint32_t>(size));
@@ -1955,6 +1960,25 @@ void Application::RenderDecompiler() {
 void Application::RenderPatternScanner() {
     ImGui::Begin("Pattern Scanner", &panels_.pattern_scanner);
 
+    // Check for async scan completion
+    if (pattern_scanning_ && pattern_scan_future_.valid()) {
+        auto status = pattern_scan_future_.wait_for(std::chrono::milliseconds(0));
+        if (status == std::future_status::ready) {
+            try {
+                pattern_results_ = pattern_scan_future_.get();
+                pattern_scan_error_.clear();
+                LOG_INFO("Pattern scan found {} results", pattern_results_.size());
+            } catch (const std::exception& e) {
+                pattern_scan_error_ = e.what();
+                pattern_results_.clear();
+                LOG_ERROR("Pattern scan failed: {}", e.what());
+            }
+            pattern_scanning_ = false;
+            pattern_scan_progress_ = 1.0f;
+            pattern_scan_progress_stage_ = "Complete";
+        }
+    }
+
     if (selected_pid_ != 0 && dma_ && dma_->IsConnected()) {
         // Module selection header
         if (selected_module_base_ != 0) {
@@ -1975,20 +1999,156 @@ void Application::RenderPatternScanner() {
         bool can_scan = selected_module_base_ != 0 && !pattern_scanning_;
         if (!can_scan) ImGui::BeginDisabled();
         if (ImGui::Button("Scan")) {
-            pattern_scanning_ = true;
-            pattern_results_.clear();
+            // Compile pattern on main thread for fast validation
+            auto compiled_pattern = analysis::PatternScanner::Compile(pattern_input_);
+            if (compiled_pattern) {
+                pattern_scanning_ = true;
+                pattern_scan_cancel_requested_ = false;
+                pattern_results_.clear();
+                pattern_scan_error_.clear();
+                pattern_scan_progress_ = 0.0f;
+                pattern_scan_progress_stage_ = "Starting...";
 
-            auto pattern = analysis::PatternScanner::Compile(pattern_input_);
-            if (pattern) {
-                auto data = dma_->ReadMemory(selected_pid_, selected_module_base_, selected_module_size_);
-                if (!data.empty()) {
-                    pattern_results_ = analysis::PatternScanner::Scan(data, *pattern, selected_module_base_);
-                    LOG_INFO("Pattern scan found {} results", pattern_results_.size());
-                }
+                // Capture state for async lambda
+                uint32_t pid = selected_pid_;
+                uint64_t module_base = selected_module_base_;
+                uint32_t module_size = selected_module_size_;
+                analysis::Pattern pattern = *compiled_pattern;
+                auto* dma = dma_.get();
+
+                pattern_scan_future_ = std::async(std::launch::async,
+                    [pid, module_base, module_size, pattern, dma,
+                     &cancel_flag = pattern_scan_cancel_requested_,
+                     &progress_stage = pattern_scan_progress_stage_,
+                     &progress = pattern_scan_progress_]() -> std::vector<uint64_t> {
+
+                    std::vector<uint64_t> results;
+
+                    // Chunk configuration
+                    constexpr size_t CHUNK_SIZE = 2 * 1024 * 1024;  // 2MB chunks
+                    const size_t pattern_len = pattern.bytes.size();
+                    const size_t overlap_size = pattern_len > 0 ? pattern_len - 1 : 0;
+
+                    // Calculate total chunks
+                    size_t total_chunks = (module_size + CHUNK_SIZE - 1) / CHUNK_SIZE;
+                    if (total_chunks == 0) total_chunks = 1;
+
+                    // Buffer to hold overlap bytes from previous chunk
+                    std::vector<uint8_t> overlap_buffer;
+                    overlap_buffer.reserve(overlap_size);
+
+                    size_t bytes_processed = 0;
+                    size_t chunk_index = 0;
+
+                    while (bytes_processed < module_size) {
+                        // Check for cancellation
+                        if (cancel_flag.load()) {
+                            progress_stage = "Cancelled";
+                            return results;
+                        }
+
+                        // Calculate chunk parameters
+                        size_t chunk_offset = bytes_processed;
+                        size_t remaining = module_size - bytes_processed;
+                        size_t chunk_size = std::min(CHUNK_SIZE, remaining);
+
+                        // Update progress - reading phase
+                        chunk_index++;
+                        progress_stage = "Reading chunk " + std::to_string(chunk_index) + "/" + std::to_string(total_chunks) + "...";
+                        progress = static_cast<float>(chunk_index - 1) / static_cast<float>(total_chunks * 2);
+
+                        // Read chunk from memory
+                        auto chunk_data = dma->ReadMemory(pid, module_base + chunk_offset, chunk_size);
+                        if (chunk_data.empty()) {
+                            // Skip unreadable chunks but continue
+                            bytes_processed += chunk_size;
+                            overlap_buffer.clear();
+                            continue;
+                        }
+
+                        // Check for cancellation after read
+                        if (cancel_flag.load()) {
+                            progress_stage = "Cancelled";
+                            return results;
+                        }
+
+                        // Update progress - scanning phase
+                        progress_stage = "Scanning chunk " + std::to_string(chunk_index) + "/" + std::to_string(total_chunks) + "...";
+                        progress = static_cast<float>(chunk_index * 2 - 1) / static_cast<float>(total_chunks * 2);
+
+                        // Handle boundary overlap - scan across chunk boundary
+                        if (!overlap_buffer.empty() && overlap_buffer.size() == overlap_size) {
+                            // Create combined buffer: last (overlap_size) bytes of previous chunk + first (overlap_size) bytes of current chunk
+                            std::vector<uint8_t> boundary_buffer;
+                            boundary_buffer.reserve(overlap_size * 2);
+                            boundary_buffer.insert(boundary_buffer.end(), overlap_buffer.begin(), overlap_buffer.end());
+                            size_t bytes_to_add = std::min(overlap_size, chunk_data.size());
+                            boundary_buffer.insert(boundary_buffer.end(), chunk_data.begin(), chunk_data.begin() + bytes_to_add);
+
+                            // Scan boundary region - base address is at the start of overlap_buffer
+                            uint64_t boundary_base = module_base + chunk_offset - overlap_size;
+                            auto boundary_matches = analysis::PatternScanner::Scan(boundary_buffer, pattern, boundary_base);
+
+                            // Only keep matches that actually span the boundary
+                            for (uint64_t match_addr : boundary_matches) {
+                                // Match spans boundary if it starts in overlap region but extends into current chunk
+                                uint64_t match_end = match_addr + pattern_len;
+                                uint64_t chunk_start_addr = module_base + chunk_offset;
+                                if (match_addr < chunk_start_addr && match_end > chunk_start_addr) {
+                                    results.push_back(match_addr);
+                                }
+                            }
+                        }
+
+                        // Scan main chunk
+                        uint64_t chunk_base = module_base + chunk_offset;
+                        auto chunk_matches = analysis::PatternScanner::Scan(chunk_data, pattern, chunk_base);
+                        results.insert(results.end(), chunk_matches.begin(), chunk_matches.end());
+
+                        // Save last (overlap_size) bytes for next iteration
+                        overlap_buffer.clear();
+                        if (chunk_data.size() >= overlap_size) {
+                            overlap_buffer.insert(overlap_buffer.end(),
+                                chunk_data.end() - overlap_size, chunk_data.end());
+                        } else {
+                            overlap_buffer = chunk_data;  // Chunk smaller than overlap, keep all
+                        }
+
+                        bytes_processed += chunk_size;
+                    }
+
+                    // Sort results by address and remove duplicates
+                    std::sort(results.begin(), results.end());
+                    results.erase(std::unique(results.begin(), results.end()), results.end());
+
+                    progress_stage = "Complete";
+                    progress = 1.0f;
+                    return results;
+                });
+            } else {
+                pattern_scan_error_ = "Invalid pattern syntax";
             }
-            pattern_scanning_ = false;
         }
         if (!can_scan) ImGui::EndDisabled();
+
+        // Cancel button (visible during scan)
+        if (pattern_scanning_) {
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) {
+                pattern_scan_cancel_requested_ = true;
+            }
+        }
+
+        // Progress indicator (visible during scan)
+        if (pattern_scanning_) {
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "%s", pattern_scan_progress_stage_.c_str());
+            ImGui::ProgressBar(pattern_scan_progress_, ImVec2(-1, 0));
+        }
+
+        // Error display
+        if (!pattern_scan_error_.empty()) {
+            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Error: %s", pattern_scan_error_.c_str());
+        }
 
         ImGui::Separator();
 
@@ -1997,6 +2157,7 @@ void Application::RenderPatternScanner() {
         ImGui::SameLine();
         if (ImGui::SmallButton("Clear")) {
             pattern_results_.clear();
+            pattern_scan_error_.clear();
         }
 
         ImGui::BeginChild("##PatternResults", ImVec2(0, 0), true);
