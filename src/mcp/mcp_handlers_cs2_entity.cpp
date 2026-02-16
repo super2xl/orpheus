@@ -865,23 +865,23 @@ std::string MCPServer::HandleCS2ListPlayers(const std::string& body) {
 
         auto reader = utils::MakeReader(dma, pid);
 
-        // Verified offsets from research
-        constexpr uint32_t OFFSET_PLAYER_NAME = 0x6E8;      // m_iszPlayerName
-        constexpr uint32_t OFFSET_TEAM_NUM = 0x3EB;         // m_iTeamNum (on controller)
-        constexpr uint32_t OFFSET_PAWN_HANDLE = 0x8FC;      // m_hPlayerPawn
-        constexpr uint32_t OFFSET_PAWN_IS_ALIVE = 0x904;    // m_bPawnIsAlive
-        constexpr uint32_t OFFSET_PAWN_HEALTH = 0x908;      // m_iPawnHealth
-        constexpr uint32_t OFFSET_CONNECTED = 0x6E4;        // m_iConnected
-        constexpr uint32_t OFFSET_STEAM_ID = 0x770;         // m_steamID
-        constexpr uint32_t OFFSET_IS_LOCAL = 0x778;         // m_bIsLocalPlayerController
+        // Controller offsets (from schema - updated 2026-02-15)
+        constexpr uint32_t OFFSET_PLAYER_NAME = 0x6F8;      // m_iszPlayerName
+        constexpr uint32_t OFFSET_TEAM_NUM = 0x3F3;         // m_iTeamNum (on controller)
+        constexpr uint32_t OFFSET_PAWN_HANDLE = 0x90C;      // m_hPlayerPawn
+        constexpr uint32_t OFFSET_PAWN_IS_ALIVE = 0x914;    // m_bPawnIsAlive
+        constexpr uint32_t OFFSET_PAWN_HEALTH = 0x918;      // m_iPawnHealth
+        constexpr uint32_t OFFSET_CONNECTED = 0x6F4;        // m_iConnected
+        constexpr uint32_t OFFSET_STEAM_ID = 0x780;         // m_steamID
+        constexpr uint32_t OFFSET_IS_LOCAL = 0x788;         // m_bIsLocalPlayerController
 
         // Pawn offsets
-        constexpr uint32_t OFFSET_PAWN_TEAM = 0x3EB;        // m_iTeamNum on pawn
-        constexpr uint32_t OFFSET_SCENE_NODE = 0x330;       // m_pGameSceneNode
+        constexpr uint32_t OFFSET_PAWN_TEAM = 0x3F3;        // m_iTeamNum on pawn
+        constexpr uint32_t OFFSET_SCENE_NODE = 0x338;       // m_pGameSceneNode
         constexpr uint32_t OFFSET_ABS_ORIGIN = 0xD0;        // m_vecAbsOrigin on scene node
 
-        // EntitySpottedState_t offsets (relative to pawn + 0x2700)
-        constexpr uint32_t OFFSET_SPOTTED_STATE = 0x2700;   // m_entitySpottedState
+        // EntitySpottedState_t offsets (relative to pawn + 0x26E0)
+        constexpr uint32_t OFFSET_SPOTTED_STATE = 0x26E0;   // m_entitySpottedState
         constexpr uint32_t OFFSET_SPOTTED = 0x08;           // m_bSpotted within EntitySpottedState_t
         constexpr uint32_t OFFSET_SPOTTED_MASK = 0x0C;      // m_bSpottedByMask within EntitySpottedState_t
 
@@ -975,13 +975,13 @@ std::string MCPServer::HandleCS2ListPlayers(const std::string& body) {
 
                             // Read EntitySpottedState_t
                             if (include_spotted) {
-                                // m_bSpotted at pawn + 0x2700 + 0x08
+                                // m_bSpotted at pawn + 0x26E0 + 0x08
                                 auto spotted = reader.ReadU8(*pawn + OFFSET_SPOTTED_STATE + OFFSET_SPOTTED);
                                 if (spotted) {
                                     player["is_spotted"] = *spotted != 0;
                                 }
 
-                                // m_bSpottedByMask at pawn + 0x2700 + 0x0C (uint32[2])
+                                // m_bSpottedByMask at pawn + 0x26E0 + 0x0C (uint32[2])
                                 auto mask_data = dma->ReadMemory(pid, *pawn + OFFSET_SPOTTED_STATE + OFFSET_SPOTTED_MASK, 8);
                                 if (mask_data.size() >= 8) {
                                     uint32_t mask_low, mask_high;
@@ -1087,7 +1087,7 @@ std::string MCPServer::HandleCS2GetGameState(const std::string& body) {
                 for (int i = 1; i <= 64; i++) {
                     auto controller = reader.ReadPtr(chunk0_base + 0x08 + i * 0x70);
                     if (controller && *controller != 0 && *controller > 0x10000000000ULL) {
-                        auto connected = reader.ReadU32(*controller + 0x6E4);
+                        auto connected = reader.ReadU32(*controller + 0x6F4);
                         if (connected && *connected <= 2) {  // 0=Connected, 1=Connecting, 2=Reconnecting
                             player_count++;
                         }
@@ -1111,8 +1111,8 @@ std::string MCPServer::HandleCS2GetGameState(const std::string& body) {
 
         // Additional info: read local player health if available
         if (has_local_player) {
-            auto health = reader.ReadU32(*local_controller + 0x908);
-            auto alive = reader.ReadU8(*local_controller + 0x904);
+            auto health = reader.ReadU32(*local_controller + 0x918);
+            auto alive = reader.ReadU8(*local_controller + 0x914);
             if (health) result["local_health"] = *health;
             if (alive) result["local_alive"] = *alive != 0;
         }

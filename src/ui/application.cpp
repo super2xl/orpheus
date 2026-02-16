@@ -4217,14 +4217,14 @@ void Application::RenderCS2EntityInspector() {
 
     // Player List Section - enumerate all connected players
     if (ImGui::CollapsingHeader("Player List")) {
-        // Verified offsets from research
-        constexpr uint32_t OFFSET_PLAYER_NAME = 0x6E8;
-        constexpr uint32_t OFFSET_TEAM_NUM = 0x3EB;
-        constexpr uint32_t OFFSET_PAWN_HANDLE = 0x8FC;
-        constexpr uint32_t OFFSET_PAWN_IS_ALIVE = 0x904;
-        constexpr uint32_t OFFSET_PAWN_HEALTH = 0x908;
-        constexpr uint32_t OFFSET_CONNECTED = 0x6E4;
-        constexpr uint32_t OFFSET_STEAM_ID = 0x770;
+        // Controller offsets (from schema - updated 2026-02-15)
+        constexpr uint32_t OFFSET_PLAYER_NAME = 0x6F8;
+        constexpr uint32_t OFFSET_TEAM_NUM = 0x3F3;
+        constexpr uint32_t OFFSET_PAWN_HANDLE = 0x90C;
+        constexpr uint32_t OFFSET_PAWN_IS_ALIVE = 0x914;
+        constexpr uint32_t OFFSET_PAWN_HEALTH = 0x918;
+        constexpr uint32_t OFFSET_CONNECTED = 0x6F4;
+        constexpr uint32_t OFFSET_STEAM_ID = 0x780;
 
         // Read chunk 0 pointer (controllers are in indices 1-64)
         auto chunk0_ptr_data = dma_->ReadMemory(selected_pid_, cs2_entity_system_ + 0x10, 8);
@@ -6290,17 +6290,17 @@ void Application::RefreshRadarData() {
 
     radar_players_.clear();
 
-    // Verified offsets from HandleCS2ListPlayers
-    constexpr uint32_t OFFSET_PLAYER_NAME = 0x6E8;
-    constexpr uint32_t OFFSET_TEAM_NUM = 0x3EB;
-    constexpr uint32_t OFFSET_PAWN_HANDLE = 0x8FC;
-    constexpr uint32_t OFFSET_PAWN_IS_ALIVE = 0x904;
-    constexpr uint32_t OFFSET_PAWN_HEALTH = 0x908;
-    constexpr uint32_t OFFSET_CONNECTED = 0x6E4;
-    constexpr uint32_t OFFSET_IS_LOCAL = 0x778;
-    constexpr uint32_t OFFSET_SCENE_NODE = 0x330;
+    // Controller/pawn offsets (from schema - updated 2026-02-15)
+    constexpr uint32_t OFFSET_PLAYER_NAME = 0x6F8;
+    constexpr uint32_t OFFSET_TEAM_NUM = 0x3F3;
+    constexpr uint32_t OFFSET_PAWN_HANDLE = 0x90C;
+    constexpr uint32_t OFFSET_PAWN_IS_ALIVE = 0x914;
+    constexpr uint32_t OFFSET_PAWN_HEALTH = 0x918;
+    constexpr uint32_t OFFSET_CONNECTED = 0x6F4;
+    constexpr uint32_t OFFSET_IS_LOCAL = 0x788;
+    constexpr uint32_t OFFSET_SCENE_NODE = 0x338;
     constexpr uint32_t OFFSET_ABS_ORIGIN = 0xD0;
-    constexpr uint32_t OFFSET_SPOTTED_STATE = 0x2700;
+    constexpr uint32_t OFFSET_SPOTTED_STATE = 0x26E0;
     constexpr uint32_t OFFSET_SPOTTED = 0x08;
 
     // Read chunk 0 pointer
