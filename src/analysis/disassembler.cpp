@@ -120,6 +120,33 @@ std::optional<InstructionInfo> Disassembler::DisassembleOne(const uint8_t* data,
                     instruction.meta.category == ZYDIS_CATEGORY_COND_BR);
     info.is_conditional = (instruction.meta.category == ZYDIS_CATEGORY_COND_BR);
 
+    // Classify instruction category for syntax coloring
+    if (info.is_call) {
+        info.category = InstructionCategory::Call;
+    } else if (info.is_ret) {
+        info.category = InstructionCategory::Return;
+    } else if (info.is_conditional) {
+        info.category = InstructionCategory::ConditionalJump;
+    } else if (info.is_jump) {
+        info.category = InstructionCategory::Jump;
+    } else if (instruction.meta.category == ZYDIS_CATEGORY_PUSH) {
+        info.category = InstructionCategory::Push;
+    } else if (instruction.meta.category == ZYDIS_CATEGORY_POP) {
+        info.category = InstructionCategory::Pop;
+    } else if (instruction.meta.category == ZYDIS_CATEGORY_NOP ||
+               instruction.meta.category == ZYDIS_CATEGORY_INTERRUPT) {
+        info.category = InstructionCategory::Nop;
+    } else if (instruction.mnemonic == ZYDIS_MNEMONIC_CMP ||
+               instruction.mnemonic == ZYDIS_MNEMONIC_TEST) {
+        info.category = InstructionCategory::Compare;
+    } else if (instruction.mnemonic == ZYDIS_MNEMONIC_SYSCALL ||
+               instruction.mnemonic == ZYDIS_MNEMONIC_SYSENTER ||
+               instruction.mnemonic == ZYDIS_MNEMONIC_HLT) {
+        info.category = InstructionCategory::System;
+    } else {
+        info.category = InstructionCategory::Default;
+    }
+
     // Check for memory access
     info.is_memory_access = false;
     for (size_t i = 0; i < instruction.operand_count; i++) {
@@ -178,6 +205,7 @@ std::vector<InstructionInfo> Disassembler::Disassemble(const std::vector<uint8_t
                << static_cast<int>(data[offset]);
             invalid.operands = ss.str();
             invalid.full_text = "db " + invalid.operands;
+            invalid.category = InstructionCategory::Nop;  // Treat invalid bytes like padding
             invalid.is_call = false;
             invalid.is_jump = false;
             invalid.is_ret = false;

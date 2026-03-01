@@ -52,11 +52,13 @@ std::string MCPServer::HandleEvaluateExpression(const std::string& body) {
             // Module resolver
             [&modules](const std::string& name) -> std::optional<uint64_t> {
                 std::string lower_name = name;
-                std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(), ::tolower);
+                std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(),
+                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
                 for (const auto& mod : modules) {
                     std::string lower_mod = mod.name;
-                    std::transform(lower_mod.begin(), lower_mod.end(), lower_mod.begin(), ::tolower);
+                    std::transform(lower_mod.begin(), lower_mod.end(), lower_mod.begin(),
+                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
                     if (lower_mod == lower_name) {
                         return mod.base_address;

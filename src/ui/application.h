@@ -171,6 +171,8 @@ private:
     // Panels - Analysis
     void RenderPatternScanner();
     void RenderStringScanner();
+    void RenderStringContextMenu(const analysis::StringMatch& str, const char* addr_buf);
+    void RenderStringTooltip(const analysis::StringMatch& str);
     void RenderMemoryWatcher();
     void RenderRTTIScanner();
     void RenderBookmarks();
@@ -236,6 +238,7 @@ private:
     ImFont* font_regular_ = nullptr;   // JetBrains Mono Regular - main UI
     ImFont* font_bold_ = nullptr;      // JetBrains Mono Bold - headings
     ImFont* font_mono_ = nullptr;      // JetBrains Mono Medium - hex/disasm
+    bool icons_loaded_ = false;        // Whether icon font (FontAwesome) was merged
 
     // Appearance
     Theme current_theme_ = Theme::Dark;
@@ -349,6 +352,12 @@ private:
     bool scan_unicode_ = true;
     std::vector<analysis::StringMatch> string_results_;
     bool string_scanning_ = false;
+    std::future<std::vector<analysis::StringMatch>> string_scan_future_;
+    std::atomic<bool> string_scan_cancel_requested_{false};
+    std::string string_scan_progress_stage_;
+    float string_scan_progress_ = 0.0f;
+    std::string string_scan_error_;
+    char string_filter_[256] = {};
 
     // Console state
     char console_filter_[256] = {};

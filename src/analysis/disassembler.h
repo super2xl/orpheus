@@ -13,6 +13,22 @@ struct ZydisFormatter_;
 namespace orpheus::analysis {
 
 /**
+ * InstructionCategory - Classification for syntax coloring
+ */
+enum class InstructionCategory : uint8_t {
+    Default = 0,        // General data movement (MOV, LEA, XCHG)
+    Call,               // CALL
+    Jump,               // JMP (unconditional)
+    ConditionalJump,    // Jcc (JE, JNE, JA, JB, etc.)
+    Return,             // RET, RETN, RETF
+    Push,               // PUSH
+    Pop,                // POP
+    Compare,            // CMP, TEST
+    Nop,                // NOP, INT3, INT padding
+    System,             // SYSCALL, SYSENTER, HLT
+};
+
+/**
  * InstructionInfo - Single disassembled instruction
  */
 struct InstructionInfo {
@@ -22,6 +38,9 @@ struct InstructionInfo {
     std::string mnemonic;
     std::string operands;
     std::string full_text;      // Complete formatted instruction
+
+    // Category for syntax coloring
+    InstructionCategory category = InstructionCategory::Default;
 
     // Analysis info
     bool is_call;

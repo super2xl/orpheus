@@ -90,6 +90,21 @@ function(embed_all_dlls)
         "${FONT_DIR}/JetBrainsMono-Medium.ttf"
     )
 
+    # Icon font (FontAwesome 6 Free Solid) - optional
+    set(ICON_FONT_FILE "${FONT_DIR}/fa-solid-900.ttf")
+    set(HAS_ICON_FONT FALSE)
+    if(EXISTS "${ICON_FONT_FILE}")
+        set(output_file "${OUTPUT_DIR}/embedded_fa_solid_900.h")
+        embed_resource("${ICON_FONT_FILE}" "${output_file}")
+        list(APPEND EMBEDDED_HEADERS "${output_file}")
+        set(HAS_ICON_FONT TRUE)
+        message(STATUS "Embedded icon font: fa-solid-900.ttf")
+    else()
+        message(STATUS "Icon font not found (optional): ${ICON_FONT_FILE}")
+        message(STATUS "  Download FontAwesome 6 Free from https://fontawesome.com/download")
+        message(STATUS "  Place fa-solid-900.ttf in resources/fonts/")
+    endif()
+
     # SLEIGH processor specification files for Ghidra decompiler
     set(EMBEDDED_SLEIGH
         "${SLEIGH_DIR}/x86.ldefs"
@@ -285,6 +300,22 @@ function(embed_all_dlls)
         "    {\"JetBrainsMono-Medium.ttf\", jetbrainsmono_medium_ttf, jetbrainsmono_medium_ttf_size},\n"
         "}};\n\n"
     )
+
+    # Icon font availability
+    if(HAS_ICON_FONT)
+        file(APPEND "${MASTER_HEADER}"
+            "// Icon font (FontAwesome 6 Free Solid)\n"
+            "inline constexpr bool has_icon_font = true;\n"
+            "// fa_solid_900_ttf and fa_solid_900_ttf_size defined in embedded_fa_solid_900.h\n\n"
+        )
+    else()
+        file(APPEND "${MASTER_HEADER}"
+            "// Icon font not available - download fa-solid-900.ttf to resources/fonts/\n"
+            "inline constexpr bool has_icon_font = false;\n"
+            "inline constexpr unsigned char fa_solid_900_ttf[] = {0};\n"
+            "inline constexpr size_t fa_solid_900_ttf_size = 0;\n\n"
+        )
+    endif()
 
     # SLEIGH resources
     if(HAS_SLEIGH)

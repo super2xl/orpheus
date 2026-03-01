@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-03-01
+
+### Added
+- **FontAwesome icon integration**: Icons throughout menus, toolbars, context menus, and status bar with graceful fallback when font not available
+- **Shared UI helper system**: `panel_helpers.h` with reusable components (EmptyState, AccentButton, DangerButton, HelpTooltip, FormatAddress, ProgressBarWithText, etc.)
+- **Layout constants**: Centralized table flags, column widths, and spacing values in `layout_constants.h`
+- **Theme-aware semantic colors**: `colors::` namespace (Success, Error, Warning, Info, Muted, Accent) that adapts to light/dark themes
+- **Async string scanner**: Chunked 2MB reads with progress bar, cancel button, and real-time string filter
+- **Disassembly syntax coloring**: VS Code Dark+ palette with 10 mnemonic categories and tokenized operand rendering
+
+### Changed
+- **Extracted 31 panel/dialog files** from `application.cpp` monolith (~6000 lines) into individual files under `src/ui/panels/`
+- **Consolidated icon fallback pattern**: All `icons_loaded_` ternary patterns replaced with `ICON_OR_TEXT` macro
+- **Empty states for all panels**: Consistent "no data" messaging with title + subtitle pattern
+
+### Fixed
+- **C4244 compiler warnings**: All bare `::tolower` usages across the codebase replaced with safe lambda pattern (emulator, MCP handlers, expression evaluator, UI panels)
+
 ## [0.1.7] - 2026-02-01
 
 ### Added

@@ -97,7 +97,7 @@ file(GLOB_RECURSE ORPHEUS_SOURCES
 # Remove installer sources from main executable
 list(FILTER ORPHEUS_SOURCES EXCLUDE REGEX ".*installer.*")
 # Remove decompiler sources (added conditionally below)
-list(FILTER ORPHEUS_SOURCES EXCLUDE REGEX ".*decompiler.*")
+list(FILTER ORPHEUS_SOURCES EXCLUDE REGEX ".*/decompiler/.*")
 
 # Windows resource file (for .exe icon)
 if(WIN32)

@@ -268,7 +268,8 @@ std::optional<uint64_t> ExpressionEvaluator::ParsePrimary() {
 
         // Convert to lowercase for case-insensitive matching
         std::string lower = name;
-        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
         // Try register first (if resolver available)
         if (register_resolver_) {

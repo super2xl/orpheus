@@ -159,8 +159,10 @@ std::string MCPServer::HandleScanStrings(const std::string& body) {
                 // Case-insensitive contains check
                 std::string lower_value = str.value;
                 std::string lower_filter = contains_filter;
-                std::transform(lower_value.begin(), lower_value.end(), lower_value.begin(), ::tolower);
-                std::transform(lower_filter.begin(), lower_filter.end(), lower_filter.begin(), ::tolower);
+                std::transform(lower_value.begin(), lower_value.end(), lower_value.begin(),
+                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                std::transform(lower_filter.begin(), lower_filter.end(), lower_filter.begin(),
+                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
                 if (lower_value.find(lower_filter) == std::string::npos) {
                     continue;  // Skip strings that don't match filter
@@ -489,8 +491,10 @@ std::string MCPServer::HandleScanStringsAsync(const std::string& body) {
                     if (!contains_filter.empty()) {
                         std::string lower_value = str.value;
                         std::string lower_filter = contains_filter;
-                        std::transform(lower_value.begin(), lower_value.end(), lower_value.begin(), ::tolower);
-                        std::transform(lower_filter.begin(), lower_filter.end(), lower_filter.begin(), ::tolower);
+                        std::transform(lower_value.begin(), lower_value.end(), lower_value.begin(),
+                            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                        std::transform(lower_filter.begin(), lower_filter.end(), lower_filter.begin(),
+                            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
                         if (lower_value.find(lower_filter) == std::string::npos) {
                             continue;

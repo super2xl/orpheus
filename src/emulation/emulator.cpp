@@ -603,7 +603,8 @@ std::optional<Reg> ParseRegister(const std::string& name) {
 
     // Convert to lowercase
     std::string lower = name;
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
     auto it = reg_map.find(lower);
     if (it != reg_map.end()) {
