@@ -106,16 +106,15 @@ std::string MCPServer::HandleCS2Init(const std::string& body) {
 
         // Create or recreate dumper if PID changed
         if (cs2_schema_ && cs2_schema_pid_ != pid) {
-            delete static_cast<orpheus::dumper::CS2SchemaDumper*>(cs2_schema_);
-            cs2_schema_ = nullptr;
+            cs2_schema_.reset();
         }
 
         if (!cs2_schema_) {
-            cs2_schema_ = new orpheus::dumper::CS2SchemaDumper(dma, pid);
+            cs2_schema_ = std::make_unique<orpheus::dumper::CS2SchemaDumper>(dma, pid);
             cs2_schema_pid_ = pid;
         }
 
-        auto* dumper = static_cast<orpheus::dumper::CS2SchemaDumper*>(cs2_schema_);
+        auto* dumper = cs2_schema_.get();
 
         if (!dumper->Initialize(schemasystem_mod->base_address)) {
             return CreateErrorResponse("Failed to initialize CS2 Schema: " + dumper->GetLastError());
@@ -447,7 +446,7 @@ std::string MCPServer::HandleCS2Identify(const std::string& body) {
 
         // Try to find matching schema class
         if (cs2_schema_) {
-            auto* dumper = static_cast<orpheus::dumper::CS2SchemaDumper*>(cs2_schema_);
+            auto* dumper = cs2_schema_.get();
             if (dumper->IsInitialized()) {
                 const orpheus::dumper::SchemaClass* schema_class = dumper->FindClass(class_name);
                 if (schema_class) {
@@ -722,7 +721,7 @@ std::string MCPServer::HandleCS2GetLocalPlayer(const std::string& body) {
 
         // Try to read pawn handle from controller
         if (cs2_schema_) {
-            auto* dumper = static_cast<orpheus::dumper::CS2SchemaDumper*>(cs2_schema_);
+            auto* dumper = cs2_schema_.get();
 
             uint32_t pawn_offset = dumper->GetOffset("CCSPlayerController", "m_hPlayerPawn");
             if (pawn_offset != 0) {

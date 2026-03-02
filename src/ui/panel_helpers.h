@@ -426,4 +426,57 @@ inline int DialogOkCancelButtons(const char* ok_label = "OK", const char* cancel
     return result;
 }
 
+// ============================================================================
+// Search history dropdown
+// ============================================================================
+
+// Renders a small dropdown arrow button that shows recent history entries.
+// Returns true if an entry was selected (and copies it into buf).
+// Place after ImGui::SameLine() next to an input field.
+inline bool HistoryDropdown(const char* id, char* buf, size_t buf_size,
+                            const std::vector<std::string>& history) {
+    if (history.empty()) return false;
+
+    bool selected = false;
+    char popup_id[64];
+    snprintf(popup_id, sizeof(popup_id), "##history_%s", id);
+
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, ImGui::GetStyle().FramePadding.y));
+    if (ImGui::ArrowButton(popup_id, ImGuiDir_Down)) {
+        ImGui::OpenPopup(popup_id);
+    }
+    ImGui::PopStyleVar();
+
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Recent searches (%zu)", history.size());
+    }
+
+    if (ImGui::BeginPopup(popup_id)) {
+        ImGui::TextDisabled("Recent");
+        ImGui::Separator();
+        for (size_t i = 0; i < history.size(); i++) {
+            const auto& entry = history[i];
+            // Truncate display for long entries
+            char display[80];
+            if (entry.length() > 70) {
+                snprintf(display, sizeof(display), "%.67s...", entry.c_str());
+            } else {
+                snprintf(display, sizeof(display), "%s", entry.c_str());
+            }
+            if (ImGui::MenuItem(display)) {
+                snprintf(buf, buf_size, "%s", entry.c_str());
+                selected = true;
+            }
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Clear history")) {
+            // Caller should handle clearing via search_history_->Clear(category)
+            // We can't do it here without access to the manager, so just signal via special return
+        }
+        ImGui::EndPopup();
+    }
+
+    return selected;
+}
+
 } // namespace orpheus::ui

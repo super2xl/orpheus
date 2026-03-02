@@ -47,8 +47,9 @@ void Application::RenderCFGViewer() {
 
     ImGui::SameLine();
     if (AccentButton("Build CFG") || address_entered) {
-        uint64_t addr = strtoull(cfg_address_input_, nullptr, 16);
-        if (addr != 0) {
+        auto parsed = ParseHexAddress(cfg_address_input_);
+        if (parsed) {
+            uint64_t addr = *parsed;
             cfg_function_addr_ = addr;
             auto new_cfg = std::make_unique<analysis::ControlFlowGraph>(
                 cfg_builder_->BuildCFG(addr)

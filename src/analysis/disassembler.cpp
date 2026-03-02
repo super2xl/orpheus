@@ -19,56 +19,45 @@ Disassembler::~Disassembler() {
 
 Disassembler::Disassembler(Disassembler&& other) noexcept
     : is_64bit_(other.is_64bit_)
-    , decoder_(other.decoder_)
-    , formatter_(other.formatter_) {
-    other.decoder_ = nullptr;
-    other.formatter_ = nullptr;
+    , decoder_(std::move(other.decoder_))
+    , formatter_(std::move(other.formatter_)) {
 }
 
 Disassembler& Disassembler::operator=(Disassembler&& other) noexcept {
     if (this != &other) {
-        CleanupDecoder();
         is_64bit_ = other.is_64bit_;
-        decoder_ = other.decoder_;
-        formatter_ = other.formatter_;
-        other.decoder_ = nullptr;
-        other.formatter_ = nullptr;
+        decoder_ = std::move(other.decoder_);
+        formatter_ = std::move(other.formatter_);
     }
     return *this;
 }
 
 void Disassembler::InitDecoder() {
-    decoder_ = new ZydisDecoder;
-    formatter_ = new ZydisFormatter;
+    decoder_ = std::make_unique<ZydisDecoder>();
+    formatter_ = std::make_unique<ZydisFormatter>();
 
     ZydisMachineMode mode = is_64bit_ ? ZYDIS_MACHINE_MODE_LONG_64 : ZYDIS_MACHINE_MODE_LEGACY_32;
     ZydisStackWidth stack_width = is_64bit_ ? ZYDIS_STACK_WIDTH_64 : ZYDIS_STACK_WIDTH_32;
 
-    if (!ZYAN_SUCCESS(ZydisDecoderInit(decoder_, mode, stack_width))) {
+    if (!ZYAN_SUCCESS(ZydisDecoderInit(decoder_.get(), mode, stack_width))) {
         CleanupDecoder();
         return;
     }
 
-    if (!ZYAN_SUCCESS(ZydisFormatterInit(formatter_, ZYDIS_FORMATTER_STYLE_INTEL))) {
+    if (!ZYAN_SUCCESS(ZydisFormatterInit(formatter_.get(), ZYDIS_FORMATTER_STYLE_INTEL))) {
         CleanupDecoder();
         return;
     }
 
     // Configure formatter
-    ZydisFormatterSetProperty(formatter_, ZYDIS_FORMATTER_PROP_FORCE_SIZE, ZYAN_FALSE);
-    ZydisFormatterSetProperty(formatter_, ZYDIS_FORMATTER_PROP_UPPERCASE_MNEMONIC, ZYAN_TRUE);
-    ZydisFormatterSetProperty(formatter_, ZYDIS_FORMATTER_PROP_UPPERCASE_REGISTERS, ZYAN_TRUE);
+    ZydisFormatterSetProperty(formatter_.get(), ZYDIS_FORMATTER_PROP_FORCE_SIZE, ZYAN_FALSE);
+    ZydisFormatterSetProperty(formatter_.get(), ZYDIS_FORMATTER_PROP_UPPERCASE_MNEMONIC, ZYAN_TRUE);
+    ZydisFormatterSetProperty(formatter_.get(), ZYDIS_FORMATTER_PROP_UPPERCASE_REGISTERS, ZYAN_TRUE);
 }
 
 void Disassembler::CleanupDecoder() {
-    if (decoder_) {
-        delete decoder_;
-        decoder_ = nullptr;
-    }
-    if (formatter_) {
-        delete formatter_;
-        formatter_ = nullptr;
-    }
+    decoder_.reset();
+    formatter_.reset();
 }
 
 std::optional<InstructionInfo> Disassembler::DisassembleOne(const uint8_t* data,
@@ -81,7 +70,7 @@ std::optional<InstructionInfo> Disassembler::DisassembleOne(const uint8_t* data,
     ZydisDecodedInstruction instruction;
     ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT];
 
-    if (!ZYAN_SUCCESS(ZydisDecoderDecodeFull(decoder_, data, size,
+    if (!ZYAN_SUCCESS(ZydisDecoderDecodeFull(decoder_.get(), data, size,
                                               &instruction, operands))) {
         return std::nullopt;
     }
@@ -95,7 +84,7 @@ std::optional<InstructionInfo> Disassembler::DisassembleOne(const uint8_t* data,
 
     // Format instruction
     char buffer[256];
-    if (ZYAN_SUCCESS(ZydisFormatterFormatInstruction(formatter_, &instruction,
+    if (ZYAN_SUCCESS(ZydisFormatterFormatInstruction(formatter_.get(), &instruction,
                                                       operands, instruction.operand_count_visible,
                                                       buffer, sizeof(buffer), address, nullptr))) {
         info.full_text = buffer;
@@ -149,9 +138,19 @@ std::optional<InstructionInfo> Disassembler::DisassembleOne(const uint8_t* data,
 
     // Check for memory access
     info.is_memory_access = false;
+    info.is_memory_write = false;
+    info.is_memory_read = false;
     for (size_t i = 0; i < instruction.operand_count; i++) {
         if (operands[i].type == ZYDIS_OPERAND_TYPE_MEMORY) {
             info.is_memory_access = true;
+
+            // Determine read/write via Zydis operand actions
+            if (operands[i].actions & ZYDIS_OPERAND_ACTION_MASK_WRITE) {
+                info.is_memory_write = true;
+            }
+            if (operands[i].actions & ZYDIS_OPERAND_ACTION_MASK_READ) {
+                info.is_memory_read = true;
+            }
 
             // Calculate memory address if possible
             ZyanU64 result;

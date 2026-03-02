@@ -21,6 +21,10 @@ namespace emulation {
     class Emulator;
 }
 
+namespace dumper {
+    class CS2SchemaDumper;
+}
+
 namespace ui {
     class Application;
 }
@@ -264,7 +268,7 @@ private:
     utils::CacheManager function_cache_{"functions", "Function recovery"};
 
     // CS2 Schema instance (lazy-initialized)
-    void* cs2_schema_ = nullptr;  // dumper::CS2SchemaDumper* (opaque)
+    std::unique_ptr<dumper::CS2SchemaDumper> cs2_schema_;
     uint32_t cs2_schema_pid_ = 0;
 
     // CS2 scope size lookup helper

@@ -27,8 +27,9 @@ void Application::RenderProcessList() {
         return;
     }
 
-    static char filter[256] = {};
-    FilterBar("##filter", filter, sizeof(filter), layout::kFilterButtonReserve);
+    if (FilterBar("##filter", process_filter_, sizeof(process_filter_), layout::kFilterButtonReserve)) {
+        process_list_dirty_ = true;
+    }
     ImGui::SameLine();
 
     // Auto-refresh toggle button
@@ -67,30 +68,35 @@ void Application::RenderProcessList() {
                 process_sort_column_ = sort_specs->Specs[0].ColumnIndex;
                 process_sort_ascending_ = (sort_specs->Specs[0].SortDirection == ImGuiSortDirection_Ascending);
                 sort_specs->SpecsDirty = false;
+                process_list_dirty_ = true;
             }
         }
 
-        // Build filtered list using shared helper
-        auto filtered_indices = BuildFilteredIndices<ProcessInfo>(
-            cached_processes_, filter,
-            [](const ProcessInfo& p) { return p.name; });
+        // Rebuild filtered+sorted indices only when data/filter/sort changes
+        if (process_list_dirty_) {
+            process_filtered_indices_ = BuildFilteredIndices<ProcessInfo>(
+                cached_processes_, process_filter_,
+                [](const ProcessInfo& p) { return p.name; });
 
-        // Sort filtered indices
-        auto& procs = cached_processes_;
-        int sort_col = process_sort_column_;
-        bool ascending = process_sort_ascending_;
-        std::sort(filtered_indices.begin(), filtered_indices.end(),
-            [&procs, sort_col, ascending](size_t a, size_t b) {
-                const auto& pa = procs[a];
-                const auto& pb = procs[b];
-                int cmp = 0;
-                switch (sort_col) {
-                    case 0: cmp = (pa.pid < pb.pid) ? -1 : (pa.pid > pb.pid) ? 1 : 0; break;
-                    case 1: cmp = pa.name.compare(pb.name); break;
-                    case 2: cmp = (pa.is_64bit == pb.is_64bit) ? 0 : (pa.is_64bit ? 1 : -1); break;
-                }
-                return ascending ? (cmp < 0) : (cmp > 0);
-            });
+            auto& procs = cached_processes_;
+            int sort_col = process_sort_column_;
+            bool ascending = process_sort_ascending_;
+            std::sort(process_filtered_indices_.begin(), process_filtered_indices_.end(),
+                [&procs, sort_col, ascending](size_t a, size_t b) {
+                    const auto& pa = procs[a];
+                    const auto& pb = procs[b];
+                    int cmp = 0;
+                    switch (sort_col) {
+                        case 0: cmp = (pa.pid < pb.pid) ? -1 : (pa.pid > pb.pid) ? 1 : 0; break;
+                        case 1: cmp = pa.name.compare(pb.name); break;
+                        case 2: cmp = (pa.is_64bit == pb.is_64bit) ? 0 : (pa.is_64bit ? 1 : -1); break;
+                    }
+                    return ascending ? (cmp < 0) : (cmp > 0);
+                });
+            process_list_dirty_ = false;
+        }
+
+        const auto& filtered_indices = process_filtered_indices_;
 
         // Render sorted list
         ImGuiListClipper clipper;

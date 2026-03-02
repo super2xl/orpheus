@@ -8,10 +8,12 @@
 #include <deque>
 #include <future>
 #include <atomic>
+#include <mutex>
 #include <chrono>
 
 #include "core/dma_interface.h"
 #include "analysis/function_recovery.h"
+#include "analysis/write_finder.h"
 
 // Forward declarations
 struct GLFWwindow;
@@ -22,6 +24,7 @@ namespace orpheus {
 
 class DMAInterface;
 class BookmarkManager;
+class SearchHistory;
 
 namespace analysis {
     class Disassembler;
@@ -116,6 +119,7 @@ struct PanelState {
     bool vtable_reader = false;      // VTable reader panel
     bool cache_manager = false;      // Cache management panel
     bool task_manager = false;       // Background task manager panel
+    bool write_tracer = false;       // Write tracer / Find The Handler
 };
 
 /**
@@ -160,6 +164,9 @@ private:
     void RenderMenuBar();
     void RenderStatusBar();
     void RenderToolbar();
+    void RenderToasts();
+    void AddToast(const std::string& message, int type = 0);  // 0=info, 1=success, 2=error
+    void CheckDMAHealth();
 
     // Panels - Core
     void RenderProcessList();
@@ -192,6 +199,7 @@ private:
     void RenderVTableReader();
     void RenderCacheManager();
     void RenderTaskManager();
+    void RenderWriteTracer();
 
     // Dialogs
     void RenderCommandPalette();
@@ -264,6 +272,9 @@ private:
     // Bookmarks
     std::unique_ptr<BookmarkManager> bookmarks_;
 
+    // Search history
+    std::unique_ptr<SearchHistory> search_history_;
+
     // Emulator
     std::unique_ptr<emulation::Emulator> emulator_;
     uint32_t emulator_pid_ = 0;
@@ -304,6 +315,21 @@ private:
     std::string udev_product_id_;
 #endif
 
+    // Toast notification system
+    struct Toast {
+        std::string message;
+        int type = 0;            // 0=info, 1=success, 2=error
+        double creation_time = 0;
+        float duration = 3.0f;   // seconds
+    };
+    std::deque<Toast> toasts_;
+
+    // DMA health monitoring
+    double dma_last_health_check_ = 0;
+    int dma_consecutive_failures_ = 0;
+    bool dma_health_warning_ = false;
+    bool dma_was_connected_ = false;  // Track connection state transitions
+
     // Process state
     uint32_t selected_pid_ = 0;
     std::string selected_process_name_;
@@ -318,9 +344,12 @@ private:
     int module_sort_column_ = 0;   // 0=name, 1=base, 2=size
     bool module_sort_ascending_ = true;
 
-    // Process list sort state
+    // Process list sort state (cached to avoid rebuilding every frame)
     int process_sort_column_ = 0;  // 0=pid, 1=name, 2=arch
     bool process_sort_ascending_ = true;
+    char process_filter_[256] = {};
+    std::vector<size_t> process_filtered_indices_;
+    bool process_list_dirty_ = true;  // Set true when processes/filter/sort change
 
     // Memory viewer state
     uint64_t memory_address_ = 0;
@@ -339,11 +368,14 @@ private:
     std::vector<uint64_t> pattern_results_;
     bool pattern_scanning_ = false;
 
+    // Mutex protecting progress stage strings shared between async threads and UI thread
+    mutable std::mutex progress_mutex_;
+
     // Async pattern scanning state
     std::future<std::vector<uint64_t>> pattern_scan_future_;
     std::atomic<bool> pattern_scan_cancel_requested_{false};
     std::string pattern_scan_progress_stage_;  // "Reading chunk 5/20..."
-    float pattern_scan_progress_ = 0.0f;       // 0.0 to 1.0
+    std::atomic<float> pattern_scan_progress_{0.0f};  // 0.0 to 1.0
     std::string pattern_scan_error_;           // Error message if failed
 
     // String scanner state
@@ -355,7 +387,7 @@ private:
     std::future<std::vector<analysis::StringMatch>> string_scan_future_;
     std::atomic<bool> string_scan_cancel_requested_{false};
     std::string string_scan_progress_stage_;
-    float string_scan_progress_ = 0.0f;
+    std::atomic<float> string_scan_progress_{0.0f};
     std::string string_scan_error_;
     char string_filter_[256] = {};
 
@@ -542,7 +574,7 @@ private:
     bool function_recovery_follow_calls_ = true;
     bool function_recovery_use_pdata_ = true;
     std::string function_recovery_progress_stage_;
-    float function_recovery_progress_ = 0.0f;
+    std::atomic<float> function_recovery_progress_{0.0f};
     int function_recovery_sort_column_ = 0;  // 0=address, 1=size, 2=name, 3=source
     bool function_recovery_sort_ascending_ = true;
     char function_containing_input_[32] = {};
@@ -618,6 +650,17 @@ private:
     float task_refresh_timer_ = 0.0f;
     float task_refresh_interval_ = 0.5f;  // Refresh every 500ms
     int task_filter_status_ = 0;  // 0=All, 1=Running, 2=Completed, 3=Failed
+
+    // Write Tracer state
+    char write_target_input_[32] = {};
+    int write_trace_depth_ = 5;
+    bool write_tracing_ = false;
+    std::future<analysis::WriteTraceResult> write_trace_future_;
+    analysis::WriteTraceResult write_trace_result_;
+    std::string write_trace_error_;
+    std::atomic<float> write_trace_progress_{0.0f};
+    std::string write_trace_progress_stage_;
+    std::atomic<bool> write_trace_cancel_{false};
 
     // Helper functions for radar
     bool LoadRadarMap(const std::string& map_name);

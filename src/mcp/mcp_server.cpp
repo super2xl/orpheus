@@ -54,12 +54,7 @@ MCPServer::MCPServer(ui::Application* app)
 
 MCPServer::~MCPServer() {
     Stop();
-
-    // Clean up CS2 schema dumper if allocated
-    if (cs2_schema_) {
-        delete static_cast<orpheus::dumper::CS2SchemaDumper*>(cs2_schema_);
-        cs2_schema_ = nullptr;
-    }
+    cs2_schema_.reset();
 }
 
 // ============================================================================

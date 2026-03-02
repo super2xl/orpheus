@@ -293,7 +293,7 @@ std::string MCPServer::HandleDecompile(const std::string& body) {
         int types_injected = 0;
         if (inject_schema && !schema_types_injected) {
             if (cs2_schema_) {
-                auto* schema_dumper = static_cast<orpheus::dumper::CS2SchemaDumper*>(cs2_schema_);
+                auto* schema_dumper = cs2_schema_.get();
                 if (schema_dumper->IsInitialized()) {
                     auto schema_classes = schema_dumper->DumpAllDeduplicated();
                     if (!schema_classes.empty()) {

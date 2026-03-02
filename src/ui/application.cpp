@@ -4,6 +4,7 @@
 #include "core/task_manager.h"
 #include "utils/logger.h"
 #include "utils/bookmarks.h"
+#include "utils/search_history.h"
 #include "utils/telemetry.h"
 #include "analysis/disassembler.h"
 #include "analysis/pattern_scanner.h"
@@ -107,6 +108,10 @@ bool Application::Initialize(const std::string& title, int width, int height) {
     // Create bookmark manager and load saved bookmarks
     bookmarks_ = std::make_unique<BookmarkManager>();
     bookmarks_->Load();
+
+    // Create search history and load saved entries
+    search_history_ = std::make_unique<SearchHistory>();
+    search_history_->Load();
 
     LOG_INFO("Orpheus initialized successfully");
     return true;
@@ -861,9 +866,12 @@ void Application::RenderDockspace() {
             dma_connecting_ = false;
             if (success) {
                 LOG_INFO("DMA connected successfully");
+                dma_was_connected_ = true;
+                AddToast("DMA connected successfully", 1);
                 RefreshProcesses();
             } else {
                 LOG_ERROR("DMA connection failed");
+                AddToast("DMA connection failed", 2);
 #ifdef PLATFORM_LINUX
                 // On Linux, DMA failure is often due to USB permission issues
                 // Scan sysfs for FTDI devices (common FPGA vendors)
@@ -943,6 +951,36 @@ void Application::RenderDockspace() {
     RenderMenuBar();
     ImGui::End();
 
+    // DMA warning banner
+    if (dma_health_warning_) {
+        ImGuiViewport* vp = ImGui::GetMainViewport();
+        float banner_height = 28.0f;
+        ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x, vp->WorkPos.y));
+        ImGui::SetNextWindowSize(ImVec2(vp->WorkSize.x, banner_height));
+
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.7f, 0.15f, 0.15f, 0.95f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 4));
+
+        ImGuiWindowFlags banner_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav |
+                                        ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoFocusOnAppearing |
+                                        ImGuiWindowFlags_NoSavedSettings;
+
+        if (ImGui::Begin("##DMAWarning", nullptr, banner_flags)) {
+            ImGui::Text(ICON_OR_TEXT(icons_loaded_, ICON_FA_TRIANGLE_EXCLAMATION " DMA connection issue detected — reads may return empty data. Check FPGA connection.",
+                "WARNING: DMA connection issue detected - reads may return empty data. Check FPGA connection."));
+            ImGui::SameLine(ImGui::GetWindowWidth() - 80);
+            if (ImGui::SmallButton("Dismiss")) {
+                dma_health_warning_ = false;
+                dma_consecutive_failures_ = 0;
+            }
+        }
+        ImGui::End();
+
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(2);
+    }
+
     // Render panels
     if (panels_.process_list) RenderProcessList();
     if (panels_.module_list) RenderModuleList();
@@ -969,6 +1007,7 @@ void Application::RenderDockspace() {
     if (panels_.vtable_reader) RenderVTableReader();
     if (panels_.cache_manager) RenderCacheManager();
     if (panels_.task_manager) RenderTaskManager();
+    if (panels_.write_tracer) RenderWriteTracer();
     if (panels_.console) RenderConsole();
 
     // Dialogs
@@ -983,6 +1022,10 @@ void Application::RenderDockspace() {
 #endif
 
     RenderStatusBar();
+
+    // Overlay systems
+    RenderToasts();
+    CheckDMAHealth();
 }
 
 void Application::RenderMenuBar() {
@@ -1043,6 +1086,7 @@ void Application::RenderMenuBar() {
             // Utility panels
             ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_DATABASE " Cache Manager", "Cache Manager"), nullptr, &panels_.cache_manager);
             ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_LIST_CHECK " Task Manager", "Task Manager"), nullptr, &panels_.task_manager);
+            ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_CROSSHAIRS " Write Tracer", "Write Tracer"), nullptr, &panels_.write_tracer);
             ImGui::Separator();
             if (ImGui::BeginMenu(ICON_OR_TEXT(icons_loaded_, ICON_FA_CROSSHAIRS " Game Tools", "Game Tools"))) {
                 ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_DATABASE " CS2 Schema Dumper", "CS2 Schema Dumper"), "Ctrl+Shift+C", &panels_.cs2_schema);
@@ -1373,6 +1417,138 @@ void Application::RenderStatusBar() {
 void Application::RefreshProcesses() {
     if (dma_ && dma_->IsConnected()) {
         cached_processes_ = dma_->GetProcessList();
+        process_list_dirty_ = true;
+    }
+}
+
+// ============================================================================
+// Toast Notifications
+// ============================================================================
+
+void Application::AddToast(const std::string& message, int type) {
+    Toast t;
+    t.message = message;
+    t.type = type;
+    t.creation_time = glfwGetTime();
+    t.duration = 3.5f;
+    toasts_.push_back(t);
+    // Cap at 5 visible toasts
+    while (toasts_.size() > 5) {
+        toasts_.pop_front();
+    }
+}
+
+void Application::RenderToasts() {
+    if (toasts_.empty()) return;
+
+    double now = glfwGetTime();
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+
+    float y_offset = 40.0f;  // Below toolbar
+    const float toast_width = 320.0f;
+    const float toast_padding = 8.0f;
+
+    for (auto it = toasts_.begin(); it != toasts_.end(); ) {
+        float elapsed = static_cast<float>(now - it->creation_time);
+        if (elapsed >= it->duration) {
+            it = toasts_.erase(it);
+            continue;
+        }
+
+        // Fade in/out
+        float alpha = 1.0f;
+        if (elapsed < 0.3f) alpha = elapsed / 0.3f;
+        else if (elapsed > it->duration - 0.5f) alpha = (it->duration - elapsed) / 0.5f;
+
+        ImVec4 bg_color;
+        ImVec4 text_color = ImVec4(1, 1, 1, alpha);
+        switch (it->type) {
+            case 1: bg_color = ImVec4(0.15f, 0.55f, 0.25f, 0.9f * alpha); break;  // success
+            case 2: bg_color = ImVec4(0.7f, 0.15f, 0.15f, 0.9f * alpha); break;   // error
+            default: bg_color = ImVec4(0.2f, 0.35f, 0.65f, 0.9f * alpha); break;   // info
+        }
+
+        float x_pos = viewport->Pos.x + viewport->Size.x - toast_width - 16.0f;
+        float y_pos = viewport->Pos.y + y_offset;
+
+        ImGui::SetNextWindowPos(ImVec2(x_pos, y_pos));
+        ImGui::SetNextWindowSize(ImVec2(toast_width, 0));
+        ImGui::SetNextWindowBgAlpha(bg_color.w);
+
+        char win_id[32];
+        snprintf(win_id, sizeof(win_id), "##Toast%d", (int)std::distance(toasts_.begin(), it));
+
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, bg_color);
+        ImGui::PushStyleColor(ImGuiCol_Text, text_color);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 8));
+
+        ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+                                 ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing |
+                                 ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize |
+                                 ImGuiWindowFlags_NoSavedSettings;
+
+        if (ImGui::Begin(win_id, nullptr, flags)) {
+            ImGui::TextWrapped("%s", it->message.c_str());
+        }
+        ImGui::End();
+
+        ImGui::PopStyleVar(2);
+        ImGui::PopStyleColor(2);
+
+        y_offset += ImGui::CalcTextSize(it->message.c_str(), nullptr, true, toast_width - 24).y + toast_padding + 20.0f;
+        ++it;
+    }
+}
+
+// ============================================================================
+// DMA Health Monitoring
+// ============================================================================
+
+void Application::CheckDMAHealth() {
+    if (!dma_) return;
+
+    bool connected = dma_->IsConnected();
+
+    // Detect disconnection transition
+    if (dma_was_connected_ && !connected) {
+        dma_health_warning_ = true;
+        AddToast("DMA device disconnected!", 2);
+        LOG_WARN("DMA device disconnected");
+    }
+
+    // Detect reconnection
+    if (!dma_was_connected_ && connected) {
+        dma_health_warning_ = false;
+        dma_consecutive_failures_ = 0;
+        if (dma_was_connected_ != connected) {
+            AddToast("DMA device connected", 1);
+        }
+    }
+
+    dma_was_connected_ = connected;
+
+    // Periodic health check via test read (every 5 seconds)
+    if (connected && selected_pid_ != 0) {
+        double now = glfwGetTime();
+        if (now - dma_last_health_check_ >= 5.0) {
+            dma_last_health_check_ = now;
+            auto test = dma_->ReadMemory(selected_pid_, 0x7FFE0000, 4);  // PEB region, usually readable
+            if (test.empty()) {
+                dma_consecutive_failures_++;
+                if (dma_consecutive_failures_ >= 3 && !dma_health_warning_) {
+                    dma_health_warning_ = true;
+                    AddToast("DMA reads failing - check FPGA connection", 2);
+                    LOG_WARN("DMA health check: {} consecutive read failures", dma_consecutive_failures_);
+                }
+            } else {
+                if (dma_health_warning_ && dma_consecutive_failures_ >= 3) {
+                    AddToast("DMA reads recovered", 1);
+                }
+                dma_consecutive_failures_ = 0;
+                dma_health_warning_ = false;
+            }
+        }
     }
 }
 
@@ -1683,6 +1859,11 @@ bool Application::IsMinimized() const {
 void Application::Shutdown() {
     LOG_INFO("Application::Shutdown() - cleaning up resources");
 
+    // Save search history
+    if (search_history_ && search_history_->IsDirty()) {
+        search_history_->Save();
+    }
+
     // Stop MCP server first (may have active connections)
     if (mcp_server_) {
         LOG_INFO("Stopping MCP server...");
@@ -1705,6 +1886,9 @@ void Application::Shutdown() {
         dma_->Close();
         dma_.reset();
     }
+
+    // Free GPU resources before destroying GL context
+    UnloadRadarMap();
 
     // Cleanup ImGui and GLFW last
     if (window_) {

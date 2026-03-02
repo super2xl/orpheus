@@ -6,6 +6,7 @@
 #include "analysis/disassembler.h"
 #include "analysis/signature.h"
 #include "utils/logger.h"
+#include "utils/search_history.h"
 #include <cstdio>
 #include <iomanip>
 #include <sstream>
@@ -168,19 +169,39 @@ void Application::RenderDisassembly() {
         ImGui::SetNextItemWidth(160.0f);
         if (ImGui::InputText("##DisasmAddr", disasm_address_input_, sizeof(disasm_address_input_),
             ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
-            disasm_address_ = strtoull(disasm_address_input_, nullptr, 16);
-            auto code = dma_->ReadMemory(selected_pid_, disasm_address_, 1024);
-            if (!code.empty()) {
-                disasm_instructions_ = disassembler_->Disassemble(code, disasm_address_);
+            if (auto parsed = ParseHexAddress(disasm_address_input_)) {
+                if (search_history_) search_history_->Add("address", disasm_address_input_);
+                disasm_address_ = *parsed;
+                auto code = dma_->ReadMemory(selected_pid_, disasm_address_, 1024);
+                if (!code.empty()) {
+                    disasm_instructions_ = disassembler_->Disassemble(code, disasm_address_);
+                }
             }
         }
 
         ImGui::SameLine();
+        if (search_history_) {
+            if (HistoryDropdown("disasm_addr", disasm_address_input_, sizeof(disasm_address_input_),
+                                search_history_->Get("address"))) {
+                if (auto parsed = ParseHexAddress(disasm_address_input_)) {
+                    disasm_address_ = *parsed;
+                    auto code = dma_->ReadMemory(selected_pid_, disasm_address_, 1024);
+                    if (!code.empty()) {
+                        disasm_instructions_ = disassembler_->Disassemble(code, disasm_address_);
+                    }
+                }
+            }
+            ImGui::SameLine();
+        }
+
         if (ImGui::Button(ICON_OR_TEXT(icons_loaded_, ICON_FA_PLAY " Disassemble", "Disassemble"))) {
-            disasm_address_ = strtoull(disasm_address_input_, nullptr, 16);
-            auto code = dma_->ReadMemory(selected_pid_, disasm_address_, 1024);
-            if (!code.empty()) {
-                disasm_instructions_ = disassembler_->Disassemble(code, disasm_address_);
+            if (auto parsed = ParseHexAddress(disasm_address_input_)) {
+                if (search_history_) search_history_->Add("address", disasm_address_input_);
+                disasm_address_ = *parsed;
+                auto code = dma_->ReadMemory(selected_pid_, disasm_address_, 1024);
+                if (!code.empty()) {
+                    disasm_instructions_ = disassembler_->Disassemble(code, disasm_address_);
+                }
             }
         }
 

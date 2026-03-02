@@ -5,7 +5,9 @@
 #include <imgui.h>
 #include "analysis/pattern_scanner.h"
 #include "utils/logger.h"
+#include "utils/search_history.h"
 #include <cstdio>
+#include <mutex>
 
 namespace orpheus::ui {
 
@@ -20,10 +22,12 @@ void Application::RenderPatternScanner() {
                 pattern_results_ = pattern_scan_future_.get();
                 pattern_scan_error_.clear();
                 LOG_INFO("Pattern scan found {} results", pattern_results_.size());
+                AddToast("Pattern scan: " + std::to_string(pattern_results_.size()) + " results", 1);
             } catch (const std::exception& e) {
                 pattern_scan_error_ = e.what();
                 pattern_results_.clear();
                 LOG_ERROR("Pattern scan failed: {}", e.what());
+                AddToast("Pattern scan failed: " + std::string(e.what()), 2);
             }
             pattern_scanning_ = false;
             pattern_scan_progress_ = 1.0f;
@@ -40,15 +44,25 @@ void Application::RenderPatternScanner() {
     // Module selection header
     ModuleHeader(selected_module_name_.c_str(), selected_module_base_, selected_module_size_);
 
-    ImGui::SetNextItemWidth(-80.0f);
+    ImGui::SetNextItemWidth(-110.0f);
     ImGui::InputTextWithHint("##pattern", "48 8B 05 ?? ?? ?? ??", pattern_input_, sizeof(pattern_input_));
     ImGui::SameLine();
+
+    // History dropdown
+    if (search_history_) {
+        if (HistoryDropdown("pattern", pattern_input_, sizeof(pattern_input_),
+                            search_history_->Get("pattern"))) {
+            // Entry selected — could auto-scan, but just populate input
+        }
+        ImGui::SameLine();
+    }
 
     bool can_scan = selected_module_base_ != 0 && !pattern_scanning_;
     if (!can_scan) ImGui::BeginDisabled();
     if (ImGui::Button("Scan")) {
         auto compiled_pattern = analysis::PatternScanner::Compile(pattern_input_);
         if (compiled_pattern) {
+            if (search_history_) search_history_->Add("pattern", pattern_input_);
             pattern_scanning_ = true;
             pattern_scan_cancel_requested_ = false;
             pattern_results_.clear();
@@ -66,7 +80,8 @@ void Application::RenderPatternScanner() {
                 [pid, module_base, module_size, pattern, dma,
                  &cancel_flag = pattern_scan_cancel_requested_,
                  &progress_stage = pattern_scan_progress_stage_,
-                 &progress = pattern_scan_progress_]() -> std::vector<uint64_t> {
+                 &progress = pattern_scan_progress_,
+                 &progress_mutex = progress_mutex_]() -> std::vector<uint64_t> {
 
                 std::vector<uint64_t> results;
 
@@ -85,7 +100,7 @@ void Application::RenderPatternScanner() {
 
                 while (bytes_processed < module_size) {
                     if (cancel_flag.load()) {
-                        progress_stage = "Cancelled";
+                        { std::lock_guard<std::mutex> lock(progress_mutex); progress_stage = "Cancelled"; }
                         return results;
                     }
 
@@ -94,7 +109,7 @@ void Application::RenderPatternScanner() {
                     size_t chunk_size = std::min(CHUNK_SIZE, remaining);
 
                     chunk_index++;
-                    progress_stage = "Reading chunk " + std::to_string(chunk_index) + "/" + std::to_string(total_chunks) + "...";
+                    { std::lock_guard<std::mutex> lock(progress_mutex); progress_stage = "Reading chunk " + std::to_string(chunk_index) + "/" + std::to_string(total_chunks) + "..."; }
                     progress = static_cast<float>(chunk_index - 1) / static_cast<float>(total_chunks * 2);
 
                     auto chunk_data = dma->ReadMemory(pid, module_base + chunk_offset, chunk_size);
@@ -105,11 +120,11 @@ void Application::RenderPatternScanner() {
                     }
 
                     if (cancel_flag.load()) {
-                        progress_stage = "Cancelled";
+                        { std::lock_guard<std::mutex> lock(progress_mutex); progress_stage = "Cancelled"; }
                         return results;
                     }
 
-                    progress_stage = "Scanning chunk " + std::to_string(chunk_index) + "/" + std::to_string(total_chunks) + "...";
+                    { std::lock_guard<std::mutex> lock(progress_mutex); progress_stage = "Scanning chunk " + std::to_string(chunk_index) + "/" + std::to_string(total_chunks) + "..."; }
                     progress = static_cast<float>(chunk_index * 2 - 1) / static_cast<float>(total_chunks * 2);
 
                     // Handle boundary overlap
@@ -152,7 +167,7 @@ void Application::RenderPatternScanner() {
                 std::sort(results.begin(), results.end());
                 results.erase(std::unique(results.begin(), results.end()), results.end());
 
-                progress_stage = "Complete";
+                { std::lock_guard<std::mutex> lock(progress_mutex); progress_stage = "Complete"; }
                 progress = 1.0f;
                 return results;
             });
@@ -172,7 +187,9 @@ void Application::RenderPatternScanner() {
 
     // Progress indicator
     if (pattern_scanning_) {
-        ImGui::TextColored(colors::Warning, "%s", pattern_scan_progress_stage_.c_str());
+        std::string stage_text;
+        { std::lock_guard<std::mutex> lock(progress_mutex_); stage_text = pattern_scan_progress_stage_; }
+        ImGui::TextColored(colors::Warning, "%s", stage_text.c_str());
         ProgressBarWithText(pattern_scan_progress_);
     }
 

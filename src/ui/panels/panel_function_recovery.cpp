@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <fstream>
+#include <mutex>
 
 namespace orpheus::ui {
 
@@ -44,6 +45,7 @@ void Application::RenderFunctionRecovery() {
             function_recovery_progress_stage_ = "Complete";
             LOG_INFO("Function recovery complete: {} functions found in {}",
                      recovered_functions_.size(), function_recovery_module_name_);
+            AddToast("Function recovery: " + std::to_string(recovered_functions_.size()) + " functions in " + function_recovery_module_name_, 1);
         }
     }
 
@@ -127,7 +129,8 @@ void Application::RenderFunctionRecovery() {
         function_recovery_future_ = std::async(std::launch::async,
             [pid, module_base, module_size, use_prologues, follow_calls, use_pdata, dma,
              &progress_stage = function_recovery_progress_stage_,
-             &progress = function_recovery_progress_]() -> std::map<uint64_t, analysis::FunctionInfo> {
+             &progress = function_recovery_progress_,
+             &progress_mutex = progress_mutex_]() -> std::map<uint64_t, analysis::FunctionInfo> {
 
             analysis::FunctionRecovery recovery(
                 [dma, pid](uint64_t addr, size_t size) {
@@ -145,8 +148,8 @@ void Application::RenderFunctionRecovery() {
             opts.max_functions = 100000;
 
             return recovery.RecoverFunctions(opts,
-                [&progress_stage, &progress](const std::string& stage, float prog) {
-                    progress_stage = stage;
+                [&progress_stage, &progress, &progress_mutex](const std::string& stage, float prog) {
+                    { std::lock_guard<std::mutex> lock(progress_mutex); progress_stage = stage; }
                     progress = prog;
                 });
         });
@@ -156,7 +159,9 @@ void Application::RenderFunctionRecovery() {
     // Progress indicator
     if (function_recovery_running_) {
         ImGui::SameLine();
-        ImGui::TextColored(colors::Warning, "%s", function_recovery_progress_stage_.c_str());
+        std::string stage_text;
+        { std::lock_guard<std::mutex> lock(progress_mutex_); stage_text = function_recovery_progress_stage_; }
+        ImGui::TextColored(colors::Warning, "%s", stage_text.c_str());
         ProgressBarWithText(function_recovery_progress_);
     }
 
@@ -423,8 +428,9 @@ void Application::RenderFunctionRecovery() {
     ImGui::SetNextItemWidth(form_width::Short);
     if (ImGui::InputText("##ContainingAddr", function_containing_input_, sizeof(function_containing_input_),
                          ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
-        uint64_t target_addr = strtoull(function_containing_input_, nullptr, 16);
-        if (target_addr != 0 && !recovered_functions_.empty()) {
+        auto parsed_containing = ParseHexAddress(function_containing_input_);
+        if (parsed_containing && !recovered_functions_.empty()) {
+            uint64_t target_addr = *parsed_containing;
             function_containing_result_addr_ = 0;
             function_containing_result_name_.clear();
 
@@ -452,8 +458,9 @@ void Application::RenderFunctionRecovery() {
     }
     ImGui::SameLine();
     if (ImGui::Button("Find")) {
-        uint64_t target_addr = strtoull(function_containing_input_, nullptr, 16);
-        if (target_addr != 0 && !recovered_functions_.empty()) {
+        auto parsed_find = ParseHexAddress(function_containing_input_);
+        if (parsed_find && !recovered_functions_.empty()) {
+            uint64_t target_addr = *parsed_find;
             function_containing_result_addr_ = 0;
             function_containing_result_name_.clear();
 
@@ -494,10 +501,12 @@ void Application::RenderFunctionRecovery() {
             ImGui::SameLine();
             ImGui::TextColored(colors::Info, "(%s)", function_containing_result_name_.c_str());
         }
-        uint64_t target = strtoull(function_containing_input_, nullptr, 16);
-        if (target > function_containing_result_addr_) {
-            ImGui::SameLine();
-            ImGui::TextDisabled("+0x%llX", (unsigned long long)(target - function_containing_result_addr_));
+        if (auto parsed_target = ParseHexAddress(function_containing_input_)) {
+            uint64_t target = *parsed_target;
+            if (target > function_containing_result_addr_) {
+                ImGui::SameLine();
+                ImGui::TextDisabled("+0x%llX", (unsigned long long)(target - function_containing_result_addr_));
+            }
         }
     }
 

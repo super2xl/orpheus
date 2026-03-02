@@ -3,6 +3,7 @@
 #include "ui/icons.h"
 #include <imgui.h>
 #include <imgui_internal.h>
+#include "utils/logger.h"
 #include <cstdio>
 #include <future>
 
@@ -138,9 +139,8 @@ void Application::RenderToolbar() {
         static char goto_input[32] = {};
         if (ImGui::InputText("##toolbar_goto", goto_input, sizeof(goto_input),
                 ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
-            uint64_t addr = strtoull(goto_input, nullptr, 16);
-            if (addr != 0) {
-                NavigateToAddress(addr);
+            if (auto parsed = ParseHexAddress(goto_input)) {
+                NavigateToAddress(*parsed);
                 goto_input[0] = '\0';
             }
         }

@@ -71,7 +71,8 @@ void Application::RenderXRefFinder() {
         xref_scanning_ = true;
         xref_results_.clear();
 
-        uint64_t target = strtoull(xref_target_input_, nullptr, 16);
+        auto parsed_target = ParseHexAddress(xref_target_input_);
+        uint64_t target = parsed_target.value_or(0);
         uint64_t base = 0;
         uint32_t size = 0;
 
@@ -79,8 +80,8 @@ void Application::RenderXRefFinder() {
             base = selected_module_base_;
             size = selected_module_size_;
         } else {
-            base = strtoull(xref_base_input_, nullptr, 16);
-            size = static_cast<uint32_t>(strtoull(xref_size_input_, nullptr, 16));
+            base = ParseHexAddress(xref_base_input_).value_or(0);
+            size = static_cast<uint32_t>(ParseHexAddress(xref_size_input_).value_or(0));
         }
 
         if (target != 0 && base != 0 && size != 0) {

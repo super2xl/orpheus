@@ -64,7 +64,7 @@ std::string MCPServer::HandleCS2SchemaGetOffset(const std::string& body) {
 
         // Try live dumper first
         if (cs2_schema_) {
-            auto* dumper = static_cast<orpheus::dumper::CS2SchemaDumper*>(cs2_schema_);
+            auto* dumper = cs2_schema_.get();
             if (dumper->IsInitialized()) {
                 uint32_t offset = dumper->GetOffset(class_name, field_name);
                 if (offset > 0) {
@@ -143,7 +143,7 @@ std::string MCPServer::HandleCS2SchemaFindClass(const std::string& body) {
 
         // Try live dumper first
         if (cs2_schema_) {
-            auto* dumper = static_cast<orpheus::dumper::CS2SchemaDumper*>(cs2_schema_);
+            auto* dumper = cs2_schema_.get();
             if (dumper->IsInitialized()) {
                 const orpheus::dumper::SchemaClass* cls = dumper->FindClass(class_name);
                 if (cls) {

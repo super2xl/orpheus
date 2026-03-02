@@ -111,12 +111,10 @@ void Application::RenderMemoryWatcher() {
         ImGui::Combo("Type##WatchType", &watch_type_index_, watch_types, IM_ARRAYSIZE(watch_types));
 
         if (AccentButton("Add Watch", ImVec2(100, 0))) {
-            uint64_t addr = 0;
-            if (strlen(watch_addr_input_) > 0) {
-                addr = strtoull(watch_addr_input_, nullptr, 16);
-            }
+            auto parsed = ParseHexAddress(watch_addr_input_);
             size_t size = static_cast<size_t>(atoi(watch_size_input_));
-            if (addr != 0 && size > 0 && size <= 1024) {
+            if (parsed && size > 0 && size <= 1024) {
+                uint64_t addr = *parsed;
                 analysis::WatchType type = static_cast<analysis::WatchType>(watch_type_index_);
                 std::string name = strlen(watch_name_input_) > 0 ? watch_name_input_ : "";
                 memory_watcher_->AddWatch(addr, size, type, name);

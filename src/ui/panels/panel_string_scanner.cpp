@@ -7,6 +7,7 @@
 #include "utils/logger.h"
 #include <cstdio>
 #include <future>
+#include <mutex>
 
 namespace orpheus::ui {
 
@@ -27,9 +28,11 @@ void Application::RenderStringScanner() {
                 string_results_ = string_scan_future_.get();
                 string_scan_error_.clear();
                 LOG_INFO("String scan found {} results", string_results_.size());
+                AddToast("String scan: " + std::to_string(string_results_.size()) + " results", 1);
             } catch (const std::exception& e) {
                 string_scan_error_ = e.what();
                 LOG_ERROR("String scan failed: {}", e.what());
+                AddToast("String scan failed: " + std::string(e.what()), 2);
             }
             string_scanning_ = false;
             string_scan_progress_ = 1.0f;
@@ -72,7 +75,8 @@ void Application::RenderStringScanner() {
             [pid, module_base, module_size, opts, dma,
              &cancel_flag = string_scan_cancel_requested_,
              &progress_stage = string_scan_progress_stage_,
-             &progress = string_scan_progress_]() -> std::vector<analysis::StringMatch> {
+             &progress = string_scan_progress_,
+             &progress_mutex = progress_mutex_]() -> std::vector<analysis::StringMatch> {
 
             std::vector<analysis::StringMatch> results;
             const size_t CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB chunks
@@ -83,7 +87,7 @@ void Application::RenderStringScanner() {
 
             for (size_t chunk_idx = 0; chunk_idx < total_chunks; chunk_idx++) {
                 if (cancel_flag.load()) {
-                    progress_stage = "Cancelled";
+                    { std::lock_guard<std::mutex> lock(progress_mutex); progress_stage = "Cancelled"; }
                     return results;
                 }
 
@@ -98,21 +102,21 @@ void Application::RenderStringScanner() {
                 char stage_buf[64];
                 snprintf(stage_buf, sizeof(stage_buf), "Reading chunk %zu/%zu...",
                          chunk_idx + 1, total_chunks);
-                progress_stage = stage_buf;
+                { std::lock_guard<std::mutex> lock(progress_mutex); progress_stage = stage_buf; }
                 progress = static_cast<float>(chunk_idx) / static_cast<float>(total_chunks);
 
                 auto chunk_data = dma->ReadMemory(pid, module_base + chunk_offset, read_size);
                 if (chunk_data.empty()) continue;
 
                 if (cancel_flag.load()) {
-                    progress_stage = "Cancelled";
+                    { std::lock_guard<std::mutex> lock(progress_mutex); progress_stage = "Cancelled"; }
                     return results;
                 }
 
                 // Update progress - scanning phase
                 snprintf(stage_buf, sizeof(stage_buf), "Scanning chunk %zu/%zu...",
                          chunk_idx + 1, total_chunks);
-                progress_stage = stage_buf;
+                { std::lock_guard<std::mutex> lock(progress_mutex); progress_stage = stage_buf; }
 
                 auto chunk_results = analysis::StringScanner::Scan(
                     chunk_data, opts, module_base + chunk_offset);
@@ -120,7 +124,6 @@ void Application::RenderStringScanner() {
                 // For chunks after the first, filter out strings that start in the overlap zone
                 // of the previous chunk (they were already captured)
                 if (chunk_idx > 0) {
-                    uint64_t overlap_boundary = module_base + chunk_offset + OVERLAP;
                     // Keep only strings that start at or after the main region
                     // (some strings from the overlap will be dupes of the previous chunk)
                     chunk_results.erase(
@@ -136,7 +139,7 @@ void Application::RenderStringScanner() {
             }
 
             // Final sort and deduplicate
-            progress_stage = "Sorting results...";
+            { std::lock_guard<std::mutex> lock(progress_mutex); progress_stage = "Sorting results..."; }
             progress = 0.95f;
 
             std::sort(results.begin(), results.end(),
@@ -150,7 +153,7 @@ void Application::RenderStringScanner() {
                 }),
                 results.end());
 
-            progress_stage = "Done";
+            { std::lock_guard<std::mutex> lock(progress_mutex); progress_stage = "Done"; }
             progress = 1.0f;
             return results;
         });
@@ -167,7 +170,9 @@ void Application::RenderStringScanner() {
 
     // Progress display
     if (string_scanning_) {
-        ImGui::TextColored(colors::Warning, "%s", string_scan_progress_stage_.c_str());
+        std::string stage_text;
+        { std::lock_guard<std::mutex> lock(progress_mutex_); stage_text = string_scan_progress_stage_; }
+        ImGui::TextColored(colors::Warning, "%s", stage_text.c_str());
         ProgressBarWithText(string_scan_progress_);
     }
 

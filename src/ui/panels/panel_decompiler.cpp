@@ -47,7 +47,9 @@ void Application::RenderDecompiler() {
         ImGui::SetNextItemWidth(160.0f);
         if (ImGui::InputText("Address", decompile_address_input_, sizeof(decompile_address_input_),
             ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
-            decompile_address_ = strtoull(decompile_address_input_, nullptr, 16);
+            if (auto parsed = ParseHexAddress(decompile_address_input_)) {
+                decompile_address_ = *parsed;
+            }
         }
 
         ImGui::SameLine();
@@ -55,26 +57,29 @@ void Application::RenderDecompiler() {
         bool can_decompile = decompiler_initialized_ && has_address_input;
         if (!can_decompile) ImGui::BeginDisabled();
         if (AccentButton("Decompile")) {
-            decompile_address_ = strtoull(decompile_address_input_, nullptr, 16);
-            if (decompile_address_ == 0) {
+            auto parsed = ParseHexAddress(decompile_address_input_);
+            if (!parsed) {
                 decompiled_code_ = "// Error: Invalid address (enter a hex address like 7FF600001000)";
-            } else if (decompiler_) {
-                decompiler_->SetMemoryCallback([this](uint64_t addr, size_t size, uint8_t* buffer) -> bool {
-                    auto data = dma_->ReadMemory(selected_pid_, addr, static_cast<uint32_t>(size));
-                    if (data.size() >= size) {
-                        memcpy(buffer, data.data(), size);
-                        return true;
-                    }
-                    return false;
-                });
+            } else {
+                decompile_address_ = *parsed;
+                if (decompiler_) {
+                    decompiler_->SetMemoryCallback([this](uint64_t addr, size_t size, uint8_t* buffer) -> bool {
+                        auto data = dma_->ReadMemory(selected_pid_, addr, static_cast<uint32_t>(size));
+                        if (data.size() >= size) {
+                            memcpy(buffer, data.data(), size);
+                            return true;
+                        }
+                        return false;
+                    });
 
-                auto result = decompiler_->DecompileFunction(decompile_address_);
-                if (result.success) {
-                    decompiled_code_ = result.c_code;
-                    LOG_INFO("Decompiled function at 0x{:X}", decompile_address_);
-                } else {
-                    decompiled_code_ = "// Decompilation failed: " + result.error;
-                    LOG_WARN("Decompilation failed: {}", result.error);
+                    auto result = decompiler_->DecompileFunction(decompile_address_);
+                    if (result.success) {
+                        decompiled_code_ = result.c_code;
+                        LOG_INFO("Decompiled function at 0x{:X}", decompile_address_);
+                    } else {
+                        decompiled_code_ = "// Decompilation failed: " + result.error;
+                        LOG_WARN("Decompilation failed: {}", result.error);
+                    }
                 }
             }
         }

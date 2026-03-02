@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include <map>
+#include <memory>
 
 // Forward declare Zydis types to avoid header inclusion in header
 struct ZydisDecoder_;
@@ -48,6 +49,8 @@ struct InstructionInfo {
     bool is_ret;
     bool is_conditional;
     bool is_memory_access;
+    bool is_memory_write;       // Memory operand is written (MOV [addr], ..., ADD [addr], ...)
+    bool is_memory_read;        // Memory operand is read
 
     // Branch target (if applicable)
     std::optional<uint64_t> branch_target;
@@ -155,8 +158,8 @@ private:
     void CleanupDecoder();
 
     bool is_64bit_;
-    ZydisDecoder_* decoder_ = nullptr;
-    ZydisFormatter_* formatter_ = nullptr;
+    std::unique_ptr<ZydisDecoder_> decoder_;
+    std::unique_ptr<ZydisFormatter_> formatter_;
 };
 
 /**

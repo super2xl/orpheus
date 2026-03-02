@@ -211,6 +211,28 @@ const MCP_TOOLS = [
     }
   },
   {
+    name: 'write_memory',
+    description: 'Write data to process memory via DMA. Takes a hex string of bytes to write at the specified address. Returns the address and number of bytes written. Requires allow_write to be enabled in config.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pid: {
+          type: 'integer',
+          description: 'Process ID to write to'
+        },
+        address: {
+          type: 'string',
+          description: 'Memory address in hexadecimal (e.g., "0x7FF600000000" or "7FF600000000")'
+        },
+        data: {
+          type: 'string',
+          description: 'Hex string of bytes to write (e.g., "90 90 90" or "909090"). Spaces optional.'
+        }
+      },
+      required: ['pid', 'address', 'data']
+    }
+  },
+  {
     name: 'scan_pattern',
     description: 'Scan for byte pattern in process memory using IDA-style pattern syntax. Returns array of matching addresses.',
     inputSchema: {
@@ -1654,6 +1676,7 @@ const TOOL_ENDPOINT_MAP = {
   'get_health': { method: 'GET', path: '/health' },
   'get_version': { method: 'GET', path: '/version' },
   'read_memory': { method: 'POST', path: '/tools/read_memory' },
+  'write_memory': { method: 'POST', path: '/tools/write_memory' },
   'scan_pattern': { method: 'POST', path: '/tools/scan_pattern' },
   'scan_pattern_async': { method: 'POST', path: '/tools/scan_pattern_async' },
   'scan_strings': { method: 'POST', path: '/tools/scan_strings' },
