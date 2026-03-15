@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDecompiler } from '../hooks/useDecompiler';
 import { useConnection } from '../hooks/useConnection';
+import { useDma } from '../hooks/useDma';
 
 const C_KEYWORDS = new Set([
   'if', 'else', 'while', 'for', 'do', 'switch', 'case', 'default', 'break',
@@ -76,6 +77,7 @@ function tokenizeLine(line: string): Token[] {
 
 function Decompiler() {
   const { health } = useConnection();
+  const { connected: dmaConnected } = useDma();
   const pid = health?.pid;
   const { code, functionName, loading, error, decompile } = useDecompiler();
 
@@ -250,7 +252,7 @@ function Decompiler() {
           </div>
           <button
             onClick={handleGo}
-            disabled={loading || !pid || !address.trim()}
+            disabled={loading || !pid || !address.trim() || !dmaConnected}
             className="px-4 h-9 rounded-lg text-sm cursor-pointer border-none outline-none disabled:opacity-40"
             style={{
               fontWeight: 500,

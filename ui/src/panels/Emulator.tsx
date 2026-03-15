@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useEmulator } from '../hooks/useEmulator';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
@@ -129,6 +130,7 @@ function RegisterCell({
 
 function Emulator({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { health } = useConnection();
+  const { connected: dmaConnected } = useDma();
   const pid = health?.pid;
   const {
     created, registers, result, status, loading, error, changedRegs,
@@ -143,12 +145,12 @@ function Emulator({ onNavigate }: { onNavigate?: (panel: string, address?: strin
   const [selectedModule, setSelectedModule] = useState('');
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
-  // Fetch modules when attached
+  // Fetch modules when DMA connected and attached
   useEffect(() => {
-    if (pid) {
+    if (dmaConnected && pid) {
       refreshModules(pid);
     }
-  }, [pid, refreshModules]);
+  }, [dmaConnected, pid, refreshModules]);
 
   const handleCreate = useCallback(async () => {
     if (!pid) return;
@@ -328,7 +330,7 @@ function Emulator({ onNavigate }: { onNavigate?: (panel: string, address?: strin
             {!created ? (
               <button
                 onClick={handleCreate}
-                disabled={loading || !pid}
+                disabled={loading || !pid || !dmaConnected}
                 className="px-3 h-7 rounded-md text-xs cursor-pointer border-none outline-none disabled:opacity-40"
                 style={{
                   fontWeight: 400,

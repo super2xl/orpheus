@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useStringScan } from '../hooks/useStringScan';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
 
 function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { health } = useConnection();
+  const { connected: dmaConnected } = useDma();
   const pid = health?.pid;
   const { result, loading, error, task, scanAsync, cancel } = useStringScan();
   const { modules, refresh: refreshModules } = useModules();
@@ -22,12 +24,12 @@ function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: 
   const [hasScanned, setHasScanned] = useState(false);
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
-  // Fetch modules when attached
+  // Fetch modules when DMA connected and attached
   useEffect(() => {
-    if (pid) {
+    if (dmaConnected && pid) {
       refreshModules(pid);
     }
-  }, [pid, refreshModules]);
+  }, [dmaConnected, pid, refreshModules]);
 
   const handleScan = useCallback(() => {
     if (!pid) return;
@@ -275,7 +277,7 @@ function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: 
           ) : (
             <button
               onClick={handleScan}
-              disabled={!pid || (!scanAscii && !scanUtf16)}
+              disabled={!pid || (!scanAscii && !scanUtf16) || !dmaConnected}
               className="px-3 h-7 rounded-md text-xs cursor-pointer border-none outline-none disabled:opacity-40"
               style={{
                 fontWeight: 400,

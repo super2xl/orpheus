@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useConnection } from '../hooks/useConnection';
+import { useDma } from '../hooks/useDma';
 import { orpheus } from '../api/client';
 
 interface MemoryData {
@@ -17,6 +18,7 @@ function formatSize(bytes: number): string {
 
 function MemoryViewer() {
   const { health } = useConnection();
+  const { connected: dmaConnected } = useDma();
   const pid = health?.pid;
 
   const [address, setAddress] = useState('');
@@ -330,7 +332,7 @@ function MemoryViewer() {
           </div>
           <button
             onClick={handleGo}
-            disabled={loading || !pid || !address.trim()}
+            disabled={loading || !pid || !address.trim() || !dmaConnected}
             className="px-4 h-9 rounded-lg text-sm cursor-pointer border-none outline-none disabled:opacity-40"
             style={{
               fontWeight: 500,

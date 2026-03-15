@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useWriteTracer } from '../hooks/useWriteTracer';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
@@ -173,6 +174,7 @@ function TreeNode({
 
 function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { health } = useConnection();
+  const { connected: dmaConnected } = useDma();
   const pid = health?.pid;
   const { writes, callGraph, loading, error, progress, trace, cancel } = useWriteTracer();
   const { modules, refresh: refreshModules } = useModules();
@@ -184,12 +186,12 @@ function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: st
   const [showCallGraph, setShowCallGraph] = useState(false);
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
-  // Fetch modules when attached
+  // Fetch modules when DMA connected and attached
   useEffect(() => {
-    if (pid) {
+    if (dmaConnected && pid) {
       refreshModules(pid);
     }
-  }, [pid, refreshModules]);
+  }, [dmaConnected, pid, refreshModules]);
 
   const getSelectedModuleInfo = useCallback((): ModuleInfo | undefined => {
     if (!selectedModule) return undefined;
@@ -449,7 +451,7 @@ function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: st
           {/* Trace / Cancel button */}
           <button
             onClick={loading ? cancel : handleTrace}
-            disabled={!loading && (!pid || !address.trim())}
+            disabled={!loading && (!pid || !address.trim() || !dmaConnected)}
             className="px-3 h-7 rounded-md text-xs cursor-pointer border-none outline-none disabled:opacity-40"
             style={{
               fontWeight: 400,

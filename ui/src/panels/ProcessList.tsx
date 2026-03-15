@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useProcesses } from '../hooks/useProcesses';
+import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
@@ -11,6 +12,7 @@ type SortDir = 'asc' | 'desc';
 
 function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { processes, loading, error, refresh } = useProcesses();
+  const { connected: dmaConnected } = useDma();
   const [search, setSearch] = useState('');
   const [selectedPid, setSelectedPid] = useState<number | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
@@ -19,17 +21,19 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
   const [hasLoaded, setHasLoaded] = useState(false);
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
-  // Initial fetch
+  // Fetch when DMA connects
   useEffect(() => {
-    refresh().then(() => setHasLoaded(true));
-  }, []);
+    if (dmaConnected) {
+      refresh().then(() => setHasLoaded(true));
+    }
+  }, [dmaConnected]);
 
-  // Auto-refresh
+  // Auto-refresh (only when DMA connected)
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoRefresh || !dmaConnected) return;
     const interval = setInterval(refresh, 3000);
     return () => clearInterval(interval);
-  }, [autoRefresh, refresh]);
+  }, [autoRefresh, dmaConnected, refresh]);
 
   // Filter
   const filtered = useMemo(() => {
@@ -160,7 +164,7 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
             {/* Manual refresh */}
             <button
               onClick={refresh}
-              disabled={loading}
+              disabled={loading || !dmaConnected}
               className="px-2.5 h-7 rounded-md text-xs cursor-pointer border-none outline-none disabled:opacity-40"
               style={{
                 fontWeight: 400,

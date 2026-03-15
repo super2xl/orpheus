@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useConnection } from '../hooks/useConnection';
+import { useDma } from '../hooks/useDma';
 import { orpheus } from '../api/client';
 
 interface LayoutProps {
@@ -47,7 +48,8 @@ const settingsItem: NavItem = { id: 'settings', label: 'Settings', icon: '\u2699
 
 function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: LayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const { connected, health, dmaStatus, dmaLoading, connectDma, disconnectDma } = useConnection();
+  const { connected, health } = useConnection();
+  const dma = useDma();
   const config = orpheus.getConfig();
 
   const sidebarWidth = collapsed ? 60 : 240;
@@ -314,20 +316,20 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
 
           {/* DMA Connection */}
           <div className="px-2.5 pb-2" style={{ borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
-            {!dmaStatus.connected && (
+            {!dma.connected && (
               <button
-                onClick={() => connectDma('fpga')}
-                disabled={dmaLoading}
+                onClick={() => dma.connect('fpga')}
+                disabled={dma.loading}
                 className="w-full flex items-center justify-center gap-2 h-9 rounded-lg text-sm cursor-pointer border-none outline-none"
                 style={{
                   background: 'var(--text)',
                   color: 'var(--bg)',
                   fontWeight: 500,
-                  opacity: dmaLoading ? 0.6 : 1,
+                  opacity: dma.loading ? 0.6 : 1,
                   transition: 'opacity 0.1s ease',
                 }}
               >
-                <span className="text-base leading-none">{dmaLoading ? '\u23F3' : '\u26A1'}</span>
+                <span className="text-base leading-none">{dma.loading ? '\u23F3' : '\u26A1'}</span>
                 <AnimatePresence>
                   {!collapsed && (
                     <motion.span
@@ -337,13 +339,13 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
                       exit={{ opacity: 0, width: 0 }}
                       transition={{ duration: 0.15, ease: 'easeInOut' }}
                     >
-                      {dmaLoading ? 'Connecting...' : 'Connect DMA'}
+                      {dma.loading ? 'Connecting...' : 'Connect DMA'}
                     </motion.span>
                   )}
                 </AnimatePresence>
               </button>
             )}
-            {dmaStatus.connected && (
+            {dma.connected && (
               <div className="flex items-center gap-2 px-2">
                 <div
                   className="w-2 h-2 rounded-full shrink-0"
@@ -359,10 +361,10 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
                       transition={{ duration: 0.15, ease: 'easeInOut' }}
                     >
                       <span className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
-                        DMA: {dmaStatus.device_type || 'fpga'}
+                        DMA: {dma.deviceType || 'fpga'}
                       </span>
                       <button
-                        onClick={() => disconnectDma()}
+                        onClick={() => dma.disconnect()}
                         className="text-xs cursor-pointer border-none outline-none shrink-0 ml-2 rounded px-1.5 py-0.5"
                         style={{
                           color: 'var(--text-muted)',
@@ -450,7 +452,7 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
             <>
               <span style={{ color: 'var(--border)' }}>|</span>
               <span style={{ fontWeight: 300 }}>
-                DMA: {dmaStatus.connected ? dmaStatus.device_type || 'fpga' : 'not connected'}
+                DMA: {dma.connected ? dma.deviceType || 'fpga' : 'not connected'}
               </span>
             </>
           )}

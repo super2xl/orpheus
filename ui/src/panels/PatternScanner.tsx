@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { usePatternScan } from '../hooks/usePatternScan';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
 
 function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { health } = useConnection();
+  const { connected: dmaConnected } = useDma();
   const pid = health?.pid;
   const { result, loading, error, task, scanAsync } = usePatternScan();
   const { modules, refresh: refreshModules } = useModules();
@@ -19,12 +21,12 @@ function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?:
   const [hasScanned, setHasScanned] = useState(false);
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
-  // Fetch modules when attached
+  // Fetch modules when DMA connected and attached
   useEffect(() => {
-    if (pid) {
+    if (dmaConnected && pid) {
       refreshModules(pid);
     }
-  }, [pid, refreshModules]);
+  }, [dmaConnected, pid, refreshModules]);
 
   const handleScan = useCallback(() => {
     const input = pattern.trim();
@@ -192,7 +194,7 @@ function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?:
           {/* Scan button */}
           <button
             onClick={handleScan}
-            disabled={loading || !pid || !pattern.trim()}
+            disabled={loading || !pid || !pattern.trim() || !dmaConnected}
             className="px-3 h-7 rounded-md text-xs cursor-pointer border-none outline-none disabled:opacity-40"
             style={{
               fontWeight: 400,

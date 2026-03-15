@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useFunctionRecovery } from '../hooks/useFunctionRecovery';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
@@ -19,6 +20,7 @@ function formatSize(bytes: number): string {
 
 function FunctionRecovery({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { health } = useConnection();
+  const { connected: dmaConnected } = useDma();
   const pid = health?.pid;
   const { functions, scanTime, stats, loading, error, recover } = useFunctionRecovery();
   const { modules, refresh: refreshModules } = useModules();
@@ -38,12 +40,12 @@ function FunctionRecovery({ onNavigate }: { onNavigate?: (panel: string, address
   const [rtti, setRtti] = useState(true);
   const [exports, setExports] = useState(true);
 
-  // Fetch modules when attached
+  // Fetch modules when DMA connected and attached
   useEffect(() => {
-    if (pid) {
+    if (dmaConnected && pid) {
       refreshModules(pid);
     }
-  }, [pid, refreshModules]);
+  }, [dmaConnected, pid, refreshModules]);
 
   const selectedModuleInfo = useMemo(() => {
     return modules.find((m) => m.name === selectedModule);
@@ -254,7 +256,7 @@ function FunctionRecovery({ onNavigate }: { onNavigate?: (panel: string, address
           {/* Recover button */}
           <button
             onClick={handleRecover}
-            disabled={loading || !pid || !selectedModule}
+            disabled={loading || !pid || !selectedModule || !dmaConnected}
             className="px-3 h-7 rounded-md text-xs cursor-pointer border-none outline-none disabled:opacity-40"
             style={{
               fontWeight: 400,

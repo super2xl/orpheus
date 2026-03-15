@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { DmaProvider } from './hooks/useDma';
 import Layout from './components/Layout';
 import CommandPalette from './components/CommandPalette';
 import ProcessList from './panels/ProcessList';
@@ -55,7 +56,7 @@ function App() {
   }, []);
 
   return (
-    <>
+    <DmaProvider>
       <Layout activePanel={activePanel} onNavigate={handleNavigate} dark={dark} onToggleTheme={toggleTheme}>
         {activePanel === 'processes' && <ProcessList onNavigate={handleNavigate} />}
         {activePanel === 'modules' && <ModuleBrowser onNavigate={handleNavigate} />}
@@ -85,7 +86,7 @@ function App() {
         onNavigate={handleNavigate}
         onToggleTheme={toggleTheme}
       />
-    </>
+    </DmaProvider>
   );
 }
 

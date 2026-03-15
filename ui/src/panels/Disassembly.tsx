@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDisassembly } from '../hooks/useDisassembly';
 import { useConnection } from '../hooks/useConnection';
+import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
@@ -68,6 +69,7 @@ function tokenizeOperands(operands: string): OperandToken[] {
 
 function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { health } = useConnection();
+  const { connected: dmaConnected } = useDma();
   const pid = health?.pid;
   const { instructions, loading, error, disassemble } = useDisassembly();
 
@@ -283,7 +285,7 @@ function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: st
           </div>
           <button
             onClick={handleGo}
-            disabled={loading || !pid || !address.trim()}
+            disabled={loading || !pid || !address.trim() || !dmaConnected}
             className="px-4 h-9 rounded-lg text-sm cursor-pointer border-none outline-none disabled:opacity-40"
             style={{
               fontWeight: 500,

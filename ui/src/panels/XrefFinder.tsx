@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useXrefs } from '../hooks/useXrefs';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
@@ -10,6 +11,7 @@ import type { ModuleInfo } from '../api/types';
 
 function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { health } = useConnection();
+  const { connected: dmaConnected } = useDma();
   const pid = health?.pid;
   const { results, loading, error, find, clear } = useXrefs();
   const { modules, refresh: refreshModules } = useModules();
@@ -19,12 +21,12 @@ function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: str
   const [hasSearched, setHasSearched] = useState(false);
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
-  // Fetch modules when attached
+  // Fetch modules when DMA connected and attached
   useEffect(() => {
-    if (pid) {
+    if (dmaConnected && pid) {
       refreshModules(pid);
     }
-  }, [pid, refreshModules]);
+  }, [dmaConnected, pid, refreshModules]);
 
   const getSelectedModuleInfo = useCallback((): ModuleInfo | undefined => {
     if (!selectedModule) return undefined;
@@ -178,7 +180,7 @@ function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: str
           {/* Find button */}
           <button
             onClick={handleFind}
-            disabled={loading || !pid || !address.trim()}
+            disabled={loading || !pid || !address.trim() || !dmaConnected}
             className="px-3 h-7 rounded-md text-xs cursor-pointer border-none outline-none disabled:opacity-40"
             style={{
               fontWeight: 400,

@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePointerChain } from '../hooks/usePointerChain';
 import { useConnection } from '../hooks/useConnection';
+import { useDma } from '../hooks/useDma';
 
 interface PointerChainProps {
   onNavigate: (panel: string, address?: string) => void;
@@ -9,6 +10,7 @@ interface PointerChainProps {
 
 function PointerChain({ onNavigate }: PointerChainProps) {
   const { health } = useConnection();
+  const { connected: dmaConnected } = useDma();
   const pid = health?.pid;
   const { chain, loading, error, resolve } = usePointerChain();
 
@@ -159,7 +161,7 @@ function PointerChain({ onNavigate }: PointerChainProps) {
             />
             <button
               onClick={handleResolve}
-              disabled={loading || !pid || !baseAddress.trim()}
+              disabled={loading || !pid || !baseAddress.trim() || !dmaConnected}
               className="px-4 h-9 rounded-lg text-sm cursor-pointer border-none outline-none disabled:opacity-40"
               style={{
                 fontWeight: 500,

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useMemoryRegions } from '../hooks/useMemoryRegions';
 import { useConnection } from '../hooks/useConnection';
+import { useDma } from '../hooks/useDma';
 
 type SortField = 'base_address' | 'size' | 'protection';
 type SortDir = 'asc' | 'desc';
@@ -27,6 +28,7 @@ function formatTotalSize(bytes: number): string {
 
 function MemoryRegions({ onNavigate }: MemoryRegionsProps) {
   const { health } = useConnection();
+  const { connected: dmaConnected } = useDma();
   const pid = health?.pid;
   const { regions, loading, error, refresh } = useMemoryRegions();
 
@@ -38,10 +40,10 @@ function MemoryRegions({ onNavigate }: MemoryRegionsProps) {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   useEffect(() => {
-    if (pid) {
+    if (dmaConnected && pid) {
       refresh(pid).then(() => setHasLoaded(true));
     }
-  }, [pid, refresh]);
+  }, [dmaConnected, pid, refresh]);
 
   const handleRefresh = useCallback(() => {
     if (pid) refresh(pid);

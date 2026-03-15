@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCFG } from '../hooks/useCFG';
 import { useConnection } from '../hooks/useConnection';
+import { useDma } from '../hooks/useDma';
 import type { CFGNode, CFGEdge, InstructionInfo } from '../api/types';
 
 function getMnemonicColor(category: string): string {
@@ -192,6 +193,7 @@ function NodeBlock({
 
 function CFGViewer() {
   const { health } = useConnection();
+  const { connected: dmaConnected } = useDma();
   const pid = health?.pid;
   const { graph, loading, error, build } = useCFG();
 
@@ -412,7 +414,7 @@ function CFGViewer() {
           </div>
           <button
             onClick={handleGo}
-            disabled={loading || !pid || !address.trim()}
+            disabled={loading || !pid || !address.trim() || !dmaConnected}
             className="px-4 h-9 rounded-lg text-sm cursor-pointer border-none outline-none disabled:opacity-40"
             style={{
               fontWeight: 500,
