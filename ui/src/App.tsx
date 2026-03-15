@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import Layout from './components/Layout';
 import ProcessList from './panels/ProcessList';
+import ModuleBrowser from './panels/ModuleBrowser';
+import MemoryViewer from './panels/MemoryViewer';
 
 function App() {
   const [activePanel, setActivePanel] = useState('processes');
@@ -19,8 +21,8 @@ function App() {
   return (
     <Layout activePanel={activePanel} onNavigate={setActivePanel} dark={dark} onToggleTheme={toggleTheme}>
       {activePanel === 'processes' && <ProcessList />}
-      {activePanel === 'modules' && <PlaceholderPanel name="Modules" icon={'\u29C9'} />}
-      {activePanel === 'memory' && <PlaceholderPanel name="Memory" icon={'\u2B1A'} />}
+      {activePanel === 'modules' && <ModuleBrowser />}
+      {activePanel === 'memory' && <MemoryViewer />}
       {activePanel === 'disassembly' && <PlaceholderPanel name="Disassembly" icon={'\u{1D4AE}'} />}
       {activePanel === 'scanner' && <PlaceholderPanel name="Scanner" icon={'\u29BF'} />}
     </Layout>
