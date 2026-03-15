@@ -112,7 +112,7 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
 
           {/* Server URL */}
           <div className="space-y-1.5">
-            <label className="text-xs" style={{ color: 'var(--text-secondary)' }}>MCP Server URL</label>
+            <label className="text-xs" style={{ color: 'var(--text-secondary)' }}>Server URL</label>
             <input
               type="text"
               value={url}

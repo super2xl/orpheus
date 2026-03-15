@@ -264,20 +264,7 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
 
       {/* Table */}
       <div className="flex-1 min-h-0 overflow-auto px-6 pb-4">
-        {!connected && !hasLoaded ? (
-          /* Empty state: not connected */
-          <motion.div
-            className="h-full flex flex-col items-center justify-center gap-3"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-          >
-            <div className="text-3xl" style={{ color: 'var(--text-muted)' }}>{'\u25A3'}</div>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Start Orpheus to view processes</p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Connect to the MCP server first</p>
-          </motion.div>
-        ) : (
-          <table className="w-full text-sm">
+        <table className="w-full text-sm">
             {/* Column headers */}
             <thead className="sticky top-0 z-10">
               <tr style={{ background: 'var(--bg)' }}>
@@ -436,7 +423,6 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
               )}
             </tbody>
           </table>
-        )}
       </div>
 
       {/* Context menu */}

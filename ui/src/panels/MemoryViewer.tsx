@@ -16,7 +16,7 @@ function formatSize(bytes: number): string {
 }
 
 function MemoryViewer() {
-  const { connected, health } = useConnection();
+  const { health } = useConnection();
   const pid = health?.pid;
 
   const [address, setAddress] = useState('');
@@ -491,19 +491,7 @@ function MemoryViewer() {
       <div className="flex-1 min-h-0 flex px-6 pb-4 gap-4">
         {/* Hex view */}
         <div className="flex-1 min-w-0 overflow-auto">
-          {!connected || !pid ? (
-            /* Empty state: not connected */
-            <motion.div
-              className="h-full flex flex-col items-center justify-center gap-3"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1 }}
-            >
-              <div className="text-3xl" style={{ color: 'var(--text-muted)' }}>{'\u2B1A'}</div>
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Attach to a process to view memory</p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Select a process from the Processes panel</p>
-            </motion.div>
-          ) : !memoryData ? (
+          {!memoryData ? (
             /* Empty state: no address entered */
             <motion.div
               className="h-full flex flex-col items-center justify-center gap-3"

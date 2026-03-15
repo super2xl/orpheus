@@ -172,8 +172,7 @@ function Bookmarks({ onNavigate }: { onNavigate?: (panel: string, address?: stri
           </div>
           <button
             onClick={() => setShowAddForm(!showAddForm)}
-            disabled={!connected}
-            className="px-3 h-7 rounded-md text-xs cursor-pointer border-none outline-none disabled:opacity-40"
+            className="px-3 h-7 rounded-md text-xs cursor-pointer border-none outline-none"
             style={{
               fontWeight: 400,
               background: 'transparent',
@@ -417,19 +416,7 @@ function Bookmarks({ onNavigate }: { onNavigate?: (panel: string, address?: stri
 
       {/* Bookmark list */}
       <div className="flex-1 min-h-0 overflow-auto px-6 pb-4">
-        {!connected ? (
-          /* Empty state: not connected */
-          <motion.div
-            className="h-full flex flex-col items-center justify-center gap-3"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-          >
-            <div className="text-3xl" style={{ color: 'var(--text-muted)' }}>{'\u2606'}</div>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Connect to Orpheus to manage bookmarks</p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Start the server first</p>
-          </motion.div>
-        ) : loading && bookmarks.length === 0 ? (
+        {loading && bookmarks.length === 0 ? (
           /* Loading skeleton */
           <div className="space-y-2 pt-2">
             {Array.from({ length: 4 }, (_, i) => (

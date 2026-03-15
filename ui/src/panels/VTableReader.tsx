@@ -8,7 +8,7 @@ interface VTableReaderProps {
 }
 
 function VTableReader({ onNavigate }: VTableReaderProps) {
-  const { connected, health } = useConnection();
+  const { health } = useConnection();
   const pid = health?.pid;
   const { vtable, loading, error, read } = useVTableReader();
 
@@ -174,18 +174,7 @@ function VTableReader({ onNavigate }: VTableReaderProps) {
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-auto px-6 pb-4">
-        {!connected || !pid ? (
-          <motion.div
-            className="h-full flex flex-col items-center justify-center gap-3"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-          >
-            <div className="text-3xl" style={{ color: 'var(--text-muted)' }}>{'\u25A4'}</div>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Attach to a process to read vtables</p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Select a process from the Processes panel</p>
-          </motion.div>
-        ) : !vtable ? (
+        {!vtable ? (
           <motion.div
             className="h-full flex flex-col items-center justify-center gap-3"
             initial={{ opacity: 0 }}

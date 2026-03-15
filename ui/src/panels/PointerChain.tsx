@@ -8,7 +8,7 @@ interface PointerChainProps {
 }
 
 function PointerChain({ onNavigate }: PointerChainProps) {
-  const { connected, health } = useConnection();
+  const { health } = useConnection();
   const pid = health?.pid;
   const { chain, loading, error, resolve } = usePointerChain();
 
@@ -205,18 +205,7 @@ function PointerChain({ onNavigate }: PointerChainProps) {
 
       {/* Chain visualization */}
       <div className="flex-1 min-h-0 overflow-auto px-6 pb-4">
-        {!connected || !pid ? (
-          <motion.div
-            className="h-full flex flex-col items-center justify-center gap-3"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-          >
-            <div className="text-3xl" style={{ color: 'var(--text-muted)' }}>{'\u2192'}</div>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Attach to a process to resolve pointers</p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Select a process from the Processes panel</p>
-          </motion.div>
-        ) : !chain ? (
+        {!chain ? (
           <motion.div
             className="h-full flex flex-col items-center justify-center gap-3"
             initial={{ opacity: 0 }}

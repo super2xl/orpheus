@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useConnection } from '../hooks/useConnection';
 import { useTasks } from '../hooks/useTasks';
@@ -24,12 +24,10 @@ function stateLabel(state: string): string {
 function TaskManager() {
   const { connected } = useConnection();
   const { tasks, error, refresh, cancel, cleanup } = useTasks();
-  const [hasLoaded, setHasLoaded] = useState(false);
-
   // Initial fetch + auto-refresh every 2s
   useEffect(() => {
     if (!connected) return;
-    refresh().then(() => setHasLoaded(true));
+    refresh();
     const interval = setInterval(refresh, 2000);
     return () => clearInterval(interval);
   }, [connected, refresh]);
@@ -116,18 +114,7 @@ function TaskManager() {
 
       {/* Task list */}
       <div className="flex-1 min-h-0 overflow-auto px-6 pb-4">
-        {!connected && !hasLoaded ? (
-          <motion.div
-            className="h-full flex flex-col items-center justify-center gap-3"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-          >
-            <div className="text-3xl" style={{ color: 'var(--text-muted)' }}>{'\u22EF'}</div>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Connect to view tasks</p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Background tasks will appear here</p>
-          </motion.div>
-        ) : tasks.length === 0 ? (
+        {tasks.length === 0 ? (
           <motion.div
             className="h-full flex flex-col items-center justify-center gap-3"
             initial={{ opacity: 0 }}

@@ -67,7 +67,7 @@ function tokenizeOperands(operands: string): OperandToken[] {
 }
 
 function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
-  const { connected, health } = useConnection();
+  const { health } = useConnection();
   const pid = health?.pid;
   const { instructions, loading, error, disassemble } = useDisassembly();
 
@@ -366,19 +366,7 @@ function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: st
 
       {/* Disassembly listing */}
       <div className="flex-1 min-h-0 overflow-auto px-6 pb-4">
-        {!connected || !pid ? (
-          /* Empty state: not connected */
-          <motion.div
-            className="h-full flex flex-col items-center justify-center gap-3"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-          >
-            <div className="text-3xl" style={{ color: 'var(--text-muted)' }}>{'\u2B1A'}</div>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Attach to a process to disassemble</p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Select a process from the Processes panel</p>
-          </motion.div>
-        ) : instructions.length === 0 && !loading ? (
+        {instructions.length === 0 && !loading ? (
           /* Empty state: no address entered */
           <motion.div
             className="h-full flex flex-col items-center justify-center gap-3"
