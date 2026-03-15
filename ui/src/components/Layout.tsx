@@ -314,7 +314,7 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
 
           {/* DMA Connection */}
           <div className="px-2.5 pb-2" style={{ borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
-            {connected && !dmaStatus.connected && (
+            {!dmaStatus.connected && (
               <button
                 onClick={() => connectDma('fpga')}
                 disabled={dmaLoading}
@@ -343,7 +343,7 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
                 </AnimatePresence>
               </button>
             )}
-            {connected && dmaStatus.connected && (
+            {dmaStatus.connected && (
               <div className="flex items-center gap-2 px-2">
                 <div
                   className="w-2 h-2 rounded-full shrink-0"
