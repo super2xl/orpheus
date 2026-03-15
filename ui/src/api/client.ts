@@ -18,7 +18,7 @@ class OrpheusClient {
   async request<T>(endpoint: string, body?: object, options?: RequestOptions): Promise<T> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.apiKey) {
-      headers['X-API-Key'] = this.apiKey;
+      headers['Authorization'] = `Bearer ${this.apiKey}`;
     }
 
     const controller = new AbortController();

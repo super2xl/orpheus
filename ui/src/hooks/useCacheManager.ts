@@ -12,7 +12,7 @@ export function useCacheManager() {
 
   const refreshStats = useCallback(async () => {
     try {
-      const result = await orpheus.request<CacheStats>('cache_stats');
+      const result = await orpheus.request<CacheStats>('tools/cache_stats');
       setStats(result);
       setError(null);
     } catch (err: any) {
@@ -24,8 +24,8 @@ export function useCacheManager() {
     setLoading(true);
     try {
       const [rtti, schema] = await Promise.allSettled([
-        orpheus.request<{ entries: CacheEntry[] }>('rtti_cache_list'),
-        orpheus.request<{ entries: CacheEntry[] }>('cs2_schema_cache_list'),
+        orpheus.request<{ entries: CacheEntry[] }>('tools/rtti_cache_list', {}),
+        orpheus.request<{ entries: CacheEntry[] }>('tools/cs2_schema_cache_list', {}),
       ]);
       setRttiEntries(rtti.status === 'fulfilled' ? (rtti.value.entries || []) : []);
       setSchemaEntries(schema.status === 'fulfilled' ? (schema.value.entries || []) : []);
@@ -43,7 +43,7 @@ export function useCacheManager() {
 
   const clearAll = useCallback(async () => {
     try {
-      await orpheus.request('clear_cache', {});
+      await orpheus.request('tools/cache_clear', {});
       log('INF', 'cache', 'Cleared all caches');
       await refresh();
     } catch (err: any) {
@@ -53,7 +53,7 @@ export function useCacheManager() {
 
   const clearRtti = useCallback(async () => {
     try {
-      await orpheus.request('rtti_cache_clear', {});
+      await orpheus.request('tools/rtti_cache_clear', {});
       log('INF', 'cache', 'Cleared RTTI cache');
       await refresh();
     } catch (err: any) {
@@ -63,7 +63,7 @@ export function useCacheManager() {
 
   const clearSchema = useCallback(async () => {
     try {
-      await orpheus.request('cache_clear', { type: 'schema' });
+      await orpheus.request('tools/cs2_schema_cache_clear', {});
       log('INF', 'cache', 'Cleared schema cache');
       await refresh();
     } catch (err: any) {
@@ -73,7 +73,7 @@ export function useCacheManager() {
 
   const deleteEntry = useCallback(async (filepath: string) => {
     try {
-      await orpheus.request('cache_delete', { filepath });
+      await orpheus.request('tools/cache_clear', { filepath });
       log('INF', 'cache', `Deleted cache entry: ${filepath}`);
       await refresh();
     } catch (err: any) {

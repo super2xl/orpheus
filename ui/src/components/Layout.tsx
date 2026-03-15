@@ -47,7 +47,7 @@ const settingsItem: NavItem = { id: 'settings', label: 'Settings', icon: '\u2699
 
 function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: LayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const { connected, health } = useConnection();
+  const { connected, health, dmaStatus, dmaLoading, connectDma, disconnectDma } = useConnection();
   const config = orpheus.getConfig();
 
   const sidebarWidth = collapsed ? 60 : 240;
@@ -312,8 +312,78 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
             </button>
           </div>
 
+          {/* DMA Connection */}
+          <div className="px-2.5 pb-2" style={{ borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
+            {connected && !dmaStatus.connected && (
+              <button
+                onClick={() => connectDma('fpga')}
+                disabled={dmaLoading}
+                className="w-full flex items-center justify-center gap-2 h-9 rounded-lg text-sm cursor-pointer border-none outline-none"
+                style={{
+                  background: 'var(--text)',
+                  color: 'var(--bg)',
+                  fontWeight: 500,
+                  opacity: dmaLoading ? 0.6 : 1,
+                  transition: 'opacity 0.1s ease',
+                }}
+              >
+                <span className="text-base leading-none">{dmaLoading ? '\u23F3' : '\u26A1'}</span>
+                <AnimatePresence>
+                  {!collapsed && (
+                    <motion.span
+                      className="whitespace-nowrap"
+                      initial={{ opacity: 0, width: 0 }}
+                      animate={{ opacity: 1, width: 'auto' }}
+                      exit={{ opacity: 0, width: 0 }}
+                      transition={{ duration: 0.15, ease: 'easeInOut' }}
+                    >
+                      {dmaLoading ? 'Connecting...' : 'Connect DMA'}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
+            )}
+            {connected && dmaStatus.connected && (
+              <div className="flex items-center gap-2 px-2">
+                <div
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ background: 'var(--dot-connected)' }}
+                />
+                <AnimatePresence>
+                  {!collapsed && (
+                    <motion.div
+                      className="flex items-center justify-between flex-1 min-w-0"
+                      initial={{ opacity: 0, width: 0 }}
+                      animate={{ opacity: 1, width: 'auto' }}
+                      exit={{ opacity: 0, width: 0 }}
+                      transition={{ duration: 0.15, ease: 'easeInOut' }}
+                    >
+                      <span className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+                        DMA: {dmaStatus.device_type || 'fpga'}
+                      </span>
+                      <button
+                        onClick={() => disconnectDma()}
+                        className="text-xs cursor-pointer border-none outline-none shrink-0 ml-2 rounded px-1.5 py-0.5"
+                        style={{
+                          color: 'var(--text-muted)',
+                          background: 'transparent',
+                          transition: 'color 0.1s ease',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+                        title="Disconnect DMA"
+                      >
+                        Disconnect
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+
           {/* Connection status */}
-          <div className="px-4 py-3" style={{ borderTop: '1px solid var(--border)' }}>
+          <div className="px-4 py-2.5">
             <div className="flex items-center gap-2.5 min-w-0">
               <div
                 className="w-2 h-2 rounded-full shrink-0"
@@ -331,7 +401,7 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
                     exit={{ opacity: 0, width: 0 }}
                     transition={{ duration: 0.15, ease: 'easeInOut' }}
                   >
-                    {connected ? 'Connected' : 'Disconnected'}
+                    {connected ? 'Server Online' : 'Disconnected'}
                   </motion.span>
                 )}
               </AnimatePresence>
@@ -376,6 +446,14 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
             />
             <span style={{ fontWeight: 300 }}>{connected ? 'Online' : 'Offline'}</span>
           </div>
+          {connected && (
+            <>
+              <span style={{ color: 'var(--border)' }}>|</span>
+              <span style={{ fontWeight: 300 }}>
+                DMA: {dmaStatus.connected ? dmaStatus.device_type || 'fpga' : 'not connected'}
+              </span>
+            </>
+          )}
           {health?.process_name && (
             <>
               <span style={{ color: 'var(--border)' }}>|</span>

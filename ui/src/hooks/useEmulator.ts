@@ -29,7 +29,7 @@ export function useEmulator() {
     setLoading(true);
     setError(null);
     try {
-      await orpheus.request<object>('emu_create', { pid });
+      await orpheus.request<object>('tools/emu_create', { pid });
       setCreated(true);
       setStatus('Ready');
       setRegisters(emptyRegisters());
@@ -47,7 +47,7 @@ export function useEmulator() {
     setLoading(true);
     setError(null);
     try {
-      await orpheus.request<object>('emu_destroy', {});
+      await orpheus.request<object>('tools/emu_destroy', {});
       setCreated(false);
       setStatus('Not created');
       setRegisters(emptyRegisters());
@@ -64,7 +64,7 @@ export function useEmulator() {
     setLoading(true);
     setError(null);
     try {
-      await orpheus.request<object>('emu_map_module', { module_name: name });
+      await orpheus.request<object>('tools/emu_map_module', { module_name: name });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -75,7 +75,7 @@ export function useEmulator() {
   const setRegister = useCallback(async (reg: string, value: string) => {
     setError(null);
     try {
-      await orpheus.request<object>('emu_set_registers', {
+      await orpheus.request<object>('tools/emu_set_registers', {
         registers: { [reg]: value },
       });
       setRegisters((prev) => ({ ...prev, [reg]: value }));
@@ -87,7 +87,7 @@ export function useEmulator() {
   const getRegisters = useCallback(async () => {
     setError(null);
     try {
-      const res = await orpheus.request<{ registers: Record<string, string> }>('emu_get_registers', {});
+      const res = await orpheus.request<{ registers: Record<string, string> }>('tools/emu_get_registers', {});
       setRegisters(res.registers || emptyRegisters());
       return res.registers;
     } catch (err: any) {
@@ -103,7 +103,7 @@ export function useEmulator() {
     setChangedRegs(new Set());
     const prevRegs = { ...registers };
     try {
-      const res = await orpheus.request<EmulationResult>('emu_run', {
+      const res = await orpheus.request<EmulationResult>('tools/emu_run', {
         start_address: start,
         end_address: end,
       }, { timeout: 30000 });
@@ -131,7 +131,7 @@ export function useEmulator() {
     setChangedRegs(new Set());
     const prevRegs = { ...registers };
     try {
-      const res = await orpheus.request<EmulationResult>('emu_run_instructions', {
+      const res = await orpheus.request<EmulationResult>('tools/emu_run_instructions', {
         start_address: start,
         count,
       }, { timeout: 30000 });
@@ -154,7 +154,7 @@ export function useEmulator() {
   const reset = useCallback(async () => {
     setError(null);
     try {
-      await orpheus.request<object>('emu_reset', {});
+      await orpheus.request<object>('tools/emu_reset', {});
       setRegisters(emptyRegisters());
       setResult(null);
       setStatus('Ready');

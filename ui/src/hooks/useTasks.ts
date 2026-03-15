@@ -11,7 +11,7 @@ export function useTasks() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await orpheus.request<{ tasks: TaskInfo[] }>('task_list');
+      const result = await orpheus.request<{ tasks: TaskInfo[] }>('tools/task_list', {});
       setTasks(result.tasks || []);
       setError(null);
     } catch (err: any) {
@@ -23,7 +23,7 @@ export function useTasks() {
 
   const cancel = useCallback(async (taskId: string) => {
     try {
-      await orpheus.request('task_cancel', { task_id: taskId });
+      await orpheus.request('tools/task_cancel', { task_id: taskId });
       log('INF', 'tasks', `Cancelled task ${taskId}`);
       await refresh();
     } catch (err: any) {
@@ -33,7 +33,7 @@ export function useTasks() {
 
   const cleanup = useCallback(async () => {
     try {
-      await orpheus.request('task_cleanup', {});
+      await orpheus.request('tools/task_cleanup', {});
       log('INF', 'tasks', 'Cleaned up completed tasks');
       await refresh();
     } catch (err: any) {

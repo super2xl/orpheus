@@ -31,7 +31,7 @@ export function useFunctionRecovery() {
     setError(null);
 
     try {
-      const res = await orpheus.request<FunctionRecoveryResult>('recover_functions', {
+      const res = await orpheus.request<FunctionRecoveryResult>('tools/recover_functions', {
         pid,
         module_base: moduleBase,
         module_size: moduleSize,

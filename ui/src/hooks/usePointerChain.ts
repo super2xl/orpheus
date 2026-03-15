@@ -19,7 +19,7 @@ export function usePointerChain() {
         expression = `[${expression}]+${offsetHex}`;
       }
 
-      const result = await orpheus.request<PointerChainResult>('resolve_pointer', {
+      const result = await orpheus.request<PointerChainResult>('tools/resolve_pointer', {
         pid,
         expression,
       });

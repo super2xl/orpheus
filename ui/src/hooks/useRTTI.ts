@@ -30,7 +30,7 @@ export function useRTTI() {
     cancelledRef.current = false;
 
     try {
-      const res = await orpheus.request<{ task_id: string }>('rtti_scan_module', {
+      const res = await orpheus.request<{ task_id: string }>('tools/rtti_scan_module', {
         pid,
         module_base: moduleBase,
         module_size: moduleSize,
@@ -44,7 +44,7 @@ export function useRTTI() {
           return;
         }
         try {
-          const taskInfo = await orpheus.request<TaskInfo>('get_task_status', {
+          const taskInfo = await orpheus.request<TaskInfo>('tools/task_status', {
             task_id: res.task_id,
           });
           setProgress(taskInfo.progress);
@@ -74,7 +74,7 @@ export function useRTTI() {
 
   const parseVTable = useCallback(async (pid: number, address: string) => {
     try {
-      const res = await orpheus.request<{ entries: string[] }>('rtti_parse_vtable', {
+      const res = await orpheus.request<{ entries: string[] }>('tools/rtti_parse_vtable', {
         pid,
         address,
       });

@@ -11,7 +11,7 @@ export function useCFG() {
     setLoading(true);
     setError(null);
     try {
-      const result = await orpheus.request<ControlFlowGraph>('build_cfg', {
+      const result = await orpheus.request<ControlFlowGraph>('tools/build_cfg', {
         pid,
         address,
       }, { timeout: 30000 });

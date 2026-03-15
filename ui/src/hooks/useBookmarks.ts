@@ -18,7 +18,7 @@ export function useBookmarks() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await orpheus.request<{ bookmarks: Bookmark[] }>('bookmark_list');
+      const res = await orpheus.request<{ bookmarks: Bookmark[] }>('tools/bookmarks');
       setBookmarks(res.bookmarks || []);
       setError(null);
     } catch (err: any) {
@@ -30,7 +30,7 @@ export function useBookmarks() {
 
   const add = useCallback(async (bookmark: NewBookmark) => {
     try {
-      await orpheus.request('bookmark_add', bookmark);
+      await orpheus.request('tools/bookmarks/add', bookmark);
       setError(null);
       await refresh();
     } catch (err: any) {
@@ -40,7 +40,7 @@ export function useBookmarks() {
 
   const remove = useCallback(async (index: number) => {
     try {
-      await orpheus.request('bookmark_remove', { index });
+      await orpheus.request('tools/bookmarks/remove', { index });
       setError(null);
       await refresh();
     } catch (err: any) {
@@ -50,7 +50,7 @@ export function useBookmarks() {
 
   const update = useCallback(async (index: number, bookmark: Partial<Bookmark>) => {
     try {
-      await orpheus.request('bookmark_update', { index, ...bookmark });
+      await orpheus.request('tools/bookmarks/update', { index, ...bookmark });
       setError(null);
       await refresh();
     } catch (err: any) {

@@ -10,7 +10,7 @@ export function useProcesses() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await orpheus.request<{ processes: ProcessInfo[] }>('get_processes');
+      const result = await orpheus.request<{ processes: ProcessInfo[] }>('tools/processes');
       setProcesses(result.processes || []);
       setError(null);
     } catch (err: any) {

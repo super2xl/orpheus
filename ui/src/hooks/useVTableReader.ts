@@ -12,7 +12,7 @@ export function useVTableReader() {
     setError(null);
     setVtable(null);
     try {
-      const result = await orpheus.request<VTableInfo>('read_vtable', {
+      const result = await orpheus.request<VTableInfo>('tools/read_vtable', {
         pid,
         address,
         max_entries: maxEntries,

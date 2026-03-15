@@ -12,7 +12,7 @@ export function useDecompiler() {
     setLoading(true);
     setError(null);
     try {
-      const result = await orpheus.request<DecompileResult>('decompile', {
+      const result = await orpheus.request<DecompileResult>('tools/decompile', {
         pid,
         address,
         ...(maxInstructions && { max_instructions: maxInstructions }),

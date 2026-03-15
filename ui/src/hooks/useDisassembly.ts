@@ -10,7 +10,7 @@ export function useDisassembly() {
   const disassemble = useCallback(async (pid: number, address: string, count?: number) => {
     setLoading(true);
     try {
-      const result = await orpheus.request<{ instructions: InstructionInfo[] }>('disassemble', {
+      const result = await orpheus.request<{ instructions: InstructionInfo[] }>('tools/disassemble', {
         pid,
         address,
         ...(count && { count }),

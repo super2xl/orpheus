@@ -10,7 +10,7 @@ export function useMemoryRegions() {
   const refresh = useCallback(async (pid: number) => {
     setLoading(true);
     try {
-      const result = await orpheus.request<{ regions: MemoryRegion[] }>('memory_regions', { pid });
+      const result = await orpheus.request<{ regions: MemoryRegion[] }>('tools/memory_regions', { pid });
       setRegions(result.regions || []);
       setError(null);
     } catch (err: any) {

@@ -34,13 +34,13 @@ export function useStringScan() {
     setError(null);
 
     try {
-      const res = await orpheus.request<{ task_id: string }>('scan_strings_async', params);
+      const res = await orpheus.request<{ task_id: string }>('tools/scan_strings_async', params);
 
       // Poll for task completion
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
         try {
-          const taskInfo = await orpheus.request<TaskInfo>('get_task_status', {
+          const taskInfo = await orpheus.request<TaskInfo>('tools/task_status', {
             task_id: res.task_id,
           });
           setTask(taskInfo);

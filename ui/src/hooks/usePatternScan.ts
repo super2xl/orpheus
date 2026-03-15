@@ -14,7 +14,7 @@ export function usePatternScan() {
     setResult(null);
     setTask(null);
     try {
-      const res = await orpheus.request<ScanResult>('scan_pattern', {
+      const res = await orpheus.request<ScanResult>('tools/scan_pattern', {
         pid,
         pattern,
         ...(moduleName && { module_name: moduleName }),
@@ -33,7 +33,7 @@ export function usePatternScan() {
     setResult(null);
     setTask(null);
     try {
-      const res = await orpheus.request<{ task_id: string }>('scan_pattern_async', {
+      const res = await orpheus.request<{ task_id: string }>('tools/scan_pattern_async', {
         pid,
         pattern,
         ...(moduleName && { module_name: moduleName }),
@@ -43,7 +43,7 @@ export function usePatternScan() {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
         try {
-          const taskInfo = await orpheus.request<TaskInfo>('get_task_status', {
+          const taskInfo = await orpheus.request<TaskInfo>('tools/task_status', {
             task_id: res.task_id,
           });
           setTask(taskInfo);

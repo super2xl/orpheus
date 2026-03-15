@@ -488,7 +488,7 @@ function FunctionRecovery({ onNavigate }: { onNavigate?: (panel: string, address
                     { label: 'Decompile', action: () => onNavigate?.('decompiler', fn.entry_address) },
                     { label: 'Build CFG', action: () => onNavigate?.('cfg', fn.entry_address) },
                     { label: 'Add Bookmark', action: () => {
-                      orpheus.request('bookmark_add', {
+                      orpheus.request('tools/bookmarks/add', {
                         address: fn.entry_address,
                         label: fn.name,
                         notes: '',

@@ -27,7 +27,7 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
   // Fetch version info when connected
   useEffect(() => {
     if (connected) {
-      orpheus.request<VersionInfo>('get_version')
+      orpheus.request<VersionInfo>('version')
         .then(setVersion)
         .catch(() => setVersion(null));
     } else {
@@ -42,7 +42,7 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
       return;
     }
     const fetchStats = () => {
-      orpheus.request<CacheStats>('cache_stats')
+      orpheus.request<CacheStats>('tools/cache_stats')
         .then(setCacheStats)
         .catch(() => setCacheStats(null));
     };
@@ -73,9 +73,9 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
   const handleClearCache = useCallback(async () => {
     setClearingCache(true);
     try {
-      await orpheus.request('clear_cache', {});
+      await orpheus.request('tools/cache_clear', {});
       // Refresh stats after clearing
-      const stats = await orpheus.request<CacheStats>('cache_stats');
+      const stats = await orpheus.request<CacheStats>('tools/cache_stats');
       setCacheStats(stats);
     } catch {
       // Silently handle

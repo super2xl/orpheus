@@ -10,7 +10,7 @@ export function useModules() {
   const refresh = useCallback(async (pid: number) => {
     setLoading(true);
     try {
-      const result = await orpheus.request<{ modules: ModuleInfo[] }>('get_modules', { pid });
+      const result = await orpheus.request<{ modules: ModuleInfo[] }>('tools/modules', { pid });
       setModules(result.modules || []);
       setError(null);
     } catch (err: any) {

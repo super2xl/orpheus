@@ -10,7 +10,7 @@ export function useMemory() {
   const refresh = useCallback(async (pid: number, address?: string, size?: number) => {
     setLoading(true);
     try {
-      const result = await orpheus.request<{ regions: MemoryRegion[] }>('read_memory', {
+      const result = await orpheus.request<{ regions: MemoryRegion[] }>('tools/read_memory', {
         pid,
         ...(address && { address }),
         ...(size && { size }),

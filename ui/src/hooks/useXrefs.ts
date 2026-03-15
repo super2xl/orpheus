@@ -14,7 +14,7 @@ export function useXrefs() {
       const body: Record<string, unknown> = { pid, address };
       if (moduleBase) body.module_base = moduleBase;
       if (moduleSize) body.module_size = moduleSize;
-      const result = await orpheus.request<{ xrefs: XrefResult[] }>('find_xrefs', body);
+      const result = await orpheus.request<{ xrefs: XrefResult[] }>('tools/find_xrefs', body);
       setResults(result.xrefs || []);
     } catch (err: any) {
       setError(err.message);

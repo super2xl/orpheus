@@ -329,6 +329,62 @@ void MCPServer::SetupRoutes() {
         res.set_content(response.dump(), "application/json");
     });
 
+    // DMA connection management
+    server->Post("/tools/connect_dma", [this](const httplib::Request& req, httplib::Response& res) {
+        json body;
+        try { body = json::parse(req.body); } catch (...) { body = json::object(); }
+
+        std::string device_type = body.value("device_type", "fpga");
+
+        auto* dma = core_->GetDMA();
+        if (!dma) {
+            res.set_content(CreateErrorResponse("DMA interface not available"), "application/json");
+            return;
+        }
+
+        if (dma->IsConnected()) {
+            json response;
+            response["success"] = true;
+            response["message"] = "Already connected";
+            response["device_type"] = dma->GetDeviceType();
+            res.set_content(response.dump(), "application/json");
+            return;
+        }
+
+        bool connected = dma->Initialize(device_type);
+        json response;
+        response["success"] = connected;
+        if (connected) {
+            response["message"] = "Connected to DMA device";
+            response["device_type"] = dma->GetDeviceType();
+        } else {
+            response["error"] = "Failed to connect to DMA device";
+        }
+        res.set_content(response.dump(), "application/json");
+    });
+
+    server->Post("/tools/disconnect_dma", [this](const httplib::Request&, httplib::Response& res) {
+        auto* dma = core_->GetDMA();
+        if (dma && dma->IsConnected()) {
+            dma->Close();
+        }
+        json response;
+        response["success"] = true;
+        response["message"] = "Disconnected";
+        res.set_content(response.dump(), "application/json");
+    });
+
+    // DMA status
+    server->Get("/tools/dma_status", [this](const httplib::Request&, httplib::Response& res) {
+        auto* dma = core_->GetDMA();
+        json response;
+        response["connected"] = dma && dma->IsConnected();
+        if (dma && dma->IsConnected()) {
+            response["device_type"] = dma->GetDeviceType();
+        }
+        res.set_content(response.dump(), "application/json");
+    });
+
     // Core tool endpoints (no permission check)
     ROUTE_GET("/tools/processes", HandleGetProcesses);
     ROUTE_POST("/tools/modules", HandleGetModules);

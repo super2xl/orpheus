@@ -33,7 +33,7 @@ export function useWriteTracer() {
       visited.add(address);
 
       try {
-        const result = await orpheus.request<{ xrefs: XrefResult[] }>('find_xrefs', {
+        const result = await orpheus.request<{ xrefs: XrefResult[] }>('tools/find_xrefs', {
           pid,
           address,
         });
@@ -86,7 +86,7 @@ export function useWriteTracer() {
       if (moduleBase) body.module_base = moduleBase;
       if (moduleSize) body.module_size = moduleSize;
 
-      const xrefResult = await orpheus.request<{ xrefs: XrefResult[] }>('find_xrefs', body, { timeout: 60000 });
+      const xrefResult = await orpheus.request<{ xrefs: XrefResult[] }>('tools/find_xrefs', body, { timeout: 60000 });
 
       if (cancelledRef.current) return;
 

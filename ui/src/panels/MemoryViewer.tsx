@@ -37,7 +37,7 @@ function MemoryViewer() {
     setError(null);
     try {
       const addrHex = '0x' + addr.toString(16).toUpperCase();
-      const result = await orpheus.request<MemoryData>('read_memory', {
+      const result = await orpheus.request<MemoryData>('tools/read_memory', {
         pid,
         address: addrHex,
         size,
@@ -61,7 +61,7 @@ function MemoryViewer() {
     const exprMatch = input.match(/^(.+?)\+(.+)$/);
     if (exprMatch && !input.startsWith('0x') && !input.startsWith('0X')) {
       try {
-        const result = await orpheus.request<{ address: string }>('evaluate_expression', {
+        const result = await orpheus.request<{ address: string }>('tools/evaluate_expression', {
           pid,
           expression: input,
         });
