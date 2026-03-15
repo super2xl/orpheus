@@ -5,7 +5,7 @@ import { orpheus } from '../api/client';
 
 interface LayoutProps {
   activePanel: string;
-  onNavigate: (panel: string) => void;
+  onNavigate: (panel: string, address?: string) => void;
   dark: boolean;
   onToggleTheme: () => void;
   children: React.ReactNode;
@@ -23,7 +23,12 @@ const navItems: NavItem[] = [
   { id: 'memory', label: 'Memory', icon: '\u2B1A' },
   { id: 'disassembly', label: 'Disassembly', icon: '\u{1D4AE}' },
   { id: 'scanner', label: 'Scanner', icon: '\u29BF' },
+  { id: 'strings', label: 'Strings', icon: 'T' },
+  { id: 'xrefs', label: 'Xrefs', icon: '\u2192' },
+  { id: 'bookmarks', label: 'Bookmarks', icon: '\u2605' },
 ];
+
+const settingsItem: NavItem = { id: 'settings', label: 'Settings', icon: '\u2699' };
 
 function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: LayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -129,6 +134,59 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
               );
             })}
           </nav>
+
+          {/* Settings nav item */}
+          <div className="px-2.5 pb-0.5">
+            {(() => {
+              const isActive = activePanel === settingsItem.id;
+              return (
+                <button
+                  onClick={() => onNavigate(settingsItem.id)}
+                  className="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm relative cursor-pointer border-none outline-none"
+                  style={{
+                    background: 'transparent',
+                    color: isActive ? 'var(--text)' : 'var(--text-secondary)',
+                    fontWeight: isActive ? 500 : 400,
+                    transition: 'color 0.1s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.color = 'var(--text)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.color = 'var(--text-secondary)';
+                    }
+                  }}
+                >
+                  {isActive && (
+                    <motion.div
+                      className="nav-ring"
+                      layoutId="nav-ring"
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                  <span className="text-base leading-none shrink-0 w-5 text-center relative z-10">
+                    {settingsItem.icon}
+                  </span>
+                  <AnimatePresence>
+                    {!collapsed && (
+                      <motion.span
+                        className="whitespace-nowrap relative z-10"
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -6 }}
+                        transition={{ duration: 0.12, ease: 'easeOut' }}
+                      >
+                        {settingsItem.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </button>
+              );
+            })()}
+          </div>
 
           {/* Theme toggle */}
           <div className="px-2.5 pb-1">

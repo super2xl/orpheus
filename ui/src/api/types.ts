@@ -71,3 +71,41 @@ export interface VersionInfo {
   build_type: string;
   platform: string;
 }
+
+export interface StringMatch {
+  address: string;
+  value: string;
+  type: string; // "ASCII" | "UTF16_LE"
+  raw_length: number;
+}
+
+export interface StringScanResult {
+  matches: StringMatch[];
+  scan_time_ms: number;
+}
+
+export interface Bookmark {
+  address: string;
+  label: string;
+  notes: string;
+  category: string;
+  module: string;
+  created_at: number;
+}
+
+export interface XrefResult {
+  address: string;
+  instruction: string;
+  mnemonic: string;
+  module_name?: string;
+  module_offset?: string;
+}
+
+export interface CacheStats {
+  enabled: boolean;
+  hits: number;
+  misses: number;
+  evictions: number;
+  hit_rate: number;
+  pages_cached: number;
+}

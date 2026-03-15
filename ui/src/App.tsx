@@ -5,6 +5,10 @@ import ModuleBrowser from './panels/ModuleBrowser';
 import MemoryViewer from './panels/MemoryViewer';
 import Disassembly from './panels/Disassembly';
 import PatternScanner from './panels/PatternScanner';
+import StringScanner from './panels/StringScanner';
+import Bookmarks from './panels/Bookmarks';
+import XrefFinder from './panels/XrefFinder';
+import Settings from './panels/Settings';
 
 function App() {
   const [activePanel, setActivePanel] = useState('processes');
@@ -20,13 +24,21 @@ function App() {
 
   const toggleTheme = useCallback(() => setDark((d) => !d), []);
 
+  const handleNavigate = useCallback((panel: string, _address?: string) => {
+    setActivePanel(panel);
+  }, []);
+
   return (
-    <Layout activePanel={activePanel} onNavigate={setActivePanel} dark={dark} onToggleTheme={toggleTheme}>
+    <Layout activePanel={activePanel} onNavigate={handleNavigate} dark={dark} onToggleTheme={toggleTheme}>
       {activePanel === 'processes' && <ProcessList />}
       {activePanel === 'modules' && <ModuleBrowser />}
       {activePanel === 'memory' && <MemoryViewer />}
       {activePanel === 'disassembly' && <Disassembly />}
       {activePanel === 'scanner' && <PatternScanner />}
+      {activePanel === 'strings' && <StringScanner />}
+      {activePanel === 'xrefs' && <XrefFinder onNavigate={handleNavigate} />}
+      {activePanel === 'bookmarks' && <Bookmarks />}
+      {activePanel === 'settings' && <Settings dark={dark} onToggleTheme={toggleTheme} />}
     </Layout>
   );
 }
