@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDecompiler } from '../hooks/useDecompiler';
-import { useConnection } from '../hooks/useConnection';
+import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 
 const C_KEYWORDS = new Set([
@@ -76,9 +76,9 @@ function tokenizeLine(line: string): Token[] {
 }
 
 function Decompiler() {
-  const { health } = useConnection();
+  const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
-  const pid = health?.pid;
+  const pid = attachedProcess?.pid;
   const { code, functionName, loading, error, decompile } = useDecompiler();
 
   const [address, setAddress] = useState('');

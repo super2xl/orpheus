@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useModules } from '../hooks/useModules';
-import { useConnection } from '../hooks/useConnection';
 import { useDma } from '../hooks/useDma';
+import { useProcess } from '../hooks/useProcess';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
@@ -18,8 +18,8 @@ function formatSize(bytes: number): string {
 
 function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { modules, loading, error, refresh } = useModules();
-  const { health } = useConnection();
   const { connected: dmaConnected } = useDma();
+  const { process: attachedProcess } = useProcess();
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [sortField, setSortField] = useState<SortField>('name');
@@ -28,7 +28,7 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
-  const pid = health?.pid;
+  const pid = attachedProcess?.pid;
 
   // Fetch when DMA connects and process attached
   useEffect(() => {

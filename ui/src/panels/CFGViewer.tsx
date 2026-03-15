@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCFG } from '../hooks/useCFG';
-import { useConnection } from '../hooks/useConnection';
+import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 import type { CFGNode, CFGEdge, InstructionInfo } from '../api/types';
 
@@ -192,9 +192,9 @@ function NodeBlock({
 }
 
 function CFGViewer() {
-  const { health } = useConnection();
+  const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
-  const pid = health?.pid;
+  const pid = attachedProcess?.pid;
   const { graph, loading, error, build } = useCFG();
 
   const [address, setAddress] = useState('');

@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useConnection } from '../hooks/useConnection';
+import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 import { orpheus } from '../api/client';
 
@@ -17,9 +17,9 @@ function formatSize(bytes: number): string {
 }
 
 function MemoryViewer() {
-  const { health } = useConnection();
+  const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
-  const pid = health?.pid;
+  const pid = attachedProcess?.pid;
 
   const [address, setAddress] = useState('');
   const [currentAddress, setCurrentAddress] = useState<bigint>(0n);

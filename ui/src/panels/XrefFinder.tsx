@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useXrefs } from '../hooks/useXrefs';
 import { useModules } from '../hooks/useModules';
-import { useConnection } from '../hooks/useConnection';
+import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
@@ -10,9 +10,9 @@ import { copyToClipboard } from '../utils/clipboard';
 import type { ModuleInfo } from '../api/types';
 
 function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
-  const { health } = useConnection();
+  const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
-  const pid = health?.pid;
+  const pid = attachedProcess?.pid;
   const { results, loading, error, find, clear } = useXrefs();
   const { modules, refresh: refreshModules } = useModules();
 

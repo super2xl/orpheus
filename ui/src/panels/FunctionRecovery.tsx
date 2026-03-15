@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useFunctionRecovery } from '../hooks/useFunctionRecovery';
 import { useModules } from '../hooks/useModules';
-import { useConnection } from '../hooks/useConnection';
+import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
@@ -19,9 +19,9 @@ function formatSize(bytes: number): string {
 }
 
 function FunctionRecovery({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
-  const { health } = useConnection();
+  const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
-  const pid = health?.pid;
+  const pid = attachedProcess?.pid;
   const { functions, scanTime, stats, loading, error, recover } = useFunctionRecovery();
   const { modules, refresh: refreshModules } = useModules();
 

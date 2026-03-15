@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useMemoryRegions } from '../hooks/useMemoryRegions';
-import { useConnection } from '../hooks/useConnection';
+import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 
 type SortField = 'base_address' | 'size' | 'protection';
@@ -27,9 +27,9 @@ function formatTotalSize(bytes: number): string {
 }
 
 function MemoryRegions({ onNavigate }: MemoryRegionsProps) {
-  const { health } = useConnection();
+  const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
-  const pid = health?.pid;
+  const pid = attachedProcess?.pid;
   const { regions, loading, error, refresh } = useMemoryRegions();
 
   const [hasLoaded, setHasLoaded] = useState(false);

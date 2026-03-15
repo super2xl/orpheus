@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePointerChain } from '../hooks/usePointerChain';
-import { useConnection } from '../hooks/useConnection';
+import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 
 interface PointerChainProps {
@@ -9,9 +9,9 @@ interface PointerChainProps {
 }
 
 function PointerChain({ onNavigate }: PointerChainProps) {
-  const { health } = useConnection();
+  const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
-  const pid = health?.pid;
+  const pid = attachedProcess?.pid;
   const { chain, loading, error, resolve } = usePointerChain();
 
   const [baseAddress, setBaseAddress] = useState('');

@@ -2,16 +2,16 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStringScan } from '../hooks/useStringScan';
 import { useModules } from '../hooks/useModules';
-import { useConnection } from '../hooks/useConnection';
+import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
 
 function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
-  const { health } = useConnection();
+  const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
-  const pid = health?.pid;
+  const pid = attachedProcess?.pid;
   const { result, loading, error, task, scanAsync, cancel } = useStringScan();
   const { modules, refresh: refreshModules } = useModules();
 

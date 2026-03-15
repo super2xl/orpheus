@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDisassembly } from '../hooks/useDisassembly';
-import { useConnection } from '../hooks/useConnection';
+import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
@@ -68,9 +68,9 @@ function tokenizeOperands(operands: string): OperandToken[] {
 }
 
 function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
-  const { health } = useConnection();
+  const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
-  const pid = health?.pid;
+  const pid = attachedProcess?.pid;
   const { instructions, loading, error, disassemble } = useDisassembly();
 
   const [address, setAddress] = useState('');

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useWriteTracer } from '../hooks/useWriteTracer';
 import { useModules } from '../hooks/useModules';
-import { useConnection } from '../hooks/useConnection';
+import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
@@ -173,9 +173,9 @@ function TreeNode({
 }
 
 function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
-  const { health } = useConnection();
+  const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
-  const pid = health?.pid;
+  const pid = attachedProcess?.pid;
   const { writes, callGraph, loading, error, progress, trace, cancel } = useWriteTracer();
   const { modules, refresh: refreshModules } = useModules();
 

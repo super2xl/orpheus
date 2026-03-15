@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useVTableReader } from '../hooks/useVTableReader';
-import { useConnection } from '../hooks/useConnection';
+import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 
 interface VTableReaderProps {
@@ -9,9 +9,9 @@ interface VTableReaderProps {
 }
 
 function VTableReader({ onNavigate }: VTableReaderProps) {
-  const { health } = useConnection();
+  const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
-  const pid = health?.pid;
+  const pid = attachedProcess?.pid;
   const { vtable, loading, error, read } = useVTableReader();
 
   const [address, setAddress] = useState('');

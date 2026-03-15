@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useProcesses } from '../hooks/useProcesses';
 import { useDma } from '../hooks/useDma';
+import { useProcess } from '../hooks/useProcess';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
@@ -13,6 +14,7 @@ type SortDir = 'asc' | 'desc';
 function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { processes, loading, error, refresh } = useProcesses();
   const { connected: dmaConnected } = useDma();
+  const { process: attachedProcess, attach, detach } = useProcess();
   const [search, setSearch] = useState('');
   const [selectedPid, setSelectedPid] = useState<number | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(() => localStorage.getItem('orpheus-auto-refresh') === 'true');
@@ -87,11 +89,16 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
   }, []);
 
   const handleAttach = useCallback(
-    (_p: ProcessInfo) => {
-      // Future: call attach endpoint
-      setSelectedPid(_p.pid);
+    (p: ProcessInfo) => {
+      if (attachedProcess?.pid === p.pid) {
+        detach();
+        setSelectedPid(null);
+      } else {
+        attach(p);
+        setSelectedPid(p.pid);
+      }
     },
-    []
+    [attach, detach, attachedProcess]
   );
 
   const sortIcon = (field: SortField) => {

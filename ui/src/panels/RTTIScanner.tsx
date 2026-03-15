@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRTTI } from '../hooks/useRTTI';
 import { useModules } from '../hooks/useModules';
-import { useConnection } from '../hooks/useConnection';
+import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
@@ -10,9 +10,9 @@ import { copyToClipboard } from '../utils/clipboard';
 import type { RTTIClassInfo } from '../api/types';
 
 function RTTIScanner({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
-  const { health } = useConnection();
+  const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
-  const pid = health?.pid;
+  const pid = attachedProcess?.pid;
   const { results, scanTime, loading, error, progress, statusMessage, scan, cancel, parseVTable } = useRTTI();
   const { modules, refresh: refreshModules } = useModules();
 
