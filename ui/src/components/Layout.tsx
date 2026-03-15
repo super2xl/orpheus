@@ -32,6 +32,9 @@ const navItems: NavItem[] = [
   { id: 'cfg', label: 'CFG', icon: '\u22B6' },
   { id: 'write-tracer', label: 'Write Tracer', icon: '\u270E' },
   { id: 'emulator', label: 'Emulator', icon: '\u25B6' },
+  { id: 'regions', label: 'Regions', icon: '\u25A6' },
+  { id: 'pointers', label: 'Pointers', icon: '\u21A3' },
+  { id: 'vtable', label: 'VTable', icon: '\u25A4' },
 ];
 
 const settingsItem: NavItem = { id: 'settings', label: 'Settings', icon: '\u2699' };

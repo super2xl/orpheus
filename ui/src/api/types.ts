@@ -174,6 +174,32 @@ export interface DecompileResult {
   function_name: string;
 }
 
+export interface PointerChainStep {
+  offset: number;
+  address: string;     // address being read
+  value: string;       // value at that address (next pointer or final)
+  success: boolean;
+}
+
+export interface PointerChainResult {
+  steps: PointerChainStep[];
+  final_address: string;
+  final_value: string;
+}
+
+export interface VTableEntry {
+  index: number;
+  address: string;
+  function_name?: string;
+}
+
+export interface VTableInfo {
+  address: string;
+  class_name?: string;
+  base_classes?: string[];
+  entries: VTableEntry[];
+}
+
 export interface CFGNode {
   address: string;
   end_address: string;
