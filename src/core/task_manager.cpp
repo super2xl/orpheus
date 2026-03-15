@@ -86,9 +86,9 @@ std::string TaskManager::GenerateTaskId() {
     uint64_t counter = task_counter_.fetch_add(1);
 
     // Generate random suffix
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<uint32_t> dist(0, 0xFFFFFFFF);
+    thread_local std::random_device rd;
+    thread_local std::mt19937 gen(rd());
+    thread_local std::uniform_int_distribution<uint32_t> dist(0, 0xFFFFFFFF);
 
     std::ostringstream ss;
     ss << "task_" << std::hex << std::setfill('0')

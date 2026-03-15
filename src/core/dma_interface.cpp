@@ -6,6 +6,7 @@
 #include <iostream>
 #include <algorithm>
 #include <mutex>
+#include <atomic>
 
 #ifdef PLATFORM_WINDOWS
     #include <windows.h>
@@ -294,8 +295,10 @@ DMAInterface::~DMAInterface() { Close(); }
 
 DMAInterface::DMAInterface(DMAInterface&& other) noexcept
     : vmm_handle_(other.vmm_handle_)
+    , device_type_(std::move(other.device_type_))
     , last_error_(std::move(other.last_error_))
-    , error_callback_(std::move(other.error_callback_)) {
+    , error_callback_(std::move(other.error_callback_))
+    , cache_(std::move(other.cache_)) {
     other.vmm_handle_ = nullptr;
 }
 
@@ -303,8 +306,10 @@ DMAInterface& DMAInterface::operator=(DMAInterface&& other) noexcept {
     if (this != &other) {
         Close();
         vmm_handle_ = other.vmm_handle_;
+        device_type_ = std::move(other.device_type_);
         last_error_ = std::move(other.last_error_);
         error_callback_ = std::move(other.error_callback_);
+        cache_ = std::move(other.cache_);
         other.vmm_handle_ = nullptr;
     }
     return *this;
@@ -312,26 +317,29 @@ DMAInterface& DMAInterface::operator=(DMAInterface&& other) noexcept {
 
 // Thread-safe VMM module initialization
 static bool InitializeVMMModule(RuntimeManager& runtime, std::string& error_out) {
-    static bool init_result = false;
+    static std::atomic<bool> init_result{false};
     static std::string init_error;
 
     std::call_once(vmm_init_flag, [&runtime]() {
         vmm_module = runtime.LoadExtractedDLL(VMM_LIBRARY_NAME);
         if (vmm_module == nullptr) {
             init_error = "Failed to load " VMM_LIBRARY_NAME;
-            init_result = false;
+            init_result.store(false, std::memory_order_release);
             return;
         }
         if (!LoadVMMFunctions()) {
             init_error = "Failed to load VMM functions";
-            init_result = false;
+            init_result.store(false, std::memory_order_release);
             return;
         }
-        init_result = true;
+        init_result.store(true, std::memory_order_release);
     });
 
-    error_out = init_error;
-    return init_result;
+    if (!init_result.load(std::memory_order_acquire)) {
+        error_out = init_error;
+        return false;
+    }
+    return true;
 }
 
 bool DMAInterface::Initialize(const std::string& device) {

@@ -241,13 +241,19 @@ void RuntimeManager::Cleanup() {
         return;
     }
 
-    // Unload any loaded DLLs first
-    for (auto* handle : loaded_dlls_) {
+    // Copy handles and clear the vector before freeing,
+    // since UnloadDLL erases from loaded_dlls_ (undefined behavior if done during iteration)
+    auto handles = loaded_dlls_;
+    loaded_dlls_.clear();
+    for (auto* handle : handles) {
         if (handle != nullptr) {
-            UnloadDLL(handle);
+#ifdef PLATFORM_WINDOWS
+            FreeLibrary(static_cast<HMODULE>(handle));
+#else
+            dlclose(handle);
+#endif
         }
     }
-    loaded_dlls_.clear();
 
     // Small delay to ensure DLLs are fully unloaded
 #ifdef PLATFORM_WINDOWS

@@ -19,9 +19,9 @@ namespace orpheus {
 
 // Generate a simple session ID for deduplication
 static std::string GenerateSessionId() {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<uint32_t> dist(0, 0xFFFFFFFF);
+    thread_local std::random_device rd;
+    thread_local std::mt19937 gen(rd());
+    thread_local std::uniform_int_distribution<uint32_t> dist(0, 0xFFFFFFFF);
 
     std::stringstream ss;
     ss << std::hex << dist(gen) << dist(gen);
