@@ -14,7 +14,7 @@
  */
 
 #include "mcp_server.h"
-#include "ui/application.h"
+#include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 #include "emulation/emulator.h"
 #include "utils/logger.h"
@@ -48,7 +48,7 @@ std::string MCPServer::HandleEmuCreate(const std::string& body) {
             config.lazy_mapping = req["lazy_mapping"];
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }

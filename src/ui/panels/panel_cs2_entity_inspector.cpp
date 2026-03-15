@@ -65,7 +65,7 @@ void Application::RenderCS2EntityInspector() {
             } else {
                 // Read a portion of client.dll for pattern scanning
                 size_t scan_size = std::min(static_cast<size_t>(cs2_client_size_), static_cast<size_t>(20 * 1024 * 1024));
-                auto client_data = dma_->ReadMemory(selected_pid_, cs2_client_base_, scan_size);
+                auto client_data = GetDMA()->ReadMemory(selected_pid_, cs2_client_base_, scan_size);
 
                 if (!client_data.empty()) {
                     // Pattern scan for CGameEntitySystem
@@ -78,13 +78,13 @@ void Application::RenderCS2EntityInspector() {
 
                         if (!entity_results.empty()) {
                             uint64_t instr_addr = entity_results[0];
-                            auto offset_data = dma_->ReadMemory(selected_pid_, instr_addr + 3, 4);
+                            auto offset_data = GetDMA()->ReadMemory(selected_pid_, instr_addr + 3, 4);
                             if (offset_data.size() >= 4) {
                                 int32_t rip_offset;
                                 std::memcpy(&rip_offset, offset_data.data(), 4);
                                 uint64_t ptr_addr = instr_addr + 7 + rip_offset;
 
-                                auto ptr_data = dma_->ReadMemory(selected_pid_, ptr_addr, 8);
+                                auto ptr_data = GetDMA()->ReadMemory(selected_pid_, ptr_addr, 8);
                                 if (ptr_data.size() >= 8) {
                                     std::memcpy(&cs2_entity_system_, ptr_data.data(), 8);
                                     LOG_INFO("Found CGameEntitySystem: 0x{:X}", cs2_entity_system_);
@@ -103,7 +103,7 @@ void Application::RenderCS2EntityInspector() {
 
                         if (!lpc_results.empty()) {
                             uint64_t instr_addr = lpc_results[0];
-                            auto offset_data = dma_->ReadMemory(selected_pid_, instr_addr + 3, 4);
+                            auto offset_data = GetDMA()->ReadMemory(selected_pid_, instr_addr + 3, 4);
                             if (offset_data.size() >= 4) {
                                 int32_t rip_offset;
                                 std::memcpy(&rip_offset, offset_data.data(), 4);
@@ -135,7 +135,7 @@ void Application::RenderCS2EntityInspector() {
 
     // Local Player Section
     if (ImGui::CollapsingHeader("Local Player", ImGuiTreeNodeFlags_DefaultOpen)) {
-        auto lpc_data = dma_->ReadMemory(selected_pid_, cs2_local_player_array_, 8);
+        auto lpc_data = GetDMA()->ReadMemory(selected_pid_, cs2_local_player_array_, 8);
         uint64_t local_controller = 0;
         if (lpc_data.size() >= 8) {
             std::memcpy(&local_controller, lpc_data.data(), 8);
@@ -152,7 +152,7 @@ void Application::RenderCS2EntityInspector() {
                 uint32_t alive_offset = cs2_schema_->GetOffset("CCSPlayerController", "m_bPawnIsAlive");
 
                 if (pawn_offset > 0) {
-                    auto pawn_data = dma_->ReadMemory(selected_pid_, local_controller + pawn_offset, 4);
+                    auto pawn_data = GetDMA()->ReadMemory(selected_pid_, local_controller + pawn_offset, 4);
                     if (pawn_data.size() >= 4) {
                         uint32_t pawn_handle;
                         std::memcpy(&pawn_handle, pawn_data.data(), 4);
@@ -162,7 +162,7 @@ void Application::RenderCS2EntityInspector() {
                 }
 
                 if (health_offset > 0) {
-                    auto health_data = dma_->ReadMemory(selected_pid_, local_controller + health_offset, 4);
+                    auto health_data = GetDMA()->ReadMemory(selected_pid_, local_controller + health_offset, 4);
                     if (health_data.size() >= 4) {
                         int32_t health;
                         std::memcpy(&health, health_data.data(), 4);
@@ -173,7 +173,7 @@ void Application::RenderCS2EntityInspector() {
                 }
 
                 if (armor_offset > 0) {
-                    auto armor_data = dma_->ReadMemory(selected_pid_, local_controller + armor_offset, 4);
+                    auto armor_data = GetDMA()->ReadMemory(selected_pid_, local_controller + armor_offset, 4);
                     if (armor_data.size() >= 4) {
                         int32_t armor;
                         std::memcpy(&armor, armor_data.data(), 4);
@@ -183,7 +183,7 @@ void Application::RenderCS2EntityInspector() {
                 }
 
                 if (alive_offset > 0) {
-                    auto alive_data = dma_->ReadMemory(selected_pid_, local_controller + alive_offset, 1);
+                    auto alive_data = GetDMA()->ReadMemory(selected_pid_, local_controller + alive_offset, 1);
                     if (alive_data.size() >= 1) {
                         bool alive = alive_data[0] != 0;
                         ImGui::SameLine();
@@ -217,7 +217,7 @@ void Application::RenderCS2EntityInspector() {
         constexpr uint32_t OFFSET_CONNECTED = 0x6F4;
         constexpr uint32_t OFFSET_STEAM_ID = 0x780;
 
-        auto chunk0_ptr_data = dma_->ReadMemory(selected_pid_, cs2_entity_system_ + 0x10, 8);
+        auto chunk0_ptr_data = GetDMA()->ReadMemory(selected_pid_, cs2_entity_system_ + 0x10, 8);
         uint64_t chunk0_ptr = 0;
         if (chunk0_ptr_data.size() >= 8) {
             std::memcpy(&chunk0_ptr, chunk0_ptr_data.data(), 8);
@@ -238,36 +238,36 @@ void Application::RenderCS2EntityInspector() {
 
                 for (int idx = 1; idx <= 64; idx++) {
                     uint64_t entry_addr = chunk0_base + 0x08 + idx * 0x70;
-                    auto ctrl_data = dma_->ReadMemory(selected_pid_, entry_addr, 8);
+                    auto ctrl_data = GetDMA()->ReadMemory(selected_pid_, entry_addr, 8);
                     if (ctrl_data.size() < 8) continue;
 
                     uint64_t controller;
                     std::memcpy(&controller, ctrl_data.data(), 8);
                     if (controller == 0 || controller < 0x10000000000ULL) continue;
 
-                    auto conn_data = dma_->ReadMemory(selected_pid_, controller + OFFSET_CONNECTED, 4);
+                    auto conn_data = GetDMA()->ReadMemory(selected_pid_, controller + OFFSET_CONNECTED, 4);
                     if (conn_data.size() < 4) continue;
                     uint32_t connected;
                     std::memcpy(&connected, conn_data.data(), 4);
                     if (connected > 2) continue;
 
-                    auto name_data = dma_->ReadMemory(selected_pid_, controller + OFFSET_PLAYER_NAME, 64);
+                    auto name_data = GetDMA()->ReadMemory(selected_pid_, controller + OFFSET_PLAYER_NAME, 64);
                     if (name_data.empty()) continue;
                     std::string name(reinterpret_cast<char*>(name_data.data()));
                     if (name.empty()) continue;
 
-                    auto steam_data = dma_->ReadMemory(selected_pid_, controller + OFFSET_STEAM_ID, 8);
+                    auto steam_data = GetDMA()->ReadMemory(selected_pid_, controller + OFFSET_STEAM_ID, 8);
                     uint64_t steam_id = 0;
                     if (steam_data.size() >= 8) std::memcpy(&steam_id, steam_data.data(), 8);
                     bool is_bot = (steam_id == 0);
 
-                    auto team_data = dma_->ReadMemory(selected_pid_, controller + OFFSET_TEAM_NUM, 1);
+                    auto team_data = GetDMA()->ReadMemory(selected_pid_, controller + OFFSET_TEAM_NUM, 1);
                     uint8_t team = team_data.size() >= 1 ? team_data[0] : 0;
 
-                    auto alive_data = dma_->ReadMemory(selected_pid_, controller + OFFSET_PAWN_IS_ALIVE, 1);
+                    auto alive_data = GetDMA()->ReadMemory(selected_pid_, controller + OFFSET_PAWN_IS_ALIVE, 1);
                     bool is_alive = alive_data.size() >= 1 && alive_data[0] != 0;
 
-                    auto health_data = dma_->ReadMemory(selected_pid_, controller + OFFSET_PAWN_HEALTH, 4);
+                    auto health_data = GetDMA()->ReadMemory(selected_pid_, controller + OFFSET_PAWN_HEALTH, 4);
                     uint32_t health = 0;
                     if (health_data.size() >= 4) std::memcpy(&health, health_data.data(), 4);
 
@@ -360,7 +360,7 @@ void Application::RenderCS2EntityInspector() {
                                  field.type_name.find("uint32") != std::string::npos ||
                                  field.type_name.find("float") != std::string::npos) read_size = 4;
 
-                        auto value_data = dma_->ReadMemory(selected_pid_,
+                        auto value_data = GetDMA()->ReadMemory(selected_pid_,
                             cs2_selected_entity_ + field.offset, read_size);
 
                         if (!value_data.empty()) {
@@ -462,14 +462,14 @@ void Application::RenderCS2EntityInspector() {
                 cs2_field_cache_.clear();
 
                 // Try to identify class via RTTI
-                auto vtable_data = dma_->ReadMemory(selected_pid_, cs2_selected_entity_, 8);
+                auto vtable_data = GetDMA()->ReadMemory(selected_pid_, cs2_selected_entity_, 8);
                 if (vtable_data.size() >= 8) {
                     uint64_t vtable;
                     std::memcpy(&vtable, vtable_data.data(), 8);
 
                     if (vtable >= cs2_client_base_ && vtable < cs2_client_base_ + cs2_client_size_) {
                         auto read_func = [this](uint64_t addr, size_t size) {
-                            return dma_->ReadMemory(selected_pid_, addr, size);
+                            return GetDMA()->ReadMemory(selected_pid_, addr, size);
                         };
                         analysis::RTTIParser rtti(read_func, cs2_client_base_);
                         auto info = rtti.ParseVTable(vtable);

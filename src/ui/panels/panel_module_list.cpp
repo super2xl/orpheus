@@ -19,7 +19,7 @@ void Application::RenderModuleList() {
     }
 
     // Auto-refresh modules
-    if (auto_refresh_enabled_ && dma_ && dma_->IsConnected()) {
+    if (auto_refresh_enabled_ && GetDMA() && GetDMA()->IsConnected()) {
         double current_time = glfwGetTime();
         if (current_time - last_module_refresh_ >= module_refresh_interval_) {
             RefreshModules();
@@ -104,15 +104,15 @@ void Application::RenderModuleList() {
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_TABLE_CELLS " View in Memory", "View in Memory"))) {
                         memory_address_ = mod.base_address;
                         snprintf(address_input_, sizeof(address_input_), "0x%llX", (unsigned long long)mod.base_address);
-                        memory_data_ = dma_->ReadMemory(selected_pid_, mod.base_address, 512);
+                        memory_data_ = GetDMA()->ReadMemory(selected_pid_, mod.base_address, 512);
                         panels_.memory_viewer = true;
                     }
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_CODE " View in Disassembly", "View in Disassembly"))) {
                         disasm_address_ = mod.base_address;
                         snprintf(disasm_address_input_, sizeof(disasm_address_input_), "0x%llX", (unsigned long long)mod.base_address);
-                        auto data = dma_->ReadMemory(selected_pid_, mod.base_address, 4096);
-                        if (!data.empty() && disassembler_) {
-                            disasm_instructions_ = disassembler_->Disassemble(data, mod.base_address);
+                        auto data = GetDMA()->ReadMemory(selected_pid_, mod.base_address, 4096);
+                        if (!data.empty() && core_->GetDisassembler()) {
+                            disasm_instructions_ = core_->GetDisassembler()->Disassemble(data, mod.base_address);
                         }
                         panels_.disassembly = true;
                     }

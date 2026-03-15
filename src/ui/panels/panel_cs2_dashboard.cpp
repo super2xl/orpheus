@@ -13,7 +13,7 @@ void Application::RenderCS2Dashboard() {
     ImGui::SetNextWindowSize(ImVec2(450, 400), ImGuiCond_FirstUseEver);
     ImGui::Begin("CS2 Dashboard", &panels_.cs2_dashboard);
 
-    if (!dma_ || !dma_->IsConnected()) {
+    if (!GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("DMA not connected", "Connect to a DMA device first");
         ImGui::End();
         return;

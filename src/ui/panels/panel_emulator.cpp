@@ -15,7 +15,7 @@ void Application::RenderEmulatorPanel() {
     ImGui::SetNextWindowSize(ImVec2(700, 500), ImGuiCond_FirstUseEver);
     ImGui::Begin("Emulator", &panels_.emulator);
 
-    if (!dma_ || !dma_->IsConnected()) {
+    if (!GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("DMA not connected", "Connect to a DMA device first");
         ImGui::End();
         return;
@@ -51,7 +51,7 @@ void Application::RenderEmulatorPanel() {
         ImGui::SameLine();
         if (ImGui::Button("Full Reset", ImVec2(100, 0))) {
             emulator_->Reset();
-            if (emulator_->Initialize(dma_.get(), selected_pid_)) {
+            if (emulator_->Initialize(GetDMA(), selected_pid_)) {
                 emu_last_result_ = "Full reset complete - memory mappings cleared";
             }
         }
@@ -62,7 +62,7 @@ void Application::RenderEmulatorPanel() {
         ImGui::Spacing();
         if (AccentButton("Create Emulator", ImVec2(150, 0))) {
             emulator_ = std::make_unique<emulation::Emulator>();
-            if (emulator_->Initialize(dma_.get(), selected_pid_)) {
+            if (emulator_->Initialize(GetDMA(), selected_pid_)) {
                 emulator_pid_ = selected_pid_;
                 emu_last_result_ = "Emulator initialized - lazy memory mapping enabled";
                 LOG_INFO("Emulator created for PID {}", selected_pid_);

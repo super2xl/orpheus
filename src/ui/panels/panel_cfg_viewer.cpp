@@ -15,7 +15,7 @@ void Application::RenderCFGViewer() {
     ImGui::SetNextWindowSize(ImVec2(900, 700), ImGuiCond_FirstUseEver);
     ImGui::Begin("CFG Viewer", &panels_.cfg_viewer);
 
-    if (!dma_ || !dma_->IsConnected()) {
+    if (!GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("DMA not connected", "Connect to a DMA device first");
         ImGui::End();
         return;
@@ -32,7 +32,7 @@ void Application::RenderCFGViewer() {
         bool is_64bit = true;
         cfg_builder_ = std::make_unique<analysis::CFGBuilder>(
             [this](uint64_t addr, size_t size) {
-                return dma_->ReadMemory(selected_pid_, addr, size);
+                return GetDMA()->ReadMemory(selected_pid_, addr, size);
             },
             is_64bit
         );

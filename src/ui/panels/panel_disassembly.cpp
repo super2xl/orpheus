@@ -160,7 +160,7 @@ static void RenderColoredOperands(const char* text) {
 void Application::RenderDisassembly() {
     ImGui::Begin("Disassembly", &panels_.disassembly);
 
-    if (selected_pid_ != 0 && dma_ && dma_->IsConnected() && disassembler_) {
+    if (selected_pid_ != 0 && GetDMA() && GetDMA()->IsConnected() && core_->GetDisassembler()) {
         // Toolbar
         if (icons_loaded_) {
             ImGui::TextColored(colors::Muted, ICON_FA_CODE);
@@ -172,9 +172,9 @@ void Application::RenderDisassembly() {
             if (auto parsed = ParseHexAddress(disasm_address_input_)) {
                 if (search_history_) search_history_->Add("address", disasm_address_input_);
                 disasm_address_ = *parsed;
-                auto code = dma_->ReadMemory(selected_pid_, disasm_address_, 1024);
+                auto code = GetDMA()->ReadMemory(selected_pid_, disasm_address_, 1024);
                 if (!code.empty()) {
-                    disasm_instructions_ = disassembler_->Disassemble(code, disasm_address_);
+                    disasm_instructions_ = core_->GetDisassembler()->Disassemble(code, disasm_address_);
                 }
             }
         }
@@ -185,9 +185,9 @@ void Application::RenderDisassembly() {
                                 search_history_->Get("address"))) {
                 if (auto parsed = ParseHexAddress(disasm_address_input_)) {
                     disasm_address_ = *parsed;
-                    auto code = dma_->ReadMemory(selected_pid_, disasm_address_, 1024);
+                    auto code = GetDMA()->ReadMemory(selected_pid_, disasm_address_, 1024);
                     if (!code.empty()) {
-                        disasm_instructions_ = disassembler_->Disassemble(code, disasm_address_);
+                        disasm_instructions_ = core_->GetDisassembler()->Disassemble(code, disasm_address_);
                     }
                 }
             }
@@ -198,9 +198,9 @@ void Application::RenderDisassembly() {
             if (auto parsed = ParseHexAddress(disasm_address_input_)) {
                 if (search_history_) search_history_->Add("address", disasm_address_input_);
                 disasm_address_ = *parsed;
-                auto code = dma_->ReadMemory(selected_pid_, disasm_address_, 1024);
+                auto code = GetDMA()->ReadMemory(selected_pid_, disasm_address_, 1024);
                 if (!code.empty()) {
-                    disasm_instructions_ = disassembler_->Disassemble(code, disasm_address_);
+                    disasm_instructions_ = core_->GetDisassembler()->Disassemble(code, disasm_address_);
                 }
             }
         }
@@ -301,14 +301,14 @@ void Application::RenderDisassembly() {
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_TABLE_CELLS " View in Memory", "View in Memory"))) {
                         memory_address_ = instr.address;
                         snprintf(address_input_, sizeof(address_input_), "%llX", (unsigned long long)instr.address);
-                        memory_data_ = dma_->ReadMemory(selected_pid_, instr.address, 256);
+                        memory_data_ = GetDMA()->ReadMemory(selected_pid_, instr.address, 256);
                         panels_.memory_viewer = true;
                     }
                     ImGui::Separator();
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_FINGERPRINT " Generate Signature", "Generate Signature"))) {
                         signature_address_ = instr.address;
 
-                        auto sig_data = dma_->ReadMemory(selected_pid_, instr.address, 128);
+                        auto sig_data = GetDMA()->ReadMemory(selected_pid_, instr.address, 128);
                         if (!sig_data.empty()) {
                             analysis::SignatureGenerator generator;
                             analysis::SignatureOptions options;

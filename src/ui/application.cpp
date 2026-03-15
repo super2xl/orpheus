@@ -1,4 +1,5 @@
 #include "application.h"
+#include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 #include "core/runtime_manager.h"
 #include "core/task_manager.h"
@@ -99,15 +100,12 @@ bool Application::Initialize(const std::string& title, int width, int height) {
     SetupImGuiStyle();
     RegisterKeybinds();
 
-    // Create DMA interface
-    dma_ = std::make_unique<DMAInterface>();
-
-    // Create disassembler
-    disassembler_ = std::make_unique<analysis::Disassembler>(true);
-
-    // Create bookmark manager and load saved bookmarks
-    bookmarks_ = std::make_unique<BookmarkManager>();
-    bookmarks_->Load();
+    // Create headless core (DMA, disassembler, bookmarks)
+    core_ = std::make_unique<OrpheusCore>();
+    if (!core_->Initialize()) {
+        LOG_ERROR("Failed to initialize OrpheusCore");
+        return false;
+    }
 
     // Create search history and load saved entries
     search_history_ = std::make_unique<SearchHistory>();
@@ -646,11 +644,11 @@ void Application::RegisterKeybinds() {
     keybinds_ = {
         // General
         {"Connect DMA", "Connect to DMA device", GLFW_KEY_D, GLFW_MOD_CONTROL, [this]() {
-            if (dma_ && !dma_->IsConnected() && !dma_connecting_) {
+            if (GetDMA() && !GetDMA()->IsConnected() && !dma_connecting_) {
                 dma_connecting_ = true;
                 LOG_INFO("Connecting to DMA device...");
                 dma_connect_future_ = std::async(std::launch::async, [this]() {
-                    return dma_->Initialize("fpga");
+                    return GetDMA()->Initialize("fpga");
                 });
             }
         }},
@@ -1033,15 +1031,15 @@ void Application::RenderMenuBar() {
         if (ImGui::BeginMenu("File")) {
             if (dma_connecting_) {
                 ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_ROTATE " Connecting...", "Connecting..."), nullptr, false, false);
-            } else if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_PLUG " Connect DMA", "Connect DMA"), "Ctrl+D", false, dma_ && !dma_->IsConnected())) {
+            } else if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_PLUG " Connect DMA", "Connect DMA"), "Ctrl+D", false, GetDMA() && !GetDMA()->IsConnected())) {
                 dma_connecting_ = true;
                 LOG_INFO("Connecting to DMA device...");
                 dma_connect_future_ = std::async(std::launch::async, [this]() {
-                    return dma_->Initialize("fpga");
+                    return GetDMA()->Initialize("fpga");
                 });
             }
-            if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_CIRCLE_XMARK " Disconnect", "Disconnect"), nullptr, false, dma_ && dma_->IsConnected() && !dma_connecting_)) {
-                dma_->Close();
+            if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_CIRCLE_XMARK " Disconnect", "Disconnect"), nullptr, false, GetDMA() && GetDMA()->IsConnected() && !dma_connecting_)) {
+                GetDMA()->Close();
                 cached_processes_.clear();
                 cached_modules_.clear();
                 LOG_INFO("DMA disconnected");
@@ -1162,7 +1160,7 @@ void Application::RenderMenuBar() {
                         mcp::MCPServer::LoadConfig(*mcp_config_);
                     }
                     if (!mcp_server_) {
-                        mcp_server_ = std::make_unique<mcp::MCPServer>(this);
+                        mcp_server_ = std::make_unique<mcp::MCPServer>(core_.get());
                     }
                     if (mcp_config_->require_auth && mcp_config_->api_key.empty()) {
                         mcp_config_->api_key = mcp::MCPServer::GenerateApiKey();
@@ -1266,9 +1264,9 @@ void Application::RenderMenuBar() {
         float status_width = 200.0f;
         ImGui::SameLine(ImGui::GetWindowWidth() - status_width);
 
-        if (dma_ && dma_->IsConnected()) {
+        if (GetDMA() && GetDMA()->IsConnected()) {
             ImGui::PushStyleColor(ImGuiCol_Text, colors::Success);
-            std::string device = dma_->GetDeviceType();
+            std::string device = GetDMA()->GetDeviceType();
             if (device == "fpga") {
                 device = "FPGA";
             }
@@ -1305,7 +1303,7 @@ void Application::RenderStatusBar() {
 
     if (ImGui::Begin("##StatusBar", nullptr, flags)) {
         // Left side - DMA status indicator
-        bool connected = dma_ && dma_->IsConnected();
+        bool connected = GetDMA() && GetDMA()->IsConnected();
         if (dma_connecting_) {
             ImGui::TextColored(colors::Warning,
                 ICON_OR_TEXT(icons_loaded_, ICON_FA_CIRCLE, "*"));
@@ -1415,8 +1413,8 @@ void Application::RenderStatusBar() {
 // See: panel_*.cpp and dialog_*.cpp for individual panel implementations
 
 void Application::RefreshProcesses() {
-    if (dma_ && dma_->IsConnected()) {
-        cached_processes_ = dma_->GetProcessList();
+    if (GetDMA() && GetDMA()->IsConnected()) {
+        cached_processes_ = GetDMA()->GetProcessList();
         process_list_dirty_ = true;
     }
 }
@@ -1506,9 +1504,9 @@ void Application::RenderToasts() {
 // ============================================================================
 
 void Application::CheckDMAHealth() {
-    if (!dma_) return;
+    if (!GetDMA()) return;
 
-    bool connected = dma_->IsConnected();
+    bool connected = GetDMA()->IsConnected();
 
     // Detect disconnection transition
     if (dma_was_connected_ && !connected) {
@@ -1533,7 +1531,7 @@ void Application::CheckDMAHealth() {
         double now = glfwGetTime();
         if (now - dma_last_health_check_ >= 5.0) {
             dma_last_health_check_ = now;
-            auto test = dma_->ReadMemory(selected_pid_, 0x7FFE0000, 4);  // PEB region, usually readable
+            auto test = GetDMA()->ReadMemory(selected_pid_, 0x7FFE0000, 4);  // PEB region, usually readable
             if (test.empty()) {
                 dma_consecutive_failures_++;
                 if (dma_consecutive_failures_ >= 3 && !dma_health_warning_) {
@@ -1553,8 +1551,8 @@ void Application::CheckDMAHealth() {
 }
 
 void Application::RefreshModules() {
-    if (dma_ && dma_->IsConnected() && selected_pid_ != 0) {
-        cached_modules_ = dma_->GetModuleList(selected_pid_);
+    if (GetDMA() && GetDMA()->IsConnected() && selected_pid_ != 0) {
+        cached_modules_ = GetDMA()->GetModuleList(selected_pid_);
     }
 }
 
@@ -1566,7 +1564,7 @@ bool Application::IsCS2Process() const {
 }
 
 bool Application::InitializeCS2() {
-    if (!dma_ || !dma_->IsConnected() || selected_pid_ == 0) {
+    if (!GetDMA() || !GetDMA()->IsConnected() || selected_pid_ == 0) {
         return false;
     }
 
@@ -1605,7 +1603,7 @@ bool Application::InitializeCS2() {
 
     // Initialize Schema System
     if (!cs2_schema_initialized_ || cs2_schema_pid_ != selected_pid_) {
-        cs2_schema_ = std::make_unique<orpheus::dumper::CS2SchemaDumper>(dma_.get(), selected_pid_);
+        cs2_schema_ = std::make_unique<orpheus::dumper::CS2SchemaDumper>(GetDMA(), selected_pid_);
         if (cs2_schema_->Initialize(schemasystem_base)) {
             cs2_schema_pid_ = selected_pid_;
             cs2_schema_initialized_ = true;
@@ -1624,7 +1622,7 @@ bool Application::InitializeCS2() {
 
         // Read a portion of client.dll for pattern scanning (first 20MB)
         size_t scan_size = std::min(static_cast<size_t>(client_size), static_cast<size_t>(20 * 1024 * 1024));
-        auto client_data = dma_->ReadMemory(selected_pid_, client_base, scan_size);
+        auto client_data = GetDMA()->ReadMemory(selected_pid_, client_base, scan_size);
 
         if (!client_data.empty()) {
             // Pattern scan for CGameEntitySystem
@@ -1637,13 +1635,13 @@ bool Application::InitializeCS2() {
 
                 if (!entity_results.empty()) {
                     uint64_t instr_addr = entity_results[0];
-                    auto offset_data = dma_->ReadMemory(selected_pid_, instr_addr + 3, 4);
+                    auto offset_data = GetDMA()->ReadMemory(selected_pid_, instr_addr + 3, 4);
                     if (offset_data.size() >= 4) {
                         int32_t rip_offset;
                         std::memcpy(&rip_offset, offset_data.data(), 4);
                         uint64_t ptr_addr = instr_addr + 7 + rip_offset;
 
-                        auto ptr_data = dma_->ReadMemory(selected_pid_, ptr_addr, 8);
+                        auto ptr_data = GetDMA()->ReadMemory(selected_pid_, ptr_addr, 8);
                         if (ptr_data.size() >= 8) {
                             std::memcpy(&cs2_entity_system_, ptr_data.data(), 8);
                             LOG_INFO("Found CGameEntitySystem: 0x{:X}", cs2_entity_system_);
@@ -1662,7 +1660,7 @@ bool Application::InitializeCS2() {
 
                 if (!lpc_results.empty()) {
                     uint64_t instr_addr = lpc_results[0];
-                    auto offset_data = dma_->ReadMemory(selected_pid_, instr_addr + 3, 4);
+                    auto offset_data = GetDMA()->ReadMemory(selected_pid_, instr_addr + 3, 4);
                     if (offset_data.size() >= 4) {
                         int32_t rip_offset;
                         std::memcpy(&rip_offset, offset_data.data(), 4);
@@ -1683,13 +1681,13 @@ bool Application::InitializeCS2() {
 
                 if (!globals_results.empty()) {
                     uint64_t instr_addr = globals_results[0];
-                    auto offset_data = dma_->ReadMemory(selected_pid_, instr_addr + 3, 4);
+                    auto offset_data = GetDMA()->ReadMemory(selected_pid_, instr_addr + 3, 4);
                     if (offset_data.size() >= 4) {
                         int32_t rip_offset;
                         std::memcpy(&rip_offset, offset_data.data(), 4);
                         uint64_t globals_ptr = instr_addr + 7 + rip_offset;
 
-                        auto ptr_data = dma_->ReadMemory(selected_pid_, globals_ptr, 8);
+                        auto ptr_data = GetDMA()->ReadMemory(selected_pid_, globals_ptr, 8);
                         if (ptr_data.size() >= 8) {
                             uint64_t global_vars;
                             std::memcpy(&global_vars, ptr_data.data(), 8);
@@ -1748,17 +1746,17 @@ void Application::NavigateToAddress(uint64_t address, bool add_to_history) {
     // Update memory viewer
     memory_address_ = address;
     snprintf(address_input_, sizeof(address_input_), "%llX", (unsigned long long)address);
-    if (dma_ && dma_->IsConnected() && selected_pid_ != 0) {
-        memory_data_ = dma_->ReadMemory(selected_pid_, address, 512);
+    if (GetDMA() && GetDMA()->IsConnected() && selected_pid_ != 0) {
+        memory_data_ = GetDMA()->ReadMemory(selected_pid_, address, 512);
     }
 
     // Update disassembly
     disasm_address_ = address;
     snprintf(disasm_address_input_, sizeof(disasm_address_input_), "%llX", (unsigned long long)address);
-    if (dma_ && dma_->IsConnected() && selected_pid_ != 0 && disassembler_) {
-        auto code = dma_->ReadMemory(selected_pid_, address, 1024);
+    if (GetDMA() && GetDMA()->IsConnected() && selected_pid_ != 0 && core_->GetDisassembler()) {
+        auto code = GetDMA()->ReadMemory(selected_pid_, address, 1024);
         if (!code.empty()) {
-            disasm_instructions_ = disassembler_->Disassemble(code, address);
+            disasm_instructions_ = core_->GetDisassembler()->Disassemble(code, address);
         }
     }
 
@@ -1780,7 +1778,7 @@ void Application::NavigateForward() {
 }
 
 void Application::DumpModule(uint64_t base_address, uint32_t size, const std::string& filename) {
-    if (!dma_ || !dma_->IsConnected() || selected_pid_ == 0) {
+    if (!GetDMA() || !GetDMA()->IsConnected() || selected_pid_ == 0) {
         LOG_ERROR("Cannot dump: no DMA connection or process selected");
         return;
     }
@@ -1792,7 +1790,7 @@ void Application::DumpModule(uint64_t base_address, uint32_t size, const std::st
 
     // Create PEDumper with our DMA read function
     auto read_func = [this](uint64_t addr, size_t read_size) -> std::vector<uint8_t> {
-        return dma_->ReadMemory(selected_pid_, addr, read_size);
+        return GetDMA()->ReadMemory(selected_pid_, addr, read_size);
     };
 
     analysis::PEDumper dumper(read_func);
@@ -1839,6 +1837,9 @@ void Application::RequestExit() {
     running_ = false;
 }
 
+DMAInterface* Application::GetDMA() { return core_ ? core_->GetDMA() : nullptr; }
+BookmarkManager* Application::GetBookmarks() { return core_ ? core_->GetBookmarks() : nullptr; }
+
 void Application::GetWindowSize(int& width, int& height) const {
     if (window_) {
         glfwGetWindowSize(window_, &width, &height);
@@ -1878,13 +1879,10 @@ void Application::Shutdown() {
         memory_watcher_.reset();
     }
 
-    disassembler_.reset();
-
-    // Close DMA connection
-    if (dma_) {
-        LOG_INFO("Closing DMA connection...");
-        dma_->Close();
-        dma_.reset();
+    // Shut down headless core (DMA, disassembler, bookmarks)
+    if (core_) {
+        core_->Shutdown();
+        core_.reset();
     }
 
     // Free GPU resources before destroying GL context
@@ -2083,7 +2081,7 @@ void Application::UnloadRadarMap() {
 }
 
 void Application::RefreshRadarData() {
-    if (!dma_ || !dma_->IsConnected() || selected_pid_ == 0) {
+    if (!GetDMA() || !GetDMA()->IsConnected() || selected_pid_ == 0) {
         radar_players_.clear();
         return;
     }
@@ -2097,12 +2095,12 @@ void Application::RefreshRadarData() {
     // Auto-detect current map from CS2 memory
     if (radar_auto_detect_map_ && radar_map_name_addr_ != 0) {
         // Read map name string pointer
-        auto map_ptr_data = dma_->ReadMemory(selected_pid_, radar_map_name_addr_, 8);
+        auto map_ptr_data = GetDMA()->ReadMemory(selected_pid_, radar_map_name_addr_, 8);
         if (map_ptr_data.size() >= 8) {
             uint64_t map_str_ptr;
             std::memcpy(&map_str_ptr, map_ptr_data.data(), 8);
             if (map_str_ptr != 0) {
-                auto map_name_data = dma_->ReadMemory(selected_pid_, map_str_ptr, 64);
+                auto map_name_data = GetDMA()->ReadMemory(selected_pid_, map_str_ptr, 64);
                 if (!map_name_data.empty()) {
                     std::string full_path(reinterpret_cast<char*>(map_name_data.data()));
                     // Extract map name from path like "maps/de_dust2"
@@ -2151,7 +2149,7 @@ void Application::RefreshRadarData() {
     constexpr uint32_t OFFSET_SPOTTED = 0x08;
 
     // Read chunk 0 pointer
-    auto chunk0_data = dma_->ReadMemory(selected_pid_, cs2_entity_system_ + 0x10, 8);
+    auto chunk0_data = GetDMA()->ReadMemory(selected_pid_, cs2_entity_system_ + 0x10, 8);
     if (chunk0_data.size() < 8) return;
 
     uint64_t chunk0_ptr;
@@ -2162,7 +2160,7 @@ void Application::RefreshRadarData() {
     // Iterate player controller indices 1-64
     for (int idx = 1; idx <= 64; idx++) {
         uint64_t entry_addr = chunk0_base + 0x08 + idx * 0x70;
-        auto controller_data = dma_->ReadMemory(selected_pid_, entry_addr, 8);
+        auto controller_data = GetDMA()->ReadMemory(selected_pid_, entry_addr, 8);
         if (controller_data.size() < 8) continue;
 
         uint64_t controller;
@@ -2170,14 +2168,14 @@ void Application::RefreshRadarData() {
         if (controller == 0 || controller < 0x10000000000ULL) continue;
 
         // Read connection state
-        auto connected_data = dma_->ReadMemory(selected_pid_, controller + OFFSET_CONNECTED, 4);
+        auto connected_data = GetDMA()->ReadMemory(selected_pid_, controller + OFFSET_CONNECTED, 4);
         if (connected_data.size() < 4) continue;
         uint32_t connected;
         std::memcpy(&connected, connected_data.data(), 4);
         if (connected > 2) continue;  // Skip disconnected
 
         // Read player name
-        auto name_data = dma_->ReadMemory(selected_pid_, controller + OFFSET_PLAYER_NAME, 64);
+        auto name_data = GetDMA()->ReadMemory(selected_pid_, controller + OFFSET_PLAYER_NAME, 64);
         if (name_data.empty()) continue;
         std::string name(reinterpret_cast<char*>(name_data.data()));
         if (name.empty()) continue;
@@ -2186,25 +2184,25 @@ void Application::RefreshRadarData() {
         player.name = name;
 
         // Read team
-        auto team_data = dma_->ReadMemory(selected_pid_, controller + OFFSET_TEAM_NUM, 1);
+        auto team_data = GetDMA()->ReadMemory(selected_pid_, controller + OFFSET_TEAM_NUM, 1);
         if (!team_data.empty()) player.team = team_data[0];
 
         // Read alive status and health
-        auto alive_data = dma_->ReadMemory(selected_pid_, controller + OFFSET_PAWN_IS_ALIVE, 1);
+        auto alive_data = GetDMA()->ReadMemory(selected_pid_, controller + OFFSET_PAWN_IS_ALIVE, 1);
         if (!alive_data.empty()) player.is_alive = alive_data[0] != 0;
 
-        auto health_data = dma_->ReadMemory(selected_pid_, controller + OFFSET_PAWN_HEALTH, 4);
+        auto health_data = GetDMA()->ReadMemory(selected_pid_, controller + OFFSET_PAWN_HEALTH, 4);
         if (health_data.size() >= 4) {
             std::memcpy(&player.health, health_data.data(), 4);
         }
 
         // Read is local
-        auto local_data = dma_->ReadMemory(selected_pid_, controller + OFFSET_IS_LOCAL, 1);
+        auto local_data = GetDMA()->ReadMemory(selected_pid_, controller + OFFSET_IS_LOCAL, 1);
         if (!local_data.empty()) player.is_local = local_data[0] != 0;
 
         // Read position from pawn if alive
         if (player.is_alive) {
-            auto pawn_handle_data = dma_->ReadMemory(selected_pid_, controller + OFFSET_PAWN_HANDLE, 4);
+            auto pawn_handle_data = GetDMA()->ReadMemory(selected_pid_, controller + OFFSET_PAWN_HANDLE, 4);
             if (pawn_handle_data.size() >= 4) {
                 uint32_t pawn_handle;
                 std::memcpy(&pawn_handle, pawn_handle_data.data(), 4);
@@ -2214,7 +2212,7 @@ void Application::RefreshRadarData() {
                 int chunk_idx = pawn_index / 512;
                 int slot = pawn_index % 512;
 
-                auto pawn_chunk_data = dma_->ReadMemory(selected_pid_,
+                auto pawn_chunk_data = GetDMA()->ReadMemory(selected_pid_,
                     cs2_entity_system_ + 0x10 + chunk_idx * 8, 8);
                 if (pawn_chunk_data.size() >= 8) {
                     uint64_t pawn_chunk;
@@ -2222,7 +2220,7 @@ void Application::RefreshRadarData() {
                     pawn_chunk &= ~0xFULL;
 
                     if (pawn_chunk != 0) {
-                        auto pawn_data = dma_->ReadMemory(selected_pid_,
+                        auto pawn_data = GetDMA()->ReadMemory(selected_pid_,
                             pawn_chunk + 0x08 + slot * 0x70, 8);
                         if (pawn_data.size() >= 8) {
                             uint64_t pawn;
@@ -2230,7 +2228,7 @@ void Application::RefreshRadarData() {
 
                             if (pawn != 0) {
                                 // Read scene node
-                                auto scene_node_data = dma_->ReadMemory(selected_pid_,
+                                auto scene_node_data = GetDMA()->ReadMemory(selected_pid_,
                                     pawn + OFFSET_SCENE_NODE, 8);
                                 if (scene_node_data.size() >= 8) {
                                     uint64_t scene_node;
@@ -2238,7 +2236,7 @@ void Application::RefreshRadarData() {
 
                                     if (scene_node != 0) {
                                         // Read position
-                                        auto pos_data = dma_->ReadMemory(selected_pid_,
+                                        auto pos_data = GetDMA()->ReadMemory(selected_pid_,
                                             scene_node + OFFSET_ABS_ORIGIN, 12);
                                         if (pos_data.size() >= 12) {
                                             std::memcpy(&player.x, pos_data.data(), 4);
@@ -2249,7 +2247,7 @@ void Application::RefreshRadarData() {
                                 }
 
                                 // Read spotted state
-                                auto spotted_data = dma_->ReadMemory(selected_pid_,
+                                auto spotted_data = GetDMA()->ReadMemory(selected_pid_,
                                     pawn + OFFSET_SPOTTED_STATE + OFFSET_SPOTTED, 1);
                                 if (!spotted_data.empty()) {
                                     player.is_spotted = spotted_data[0] != 0;

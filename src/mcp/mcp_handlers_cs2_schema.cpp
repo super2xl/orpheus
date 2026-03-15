@@ -12,7 +12,7 @@
  */
 
 #include "mcp_server.h"
-#include "ui/application.h"
+#include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 #include "dumper/cs2_schema.h"
 #include "utils/cache_manager.h"
@@ -34,7 +34,7 @@ uint32_t MCPServer::GetModuleSizeForScope(const std::string& scope_name) {
     // We need to get the module size from DMA
     if (!cs2_schema_ || cs2_schema_pid_ == 0) return 0;
 
-    auto* dma = app_->GetDMA();
+    auto* dma = core_->GetDMA();
     if (!dma || !dma->IsConnected()) return 0;
 
     // GlobalTypeScope is not a real module - use schemasystem.dll size as proxy

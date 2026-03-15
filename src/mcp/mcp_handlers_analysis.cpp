@@ -8,7 +8,7 @@
  */
 
 #include "mcp_server.h"
-#include "ui/application.h"
+#include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 #include "core/runtime_manager.h"
 #include "analysis/disassembler.h"
@@ -141,7 +141,7 @@ std::string MCPServer::HandleDisassemble(const std::string& body) {
             return CreateErrorResponse("Count too large: maximum is 1000 instructions");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }
@@ -238,7 +238,7 @@ std::string MCPServer::HandleDecompile(const std::string& body) {
             return CreateErrorResponse("Invalid address: cannot decompile NULL (0x0)");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }
@@ -369,7 +369,7 @@ std::string MCPServer::HandleDumpModule(const std::string& body) {
         std::string module_name = req["module"];
         std::string requested_output = req.value("output", "");
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -457,7 +457,7 @@ std::string MCPServer::HandleGenerateSignature(const std::string& body) {
         options.min_unique_bytes = req.value("min_unique_bytes", 8);
         options.max_length = req.value("max_length", 64);
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }

@@ -12,7 +12,7 @@
  */
 
 #include "mcp_server.h"
-#include "ui/application.h"
+#include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 #include "analysis/rtti_parser.h"
 #include "analysis/disassembler.h"
@@ -45,7 +45,7 @@ std::string MCPServer::HandleRTTIParseVTable(const std::string& body) {
             return CreateErrorResponse("Invalid vtable_address: cannot parse NULL (0x0)");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }
@@ -125,7 +125,7 @@ std::string MCPServer::HandleRTTIScan(const std::string& body) {
             return CreateErrorResponse("Size too large: maximum RTTI scan region is 256MB");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }
@@ -188,7 +188,7 @@ std::string MCPServer::HandleRTTIScanModule(const std::string& body) {
             return CreateErrorResponse("Invalid module_base: cannot scan from NULL (0x0)");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }
@@ -394,7 +394,7 @@ std::string MCPServer::HandleRTTICacheQuery(const std::string& body) {
         // Build module base lookup map if PID provided
         std::map<std::string, uint64_t> current_bases;
         if (pid > 0) {
-            auto* dma = app_->GetDMA();
+            auto* dma = core_->GetDMA();
             if (dma && dma->IsConnected()) {
                 auto modules = dma->GetModuleList(pid);
                 for (const auto& mod : modules) {
@@ -513,7 +513,7 @@ std::string MCPServer::HandleRTTICacheGet(const std::string& body) {
         // Get current module base if PID provided
         uint64_t current_base = 0;
         if (pid > 0) {
-            auto* dma = app_->GetDMA();
+            auto* dma = core_->GetDMA();
             if (dma && dma->IsConnected()) {
                 auto modules = dma->GetModuleList(pid);
                 std::string mod_name_lower = utils::CacheManager::ToLower(module_name);
@@ -623,7 +623,7 @@ std::string MCPServer::HandleReadVTable(const std::string& body) {
             disasm_count = 5;  // Default to 5 if out of range
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }

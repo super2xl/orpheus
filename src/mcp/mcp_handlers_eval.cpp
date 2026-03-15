@@ -6,7 +6,7 @@
  */
 
 #include "mcp_server.h"
-#include "ui/application.h"
+#include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 #include "utils/expression_evaluator.h"
 #include "utils/logger.h"
@@ -25,7 +25,7 @@ std::string MCPServer::HandleEvaluateExpression(const std::string& body) {
         uint32_t pid = req["pid"];
         std::string expression = req["expression"];
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }

@@ -12,6 +12,7 @@
 #include <chrono>
 
 #include "core/dma_interface.h"
+#include "core/orpheus_core.h"
 #include "analysis/function_recovery.h"
 #include "analysis/write_finder.h"
 
@@ -22,6 +23,7 @@ struct ImVec2;
 
 namespace orpheus {
 
+class OrpheusCore;
 class DMAInterface;
 class BookmarkManager;
 class SearchHistory;
@@ -139,8 +141,9 @@ public:
     int Run();
     void RequestExit();
 
-    DMAInterface* GetDMA() { return dma_.get(); }
-    BookmarkManager* GetBookmarks() { return bookmarks_.get(); }
+    DMAInterface* GetDMA();
+    BookmarkManager* GetBookmarks();
+    OrpheusCore* GetCore() { return core_.get(); }
     void GetWindowSize(int& width, int& height) const;
     bool IsMinimized() const;
 
@@ -255,22 +258,20 @@ private:
     bool theme_changed_ = false;
     bool pending_font_rebuild_ = false;
 
-    // DMA
-    std::unique_ptr<DMAInterface> dma_;
+    // Headless core (owns DMA, disassembler, bookmarks)
+    std::unique_ptr<OrpheusCore> core_;
+
+    // DMA async connect state (lightweight — doesn't own DMA)
     std::future<bool> dma_connect_future_;
     std::atomic<bool> dma_connecting_{false};
 
-    // Analysis tools
-    std::unique_ptr<analysis::Disassembler> disassembler_;
+    // Memory watcher (UI-created, depends on DMA read func binding)
     std::unique_ptr<analysis::MemoryWatcher> memory_watcher_;
 
     // MCP Server
     std::unique_ptr<mcp::MCPServer> mcp_server_;
     std::unique_ptr<mcp::MCPConfig> mcp_config_;
     bool mcp_config_dirty_ = false;
-
-    // Bookmarks
-    std::unique_ptr<BookmarkManager> bookmarks_;
 
     // Search history
     std::unique_ptr<SearchHistory> search_history_;

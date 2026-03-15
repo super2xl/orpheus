@@ -486,13 +486,13 @@ void Application::RenderSettingsDialog() {
                 ImGui::Text("Performance");
                 ImGui::Spacing();
 
-                if (dma_) {
-                    bool cache_enabled = dma_->IsCacheEnabled();
+                if (GetDMA()) {
+                    bool cache_enabled = GetDMA()->IsCacheEnabled();
                     if (ImGui::Checkbox("Enable DMA read cache", &cache_enabled)) {
-                        dma_->SetCacheEnabled(cache_enabled);
+                        GetDMA()->SetCacheEnabled(cache_enabled);
                     }
                     if (ImGui::IsItemHovered()) {
-                        auto stats = dma_->GetCacheStats();
+                        auto stats = GetDMA()->GetCacheStats();
                         ImGui::SetTooltip(
                             "Cache recently read memory pages to reduce DMA traffic.\n"
                             "Reduces reads by 50-80%% for repetitive access patterns.\n\n"

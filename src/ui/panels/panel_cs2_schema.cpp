@@ -14,7 +14,7 @@ void Application::RenderCS2Schema() {
     ImGui::SetNextWindowSize(ImVec2(900, 600), ImGuiCond_FirstUseEver);
     ImGui::Begin("CS2 Schema Dumper", &panels_.cs2_schema);
 
-    if (!dma_ || !dma_->IsConnected()) {
+    if (!GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("DMA not connected", "Connect to a DMA device first");
         ImGui::End();
         return;
@@ -55,7 +55,7 @@ void Application::RenderCS2Schema() {
             ImGui::Text("schemasystem.dll: %s", FormatAddress(schemasystem_base));
 
             if (AccentButton("Initialize Schema Dumper", ImVec2(200, 0))) {
-                cs2_schema_ = std::make_unique<orpheus::dumper::CS2SchemaDumper>(dma_.get(), selected_pid_);
+                cs2_schema_ = std::make_unique<orpheus::dumper::CS2SchemaDumper>(GetDMA(), selected_pid_);
                 if (cs2_schema_->Initialize(schemasystem_base)) {
                     cs2_schema_pid_ = selected_pid_;
                     cs2_schema_initialized_ = true;

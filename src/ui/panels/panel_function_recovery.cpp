@@ -18,7 +18,7 @@ void Application::RenderFunctionRecovery() {
     ImGui::SetNextWindowSize(ImVec2(1000, 600), ImGuiCond_FirstUseEver);
     ImGui::Begin("Function Recovery", &panels_.function_recovery);
 
-    if (!dma_ || !dma_->IsConnected()) {
+    if (!GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("DMA not connected", "Connect to a DMA device first");
         ImGui::End();
         return;
@@ -124,7 +124,7 @@ void Application::RenderFunctionRecovery() {
         bool use_prologues = function_recovery_use_prologues_;
         bool follow_calls = function_recovery_follow_calls_;
         bool use_pdata = function_recovery_use_pdata_;
-        auto* dma = dma_.get();
+        auto* dma = GetDMA();
 
         function_recovery_future_ = std::async(std::launch::async,
             [pid, module_base, module_size, use_prologues, follow_calls, use_pdata, dma,
@@ -313,9 +313,9 @@ void Application::RenderFunctionRecovery() {
                             disasm_address_ = func.entry_address;
                             snprintf(disasm_address_input_, sizeof(disasm_address_input_),
                                      "0x%llX", (unsigned long long)func.entry_address);
-                            auto data = dma_->ReadMemory(selected_pid_, func.entry_address, 4096);
-                            if (!data.empty() && disassembler_) {
-                                disasm_instructions_ = disassembler_->Disassemble(data, func.entry_address);
+                            auto data = GetDMA()->ReadMemory(selected_pid_, func.entry_address, 4096);
+                            if (!data.empty() && core_->GetDisassembler()) {
+                                disasm_instructions_ = core_->GetDisassembler()->Disassemble(data, func.entry_address);
                             }
                             panels_.disassembly = true;
                         }
@@ -323,7 +323,7 @@ void Application::RenderFunctionRecovery() {
                             memory_address_ = func.entry_address;
                             snprintf(address_input_, sizeof(address_input_),
                                      "0x%llX", (unsigned long long)func.entry_address);
-                            memory_data_ = dma_->ReadMemory(selected_pid_, func.entry_address, 512);
+                            memory_data_ = GetDMA()->ReadMemory(selected_pid_, func.entry_address, 512);
                             panels_.memory_viewer = true;
                         }
 #ifdef ORPHEUS_HAS_GHIDRA_DECOMPILER
@@ -342,10 +342,10 @@ void Application::RenderFunctionRecovery() {
                         }
                         ImGui::Separator();
                         if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_BOOKMARK " Add Bookmark", "Add Bookmark"))) {
-                            if (bookmarks_) {
+                            if (GetBookmarks()) {
                                 std::string label = func.name.empty() ?
                                     "func_" + std::string(addr_buf) : func.name;
-                                bookmarks_->Add(func.entry_address, label, "",
+                                GetBookmarks()->Add(func.entry_address, label, "",
                                                "Functions", function_recovery_module_name_);
                             }
                         }

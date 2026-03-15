@@ -8,7 +8,7 @@
  */
 
 #include "mcp_server.h"
-#include "ui/application.h"
+#include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 #include "utils/limits.h"
 
@@ -39,7 +39,7 @@ std::string MCPServer::HandleReadMemory(const std::string& body) {
             return CreateErrorResponse("Size too large: maximum read is 16MB");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }
@@ -164,7 +164,7 @@ std::string MCPServer::HandleWriteMemory(const std::string& body) {
             }
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }
@@ -213,7 +213,7 @@ std::string MCPServer::HandleResolvePointerChain(const std::string& body) {
             }
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -326,7 +326,7 @@ std::string MCPServer::HandleResolvePointerChain(const std::string& body) {
 
 std::string MCPServer::HandleCacheStats(const std::string&) {
     try {
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma) {
             return CreateErrorResponse("DMA interface not available");
         }
@@ -356,7 +356,7 @@ std::string MCPServer::HandleCacheConfig(const std::string& body) {
     try {
         auto req = json::parse(body);
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma) {
             return CreateErrorResponse("DMA interface not available");
         }
@@ -392,7 +392,7 @@ std::string MCPServer::HandleCacheConfig(const std::string& body) {
 
 std::string MCPServer::HandleCacheClear(const std::string&) {
     try {
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma) {
             return CreateErrorResponse("DMA interface not available");
         }

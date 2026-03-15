@@ -8,7 +8,7 @@
  */
 
 #include "mcp_server.h"
-#include "ui/application.h"
+#include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 #include "core/task_manager.h"
 #include "analysis/pattern_scanner.h"
@@ -47,7 +47,7 @@ std::string MCPServer::HandleScanPattern(const std::string& body) {
             return CreateErrorResponse("Size too large: maximum scan region is 512MB");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }
@@ -119,7 +119,7 @@ std::string MCPServer::HandleScanStrings(const std::string& body) {
             return CreateErrorResponse("Invalid min_length: must be between 1 and 256");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }
@@ -228,7 +228,7 @@ std::string MCPServer::HandleFindXrefs(const std::string& body) {
             max_results = 100;  // Clamp to reasonable default
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }
@@ -312,7 +312,7 @@ std::string MCPServer::HandleScanPatternAsync(const std::string& body) {
             return CreateErrorResponse("Size too large: maximum scan region is 512MB");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }
@@ -328,7 +328,7 @@ std::string MCPServer::HandleScanPatternAsync(const std::string& body) {
         }
 
         // Capture what we need for the async task
-        auto* app = app_;
+        auto* core = core_;
         std::string base_str = req["base"].get<std::string>();
 
         std::stringstream desc;
@@ -338,11 +338,11 @@ std::string MCPServer::HandleScanPatternAsync(const std::string& body) {
         auto task_id = TaskManager::Instance().StartTask(
             "pattern_scan",
             desc.str(),
-            [app, pid, base, size, pattern, compiled = *compiled, base_str](
+            [core, pid, base, size, pattern, compiled = *compiled, base_str](
                 CancellationTokenPtr cancel,
                 ProgressCallback progress
             ) -> json {
-                auto* dma = app->GetDMA();
+                auto* dma = core->GetDMA();
                 if (!dma || !dma->IsConnected()) {
                     throw std::runtime_error("DMA disconnected during scan");
                 }
@@ -423,7 +423,7 @@ std::string MCPServer::HandleScanStringsAsync(const std::string& body) {
             return CreateErrorResponse("Invalid min_length: must be between 1 and 256");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -433,7 +433,7 @@ std::string MCPServer::HandleScanStringsAsync(const std::string& body) {
             return CreateErrorResponse("Process not found: PID " + std::to_string(pid));
         }
 
-        auto* app = app_;
+        auto* core = core_;
         std::string base_str = req["base"].get<std::string>();
 
         std::stringstream desc;
@@ -445,11 +445,11 @@ std::string MCPServer::HandleScanStringsAsync(const std::string& body) {
         auto task_id = TaskManager::Instance().StartTask(
             "string_scan",
             desc.str(),
-            [app, pid, base, size, min_length, base_str, contains_filter, max_results](
+            [core, pid, base, size, min_length, base_str, contains_filter, max_results](
                 CancellationTokenPtr cancel,
                 ProgressCallback progress
             ) -> json {
-                auto* dma = app->GetDMA();
+                auto* dma = core->GetDMA();
                 if (!dma || !dma->IsConnected()) {
                     throw std::runtime_error("DMA disconnected during scan");
                 }

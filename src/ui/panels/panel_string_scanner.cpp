@@ -14,7 +14,7 @@ namespace orpheus::ui {
 void Application::RenderStringScanner() {
     ImGui::Begin("String Scanner", &panels_.string_scanner);
 
-    if (selected_pid_ == 0 || !dma_ || !dma_->IsConnected()) {
+    if (selected_pid_ == 0 || !GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("No process selected", "Select a process and module to scan for strings");
         ImGui::End();
         return;
@@ -69,7 +69,7 @@ void Application::RenderStringScanner() {
         uint32_t pid = selected_pid_;
         uint64_t module_base = selected_module_base_;
         uint32_t module_size = selected_module_size_;
-        auto dma = dma_.get();
+        auto dma = GetDMA();
 
         string_scan_future_ = std::async(std::launch::async,
             [pid, module_base, module_size, opts, dma,
@@ -313,16 +313,16 @@ void Application::RenderStringContextMenu(const analysis::StringMatch& str, cons
         if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_TABLE_CELLS " View in Memory", "View in Memory"))) {
             memory_address_ = str.address;
             snprintf(address_input_, sizeof(address_input_), "0x%llX", (unsigned long long)str.address);
-            memory_data_ = dma_->ReadMemory(selected_pid_, str.address, 256);
+            memory_data_ = GetDMA()->ReadMemory(selected_pid_, str.address, 256);
             panels_.memory_viewer = true;
         }
         if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_CODE " View in Disassembly", "View in Disassembly"))) {
             disasm_address_ = str.address;
             snprintf(disasm_address_input_, sizeof(disasm_address_input_), "0x%llX", (unsigned long long)str.address);
-            if (disassembler_) {
-                auto data = dma_->ReadMemory(selected_pid_, str.address, 512);
+            if (core_->GetDisassembler()) {
+                auto data = GetDMA()->ReadMemory(selected_pid_, str.address, 512);
                 if (!data.empty()) {
-                    disasm_instructions_ = disassembler_->Disassemble(data, str.address);
+                    disasm_instructions_ = core_->GetDisassembler()->Disassemble(data, str.address);
                 }
             }
             panels_.disassembly = true;

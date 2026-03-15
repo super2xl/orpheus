@@ -13,7 +13,7 @@ void Application::RenderVTableReader() {
     ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
     ImGui::Begin("VTable Reader", &panels_.vtable_reader);
 
-    if (!dma_ || !dma_->IsConnected()) {
+    if (!GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("DMA not connected", "Connect to a DMA device first");
         ImGui::End();
         return;
@@ -65,7 +65,7 @@ void Application::RenderVTableReader() {
         if (vtable_addr != 0) {
             // Read vtable entries
             size_t read_size = vtable_entry_count_ * 8;  // 8 bytes per pointer
-            auto vtable_data = dma_->ReadMemory(selected_pid_, vtable_addr, read_size);
+            auto vtable_data = GetDMA()->ReadMemory(selected_pid_, vtable_addr, read_size);
 
             if (vtable_data.empty()) {
                 vtable_error_ = "Failed to read memory at vtable address";
@@ -97,10 +97,10 @@ void Application::RenderVTableReader() {
                         }
 
                         // Optionally disassemble first instruction
-                        if (vtable_disasm_ && disassembler_) {
-                            auto code = dma_->ReadMemory(selected_pid_, entry.function, 32);
+                        if (vtable_disasm_ && core_->GetDisassembler()) {
+                            auto code = GetDMA()->ReadMemory(selected_pid_, entry.function, 32);
                             if (!code.empty()) {
-                                auto instrs = disassembler_->Disassemble(code, entry.function);
+                                auto instrs = core_->GetDisassembler()->Disassemble(code, entry.function);
                                 if (!instrs.empty()) {
                                     entry.first_instr = instrs[0].mnemonic + " " + instrs[0].operands;
                                 }
@@ -113,11 +113,11 @@ void Application::RenderVTableReader() {
 
                 // Try to identify class via RTTI (vtable[-1] points to RTTI type info)
                 uint64_t rtti_ptr_addr = vtable_addr - 8;
-                auto rtti_ptr_opt = dma_->Read<uint64_t>(selected_pid_, rtti_ptr_addr);
+                auto rtti_ptr_opt = GetDMA()->Read<uint64_t>(selected_pid_, rtti_ptr_addr);
                 if (rtti_ptr_opt && *rtti_ptr_opt != 0) {
                     uint64_t type_descriptor = *rtti_ptr_opt;
 
-                    auto name_data = dma_->ReadMemory(selected_pid_, type_descriptor + 16, 256);
+                    auto name_data = GetDMA()->ReadMemory(selected_pid_, type_descriptor + 16, 256);
                     if (!name_data.empty()) {
                         std::string decorated;
                         for (uint8_t c : name_data) {
@@ -226,9 +226,9 @@ void Application::RenderVTableReader() {
                             disasm_address_ = entry.function;
                             snprintf(disasm_address_input_, sizeof(disasm_address_input_), "0x%llX",
                                      (unsigned long long)entry.function);
-                            auto code = dma_->ReadMemory(selected_pid_, entry.function, 1024);
-                            if (!code.empty() && disassembler_) {
-                                disasm_instructions_ = disassembler_->Disassemble(code, entry.function);
+                            auto code = GetDMA()->ReadMemory(selected_pid_, entry.function, 1024);
+                            if (!code.empty() && core_->GetDisassembler()) {
+                                disasm_instructions_ = core_->GetDisassembler()->Disassemble(code, entry.function);
                             }
                             panels_.disassembly = true;
                         }
@@ -236,7 +236,7 @@ void Application::RenderVTableReader() {
                             memory_address_ = entry.function;
                             snprintf(address_input_, sizeof(address_input_), "0x%llX",
                                      (unsigned long long)entry.function);
-                            memory_data_ = dma_->ReadMemory(selected_pid_, entry.function, 256);
+                            memory_data_ = GetDMA()->ReadMemory(selected_pid_, entry.function, 256);
                             panels_.memory_viewer = true;
                         }
                         #ifdef ORPHEUS_HAS_GHIDRA_DECOMPILER
@@ -255,7 +255,7 @@ void Application::RenderVTableReader() {
                             std::string label = vtable_class_name_.empty() ?
                                 "vtable[" + std::to_string(row) + "]" :
                                 vtable_class_name_ + "::vfunc" + std::to_string(row);
-                            bookmarks_->Add(entry.function, label, "", "VTable");
+                            GetBookmarks()->Add(entry.function, label, "", "VTable");
                         }
                         ImGui::EndPopup();
                     }

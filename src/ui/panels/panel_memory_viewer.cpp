@@ -103,7 +103,7 @@ static void RenderDataInspector(const uint8_t* data, size_t data_size, uint64_t 
 void Application::RenderMemoryViewer() {
     ImGui::Begin("Memory", &panels_.memory_viewer);
 
-    if (!dma_ || !dma_->IsConnected() || selected_pid_ == 0) {
+    if (!GetDMA() || !GetDMA()->IsConnected() || selected_pid_ == 0) {
         EmptyState("No process selected", "Select a process to view memory");
         ImGui::End();
         return;
@@ -115,7 +115,7 @@ void Application::RenderMemoryViewer() {
         if (auto parsed = ParseHexAddress(address_input_)) {
             if (search_history_) search_history_->Add("address", address_input_);
             memory_address_ = *parsed;
-            memory_data_ = dma_->ReadMemory(selected_pid_, memory_address_, 256);
+            memory_data_ = GetDMA()->ReadMemory(selected_pid_, memory_address_, 256);
         }
     }
 
@@ -125,7 +125,7 @@ void Application::RenderMemoryViewer() {
                             search_history_->Get("address"))) {
             if (auto parsed = ParseHexAddress(address_input_)) {
                 memory_address_ = *parsed;
-                memory_data_ = dma_->ReadMemory(selected_pid_, memory_address_, 256);
+                memory_data_ = GetDMA()->ReadMemory(selected_pid_, memory_address_, 256);
             }
         }
         ImGui::SameLine();
@@ -135,7 +135,7 @@ void Application::RenderMemoryViewer() {
         if (auto parsed = ParseHexAddress(address_input_)) {
             if (search_history_) search_history_->Add("address", address_input_);
             memory_address_ = *parsed;
-            memory_data_ = dma_->ReadMemory(selected_pid_, memory_address_, 512);
+            memory_data_ = GetDMA()->ReadMemory(selected_pid_, memory_address_, 512);
         }
     }
 

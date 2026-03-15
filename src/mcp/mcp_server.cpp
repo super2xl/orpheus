@@ -24,6 +24,7 @@
  */
 
 #include "mcp_server.h"
+#include "core/orpheus_core.h"
 #include "ui/application.h"
 #include "core/dma_interface.h"
 #include "core/runtime_manager.h"
@@ -48,8 +49,15 @@ namespace orpheus::mcp {
 // Constructor / Destructor
 // ============================================================================
 
+MCPServer::MCPServer(OrpheusCore* core)
+    : core_(core) {
+}
+
 MCPServer::MCPServer(ui::Application* app)
-    : app_(app) {
+    : core_(nullptr) {
+    // Legacy constructor — should not be used in new code.
+    // Kept for backward compatibility during transition.
+    (void)app;
 }
 
 MCPServer::~MCPServer() {
@@ -211,7 +219,7 @@ MCPServer::AddressContext MCPServer::ResolveAddressContext(uint32_t pid, uint64_
 
     // Refresh cache if needed
     if (cached_modules_pid_ != pid) {
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (dma && dma->IsConnected()) {
             cached_modules_ = dma->GetModuleList(pid);
             cached_modules_pid_ = pid;

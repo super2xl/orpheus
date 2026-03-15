@@ -12,7 +12,7 @@ void Application::RenderPointerChain() {
     ImGui::SetNextWindowSize(ImVec2(600, 450), ImGuiCond_FirstUseEver);
     ImGui::Begin("Pointer Chain Resolver", &panels_.pointer_chain);
 
-    if (!dma_ || !dma_->IsConnected()) {
+    if (!GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("DMA not connected", "Connect to a DMA device first");
         ImGui::End();
         return;
@@ -100,7 +100,7 @@ void Application::RenderPointerChain() {
             pointer_chain_results_.push_back({current, 0});
 
             for (size_t i = 0; i < offsets.size(); i++) {
-                auto ptr_opt = dma_->Read<uint64_t>(selected_pid_, current);
+                auto ptr_opt = GetDMA()->Read<uint64_t>(selected_pid_, current);
                 if (!ptr_opt) {
                     pointer_chain_error_ = "Failed to read pointer at " + std::string(FormatAddress(current));
                     break;
@@ -114,7 +114,7 @@ void Application::RenderPointerChain() {
 
             if (pointer_chain_error_.empty()) {
                 pointer_final_address_ = current;
-                auto final_ptr = dma_->Read<uint64_t>(selected_pid_, current);
+                auto final_ptr = GetDMA()->Read<uint64_t>(selected_pid_, current);
                 if (final_ptr) {
                     pointer_chain_results_.back().second = *final_ptr;
                 }
@@ -247,22 +247,22 @@ void Application::RenderPointerChain() {
             if (ImGui::Button("Read")) {
                 switch (pointer_final_type_) {
                     case 0: {
-                        auto val = dma_->Read<int32_t>(selected_pid_, pointer_final_address_);
+                        auto val = GetDMA()->Read<int32_t>(selected_pid_, pointer_final_address_);
                         if (val) { status_message_ = "Int32: " + std::to_string(*val); status_timer_ = 5.0f; }
                         break;
                     }
                     case 1: {
-                        auto val = dma_->Read<float>(selected_pid_, pointer_final_address_);
+                        auto val = GetDMA()->Read<float>(selected_pid_, pointer_final_address_);
                         if (val) { status_message_ = "Float: " + std::to_string(*val); status_timer_ = 5.0f; }
                         break;
                     }
                     case 2: {
-                        auto val = dma_->Read<int64_t>(selected_pid_, pointer_final_address_);
+                        auto val = GetDMA()->Read<int64_t>(selected_pid_, pointer_final_address_);
                         if (val) { status_message_ = "Int64: " + std::to_string(*val); status_timer_ = 5.0f; }
                         break;
                     }
                     case 3: {
-                        auto val = dma_->Read<double>(selected_pid_, pointer_final_address_);
+                        auto val = GetDMA()->Read<double>(selected_pid_, pointer_final_address_);
                         if (val) { status_message_ = "Double: " + std::to_string(*val); status_timer_ = 5.0f; }
                         break;
                     }
@@ -272,7 +272,7 @@ void Application::RenderPointerChain() {
             ImGui::Spacing();
             ImGui::BeginChild("FinalValueDisplay", ImVec2(0, 60), true);
 
-            auto data = dma_->ReadMemory(selected_pid_, pointer_final_address_, 8);
+            auto data = GetDMA()->ReadMemory(selected_pid_, pointer_final_address_, 8);
             if (!data.empty()) {
                 if (data.size() >= 4) {
                     int32_t int32_val = *reinterpret_cast<int32_t*>(data.data());

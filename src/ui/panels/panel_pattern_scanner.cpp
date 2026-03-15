@@ -35,7 +35,7 @@ void Application::RenderPatternScanner() {
         }
     }
 
-    if (selected_pid_ == 0 || !dma_ || !dma_->IsConnected()) {
+    if (selected_pid_ == 0 || !GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("No process selected", "Select a process and module to scan");
         ImGui::End();
         return;
@@ -74,7 +74,7 @@ void Application::RenderPatternScanner() {
             uint64_t module_base = selected_module_base_;
             uint32_t module_size = selected_module_size_;
             analysis::Pattern pattern = *compiled_pattern;
-            auto* dma = dma_.get();
+            auto* dma = GetDMA();
 
             pattern_scan_future_ = std::async(std::launch::async,
                 [pid, module_base, module_size, pattern, dma,
@@ -246,16 +246,16 @@ void Application::RenderPatternScanner() {
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_TABLE_CELLS " View in Memory", "View in Memory"))) {
                         memory_address_ = addr;
                         snprintf(address_input_, sizeof(address_input_), "0x%llX", (unsigned long long)addr);
-                        memory_data_ = dma_->ReadMemory(selected_pid_, addr, 256);
+                        memory_data_ = GetDMA()->ReadMemory(selected_pid_, addr, 256);
                         panels_.memory_viewer = true;
                     }
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_CODE " View in Disassembly", "View in Disassembly"))) {
                         disasm_address_ = addr;
                         snprintf(disasm_address_input_, sizeof(disasm_address_input_), "0x%llX", (unsigned long long)addr);
-                        if (disassembler_) {
-                            auto data = dma_->ReadMemory(selected_pid_, addr, 512);
+                        if (core_->GetDisassembler()) {
+                            auto data = GetDMA()->ReadMemory(selected_pid_, addr, 512);
                             if (!data.empty()) {
-                                disasm_instructions_ = disassembler_->Disassemble(data, addr);
+                                disasm_instructions_ = core_->GetDisassembler()->Disassemble(data, addr);
                             }
                         }
                         panels_.disassembly = true;

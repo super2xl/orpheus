@@ -8,7 +8,7 @@
  */
 
 #include "mcp_server.h"
-#include "ui/application.h"
+#include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 #include "analysis/function_recovery.h"
 #include "utils/logger.h"
@@ -39,7 +39,7 @@ std::string MCPServer::HandleRecoverFunctions(const std::string& body) {
             return CreateErrorResponse("Invalid module_base: cannot recover functions from NULL (0x0)");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }
@@ -189,7 +189,7 @@ std::string MCPServer::HandleGetFunctionAt(const std::string& body) {
         uint32_t pid = req["pid"];
         uint64_t address = std::stoull(req["address"].get<std::string>(), nullptr, 16);
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -268,7 +268,7 @@ std::string MCPServer::HandleGetFunctionContaining(const std::string& body) {
         uint32_t pid = req["pid"];
         uint64_t address = std::stoull(req["address"].get<std::string>(), nullptr, 16);
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -368,7 +368,7 @@ std::string MCPServer::HandleFindFunctionBounds(const std::string& body) {
             return CreateErrorResponse("Invalid address: cannot find function at NULL (0x0)");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }

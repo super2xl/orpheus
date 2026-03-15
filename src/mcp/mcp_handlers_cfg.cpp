@@ -7,7 +7,7 @@
  */
 
 #include "mcp_server.h"
-#include "ui/application.h"
+#include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 #include "analysis/cfg_builder.h"
 #include "utils/logger.h"
@@ -37,7 +37,7 @@ std::string MCPServer::HandleBuildCFG(const std::string& body) {
             return CreateErrorResponse("max_size too large (max 1MB)");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected - check hardware connection");
         }
@@ -189,7 +189,7 @@ std::string MCPServer::HandleGetCFGNode(const std::string& body) {
         uint64_t function_addr = std::stoull(req["function_address"].get<std::string>(), nullptr, 16);
         uint64_t node_addr = std::stoull(req["node_address"].get<std::string>(), nullptr, 16);
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }

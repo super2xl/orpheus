@@ -12,7 +12,7 @@
  */
 
 #include "mcp_server.h"
-#include "ui/application.h"
+#include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 #include "dumper/cs2_schema.h"
 #include "analysis/rtti_parser.h"
@@ -42,7 +42,7 @@ std::string MCPServer::StripTypePrefix(const std::string& name) {
 
 // Helper function to identify class from an object pointer using RTTI
 std::string MCPServer::IdentifyClassFromPointer(uint32_t pid, uint64_t ptr, uint64_t module_base) {
-    auto* dma = app_->GetDMA();
+    auto* dma = core_->GetDMA();
     if (!dma || !dma->IsConnected()) return "";
 
     // Read vtable pointer at object+0
@@ -90,7 +90,7 @@ std::string MCPServer::HandleCS2Init(const std::string& body) {
             return CreateErrorResponse("Missing required parameter: pid");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -429,7 +429,7 @@ std::string MCPServer::HandleCS2Identify(const std::string& body) {
             return CreateErrorResponse("Invalid address: NULL pointer");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -491,7 +491,7 @@ std::string MCPServer::HandleCS2ReadField(const std::string& body) {
             return CreateErrorResponse("Invalid address: NULL pointer");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -601,7 +601,7 @@ std::string MCPServer::HandleCS2Inspect(const std::string& body) {
             return CreateErrorResponse("Invalid address: NULL pointer");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -686,7 +686,7 @@ std::string MCPServer::HandleCS2GetLocalPlayer(const std::string& body) {
             return CreateErrorResponse("CS2 Entity system not initialized - call cs2_init first");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -771,7 +771,7 @@ std::string MCPServer::HandleCS2GetEntity(const std::string& body) {
             return CreateErrorResponse("CS2 Entity system not initialized - call cs2_init first");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -857,7 +857,7 @@ std::string MCPServer::HandleCS2ListPlayers(const std::string& body) {
             return CreateErrorResponse("CS2 Entity system not initialized - call cs2_init first");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -1028,7 +1028,7 @@ std::string MCPServer::HandleCS2GetGameState(const std::string& body) {
             return CreateErrorResponse("Missing required parameter: pid");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }

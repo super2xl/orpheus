@@ -31,7 +31,7 @@ void Application::RenderToolbar() {
         float btn_h = 24.0f;
 
         // --- DMA Connection ---
-        bool connected = dma_ && dma_->IsConnected();
+        bool connected = GetDMA() && GetDMA()->IsConnected();
         if (dma_connecting_) {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.4f, 0.1f, 1.0f));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.5f, 0.4f, 0.1f, 1.0f));
@@ -43,14 +43,14 @@ void Application::RenderToolbar() {
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.55f, 0.25f, 1.0f));
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.35f, 0.1f, 1.0f));
             if (ImGui::Button(ICON_OR_TEXT(icons_loaded_, ICON_FA_PLUG " Connected", "Connected"), ImVec2(0, btn_h))) {
-                dma_->Close();
+                GetDMA()->Close();
                 cached_processes_.clear();
                 cached_modules_.clear();
                 LOG_INFO("DMA disconnected from toolbar");
             }
             ImGui::PopStyleColor(3);
             if (ImGui::IsItemHovered()) {
-                std::string device = dma_->GetDeviceType();
+                std::string device = GetDMA()->GetDeviceType();
                 ImGui::SetTooltip("DMA: %s — click to disconnect", device.c_str());
             }
         } else {
@@ -58,11 +58,11 @@ void Application::RenderToolbar() {
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.6f, 0.25f, 0.25f, 1.0f));
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.1f, 0.1f, 1.0f));
             if (ImGui::Button(ICON_OR_TEXT(icons_loaded_, ICON_FA_PLUG " Connect", "Connect"), ImVec2(0, btn_h))) {
-                if (dma_) {
+                if (GetDMA()) {
                     dma_connecting_ = true;
                     LOG_INFO("Connecting to DMA device...");
                     dma_connect_future_ = std::async(std::launch::async, [this]() {
-                        return dma_->Initialize("fpga");
+                        return GetDMA()->Initialize("fpga");
                     });
                 }
             }

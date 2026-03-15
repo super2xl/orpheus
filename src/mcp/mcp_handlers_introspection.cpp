@@ -8,7 +8,7 @@
  */
 
 #include "mcp_server.h"
-#include "ui/application.h"
+#include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 
 #include <nlohmann/json.hpp>
@@ -21,7 +21,7 @@ namespace orpheus::mcp {
 
 std::string MCPServer::HandleGetProcesses(const std::string&) {
     try {
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -58,7 +58,7 @@ std::string MCPServer::HandleGetModules(const std::string& body) {
         auto req = json::parse(body);
         uint32_t pid = req["pid"];
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -98,7 +98,7 @@ std::string MCPServer::HandleGetMemoryRegions(const std::string& body) {
         auto req = json::parse(body);
         uint32_t pid = req["pid"];
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }

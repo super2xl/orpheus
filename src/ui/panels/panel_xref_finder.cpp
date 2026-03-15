@@ -2,6 +2,7 @@
 #include "ui/panel_helpers.h"
 #include "ui/layout_constants.h"
 #include "ui/icons.h"
+#include "analysis/disassembler.h"
 #include <imgui.h>
 #include "utils/logger.h"
 #include <cstdio>
@@ -12,7 +13,7 @@ void Application::RenderXRefFinder() {
     ImGui::SetNextWindowSize(ImVec2(700, 500), ImGuiCond_FirstUseEver);
     ImGui::Begin("XRef Finder", &panels_.xref_finder);
 
-    if (!dma_ || !dma_->IsConnected()) {
+    if (!GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("DMA not connected", "Connect to a DMA device first");
         ImGui::End();
         return;
@@ -85,7 +86,7 @@ void Application::RenderXRefFinder() {
         }
 
         if (target != 0 && base != 0 && size != 0) {
-            auto data = dma_->ReadMemory(selected_pid_, base, size);
+            auto data = GetDMA()->ReadMemory(selected_pid_, base, size);
             if (!data.empty()) {
                 // Scan for direct 64-bit pointer references
                 for (size_t i = 0; i + 8 <= data.size() && xref_results_.size() < 1000; i++) {
@@ -201,16 +202,16 @@ void Application::RenderXRefFinder() {
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_CODE " View in Disassembly", "View in Disassembly"))) {
                         disasm_address_ = ref.address;
                         snprintf(disasm_address_input_, sizeof(disasm_address_input_), "0x%llX", (unsigned long long)ref.address);
-                        auto code = dma_->ReadMemory(selected_pid_, ref.address, 1024);
-                        if (!code.empty() && disassembler_) {
-                            disasm_instructions_ = disassembler_->Disassemble(code, ref.address);
+                        auto code = GetDMA()->ReadMemory(selected_pid_, ref.address, 1024);
+                        if (!code.empty() && core_->GetDisassembler()) {
+                            disasm_instructions_ = core_->GetDisassembler()->Disassemble(code, ref.address);
                         }
                         panels_.disassembly = true;
                     }
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_TABLE_CELLS " View in Memory", "View in Memory"))) {
                         memory_address_ = ref.address;
                         snprintf(address_input_, sizeof(address_input_), "0x%llX", (unsigned long long)ref.address);
-                        memory_data_ = dma_->ReadMemory(selected_pid_, ref.address, 256);
+                        memory_data_ = GetDMA()->ReadMemory(selected_pid_, ref.address, 256);
                         panels_.memory_viewer = true;
                     }
                     ImGui::Separator();

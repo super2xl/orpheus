@@ -9,7 +9,7 @@
  */
 
 #include "mcp_server.h"
-#include "ui/application.h"
+#include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 #include "utils/limits.h"
 
@@ -36,7 +36,7 @@ std::string MCPServer::HandleMemorySnapshot(const std::string& body) {
             return CreateErrorResponse("Snapshot size exceeds maximum (16 MB)");
         }
 
-        auto* dma = app_->GetDMA();
+        auto* dma = core_->GetDMA();
         if (!dma || !dma->IsConnected()) {
             return CreateErrorResponse("DMA not connected");
         }
@@ -217,7 +217,7 @@ std::string MCPServer::HandleMemoryDiff(const std::string& body) {
             }
 
             // Read current memory
-            auto* dma = app_->GetDMA();
+            auto* dma = core_->GetDMA();
             if (!dma || !dma->IsConnected()) {
                 return CreateErrorResponse("DMA not connected");
             }

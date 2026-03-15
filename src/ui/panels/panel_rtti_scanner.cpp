@@ -15,7 +15,7 @@ void Application::RenderRTTIScanner() {
     ImGui::SetNextWindowSize(ImVec2(1000, 600), ImGuiCond_FirstUseEver);
     ImGui::Begin("RTTI Scanner", &panels_.rtti_scanner);
 
-    if (!dma_ || !dma_->IsConnected()) {
+    if (!GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("DMA not connected", "Connect to a DMA device first");
         ImGui::End();
         return;
@@ -55,7 +55,7 @@ void Application::RenderRTTIScanner() {
         rtti_scanned_module_name_ = selected_module_name_;
 
         auto read_func = [this](uint64_t addr, size_t size) -> std::vector<uint8_t> {
-            return dma_->ReadMemory(selected_pid_, addr, size);
+            return GetDMA()->ReadMemory(selected_pid_, addr, size);
         };
 
         analysis::RTTIParser parser(read_func, selected_module_base_);
@@ -199,18 +199,18 @@ void Application::RenderRTTIScanner() {
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_TABLE_CELLS " View Vtable in Memory", "View Vtable in Memory"))) {
                         memory_address_ = info.vtable_address;
                         snprintf(address_input_, sizeof(address_input_), "0x%llX", (unsigned long long)info.vtable_address);
-                        memory_data_ = dma_->ReadMemory(selected_pid_, info.vtable_address, 256);
+                        memory_data_ = GetDMA()->ReadMemory(selected_pid_, info.vtable_address, 256);
                         panels_.memory_viewer = true;
                     }
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_CODE " View Vtable in Disassembly", "View Vtable in Disassembly"))) {
-                        auto vtable_data = dma_->ReadMemory(selected_pid_, info.vtable_address, 8);
+                        auto vtable_data = GetDMA()->ReadMemory(selected_pid_, info.vtable_address, 8);
                         if (vtable_data.size() >= 8) {
                             uint64_t first_func = *reinterpret_cast<uint64_t*>(vtable_data.data());
                             disasm_address_ = first_func;
                             snprintf(disasm_address_input_, sizeof(disasm_address_input_), "0x%llX", (unsigned long long)first_func);
-                            auto code = dma_->ReadMemory(selected_pid_, first_func, 4096);
-                            if (!code.empty() && disassembler_) {
-                                disasm_instructions_ = disassembler_->Disassemble(code, first_func);
+                            auto code = GetDMA()->ReadMemory(selected_pid_, first_func, 4096);
+                            if (!code.empty() && core_->GetDisassembler()) {
+                                disasm_instructions_ = core_->GetDisassembler()->Disassemble(code, first_func);
                             }
                             panels_.disassembly = true;
                         }

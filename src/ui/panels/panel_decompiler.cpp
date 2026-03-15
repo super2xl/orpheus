@@ -1,8 +1,10 @@
 #include "ui/application.h"
 #include "ui/panel_helpers.h"
 #include "ui/icons.h"
+#include "core/runtime_manager.h"
 #include <imgui.h>
 #include <cstdio>
+#include <filesystem>
 
 #ifdef ORPHEUS_HAS_GHIDRA_DECOMPILER
 #include "decompiler/decompiler.hh"
@@ -42,7 +44,7 @@ void Application::RenderDecompiler() {
         }
     }
 
-    if (selected_pid_ != 0 && dma_ && dma_->IsConnected()) {
+    if (selected_pid_ != 0 && GetDMA() && GetDMA()->IsConnected()) {
         // Address input
         ImGui::SetNextItemWidth(160.0f);
         if (ImGui::InputText("Address", decompile_address_input_, sizeof(decompile_address_input_),
@@ -64,7 +66,7 @@ void Application::RenderDecompiler() {
                 decompile_address_ = *parsed;
                 if (decompiler_) {
                     decompiler_->SetMemoryCallback([this](uint64_t addr, size_t size, uint8_t* buffer) -> bool {
-                        auto data = dma_->ReadMemory(selected_pid_, addr, static_cast<uint32_t>(size));
+                        auto data = GetDMA()->ReadMemory(selected_pid_, addr, static_cast<uint32_t>(size));
                         if (data.size() >= size) {
                             memcpy(buffer, data.data(), size);
                             return true;

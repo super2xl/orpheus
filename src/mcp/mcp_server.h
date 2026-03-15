@@ -27,6 +27,8 @@ namespace dumper {
     class CS2SchemaDumper;
 }
 
+class OrpheusCore;
+
 namespace ui {
     class Application;
 }
@@ -66,6 +68,9 @@ struct MCPConfig {
  */
 class MCPServer {
 public:
+    explicit MCPServer(OrpheusCore* core);
+
+    /// @deprecated Use OrpheusCore* constructor instead.
     explicit MCPServer(ui::Application* app);
     ~MCPServer();
 
@@ -250,7 +255,7 @@ private:
     std::vector<orpheus::ModuleInfo> cached_modules_;
     uint32_t cached_modules_pid_ = 0;
 
-    ui::Application* app_;
+    OrpheusCore* core_;
     MCPConfig config_;
 
     std::atomic<bool> running_{false};

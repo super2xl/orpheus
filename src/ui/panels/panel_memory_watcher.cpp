@@ -15,7 +15,7 @@ void Application::RenderMemoryWatcher() {
     ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
     ImGui::Begin("Memory Watcher", &panels_.memory_watcher);
 
-    if (!dma_ || !dma_->IsConnected()) {
+    if (!GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("DMA not connected", "Connect to a DMA device first");
         ImGui::End();
         return;
@@ -34,7 +34,7 @@ void Application::RenderMemoryWatcher() {
         }
         memory_watcher_ = std::make_unique<analysis::MemoryWatcher>(
             [this](uint64_t addr, size_t size) -> std::vector<uint8_t> {
-                return dma_->ReadMemory(selected_pid_, addr, size);
+                return GetDMA()->ReadMemory(selected_pid_, addr, size);
             }
         );
         watcher_pid_ = selected_pid_;
@@ -168,7 +168,7 @@ void Application::RenderMemoryWatcher() {
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_TABLE_CELLS " View in Memory", "View in Memory"))) {
                         memory_address_ = watch.address;
                         snprintf(address_input_, sizeof(address_input_), "0x%llX", (unsigned long long)watch.address);
-                        memory_data_ = dma_->ReadMemory(selected_pid_, watch.address, 256);
+                        memory_data_ = GetDMA()->ReadMemory(selected_pid_, watch.address, 256);
                         panels_.memory_viewer = true;
                     }
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_COPY " Copy Address", "Copy Address"))) {
@@ -292,7 +292,7 @@ void Application::RenderMemoryWatcher() {
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_TABLE_CELLS " View in Memory", "View in Memory"))) {
                         memory_address_ = change.address;
                         snprintf(address_input_, sizeof(address_input_), "0x%llX", (unsigned long long)change.address);
-                        memory_data_ = dma_->ReadMemory(selected_pid_, change.address, 256);
+                        memory_data_ = GetDMA()->ReadMemory(selected_pid_, change.address, 256);
                         panels_.memory_viewer = true;
                     }
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_EYE " Add Watch Here", "Add Watch Here"))) {

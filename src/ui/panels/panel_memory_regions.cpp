@@ -14,7 +14,7 @@ void Application::RenderMemoryRegions() {
     ImGui::SetNextWindowSize(ImVec2(900, 500), ImGuiCond_FirstUseEver);
     ImGui::Begin("Memory Regions", &panels_.memory_regions);
 
-    if (!dma_ || !dma_->IsConnected()) {
+    if (!GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("DMA not connected", "Connect to a DMA device first");
         ImGui::End();
         return;
@@ -28,7 +28,7 @@ void Application::RenderMemoryRegions() {
 
     // Refresh regions if PID changed
     if (memory_regions_pid_ != selected_pid_) {
-        cached_memory_regions_ = dma_->GetMemoryRegions(selected_pid_);
+        cached_memory_regions_ = GetDMA()->GetMemoryRegions(selected_pid_);
         memory_regions_pid_ = selected_pid_;
     }
 
@@ -36,7 +36,7 @@ void Application::RenderMemoryRegions() {
     ImGui::Text("Process: %s (%zu regions)", selected_process_name_.c_str(), cached_memory_regions_.size());
     ImGui::SameLine();
     if (ImGui::Button(ICON_OR_TEXT(icons_loaded_, ICON_FA_ROTATE " Refresh", "Refresh"))) {
-        cached_memory_regions_ = dma_->GetMemoryRegions(selected_pid_);
+        cached_memory_regions_ = GetDMA()->GetMemoryRegions(selected_pid_);
     }
 
     // Filter input
@@ -134,15 +134,15 @@ void Application::RenderMemoryRegions() {
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_TABLE_CELLS " View in Memory", "View in Memory"))) {
                         memory_address_ = region.base_address;
                         snprintf(address_input_, sizeof(address_input_), "0x%llX", (unsigned long long)region.base_address);
-                        memory_data_ = dma_->ReadMemory(selected_pid_, region.base_address, 512);
+                        memory_data_ = GetDMA()->ReadMemory(selected_pid_, region.base_address, 512);
                         panels_.memory_viewer = true;
                     }
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_CODE " View in Disassembly", "View in Disassembly"))) {
                         disasm_address_ = region.base_address;
                         snprintf(disasm_address_input_, sizeof(disasm_address_input_), "0x%llX", (unsigned long long)region.base_address);
-                        auto data = dma_->ReadMemory(selected_pid_, region.base_address, 4096);
-                        if (!data.empty() && disassembler_) {
-                            disasm_instructions_ = disassembler_->Disassemble(data, region.base_address);
+                        auto data = GetDMA()->ReadMemory(selected_pid_, region.base_address, 4096);
+                        if (!data.empty() && core_->GetDisassembler()) {
+                            disasm_instructions_ = core_->GetDisassembler()->Disassemble(data, region.base_address);
                         }
                         panels_.disassembly = true;
                     }

@@ -18,7 +18,7 @@ namespace orpheus::ui {
 void Application::RenderWriteTracer() {
     ImGui::Begin("Write Tracer", &panels_.write_tracer);
 
-    if (selected_pid_ == 0 || !dma_ || !dma_->IsConnected()) {
+    if (selected_pid_ == 0 || !GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("No process selected", "Select a process and module to trace memory writes");
         ImGui::End();
         return;
@@ -93,7 +93,7 @@ void Application::RenderWriteTracer() {
             uint32_t module_size = selected_module_size_;
             std::string module_name = selected_module_name_;
             int depth = write_trace_depth_;
-            auto* dma = dma_.get();
+            auto* dma = GetDMA();
 
             // Build map from vector for background thread
             std::map<uint64_t, analysis::FunctionInfo> functions;
@@ -212,10 +212,10 @@ void Application::RenderWriteTracer() {
                                 disasm_address_ = w.instruction_address;
                                 snprintf(disasm_address_input_, sizeof(disasm_address_input_),
                                          "0x%llX", (unsigned long long)w.instruction_address);
-                                if (disassembler_) {
-                                    auto data = dma_->ReadMemory(selected_pid_, w.instruction_address, 512);
+                                if (core_->GetDisassembler()) {
+                                    auto data = GetDMA()->ReadMemory(selected_pid_, w.instruction_address, 512);
                                     if (!data.empty()) {
-                                        disasm_instructions_ = disassembler_->Disassemble(data, w.instruction_address);
+                                        disasm_instructions_ = core_->GetDisassembler()->Disassemble(data, w.instruction_address);
                                     }
                                 }
                                 panels_.disassembly = true;
@@ -224,7 +224,7 @@ void Application::RenderWriteTracer() {
                                 memory_address_ = w.instruction_address;
                                 snprintf(address_input_, sizeof(address_input_),
                                          "0x%llX", (unsigned long long)w.instruction_address);
-                                memory_data_ = dma_->ReadMemory(selected_pid_, w.instruction_address, 256);
+                                memory_data_ = GetDMA()->ReadMemory(selected_pid_, w.instruction_address, 256);
                                 panels_.memory_viewer = true;
                             }
                             if (w.function_address != 0) {
@@ -232,10 +232,10 @@ void Application::RenderWriteTracer() {
                                     disasm_address_ = w.function_address;
                                     snprintf(disasm_address_input_, sizeof(disasm_address_input_),
                                              "0x%llX", (unsigned long long)w.function_address);
-                                    if (disassembler_) {
-                                        auto data = dma_->ReadMemory(selected_pid_, w.function_address, 1024);
+                                    if (core_->GetDisassembler()) {
+                                        auto data = GetDMA()->ReadMemory(selected_pid_, w.function_address, 1024);
                                         if (!data.empty()) {
-                                            disasm_instructions_ = disassembler_->Disassemble(data, w.function_address);
+                                            disasm_instructions_ = core_->GetDisassembler()->Disassemble(data, w.function_address);
                                         }
                                     }
                                     panels_.disassembly = true;
@@ -354,10 +354,10 @@ void Application::RenderWriteTracer() {
                                     disasm_address_ = node->address;
                                     snprintf(disasm_address_input_, sizeof(disasm_address_input_),
                                              "0x%llX", (unsigned long long)node->address);
-                                    if (disassembler_) {
-                                        auto data = dma_->ReadMemory(selected_pid_, node->address, 1024);
+                                    if (core_->GetDisassembler()) {
+                                        auto data = GetDMA()->ReadMemory(selected_pid_, node->address, 1024);
                                         if (!data.empty()) {
-                                            disasm_instructions_ = disassembler_->Disassemble(data, node->address);
+                                            disasm_instructions_ = core_->GetDisassembler()->Disassemble(data, node->address);
                                         }
                                     }
                                     panels_.disassembly = true;

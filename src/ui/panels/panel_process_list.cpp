@@ -13,7 +13,7 @@ void Application::RenderProcessList() {
     ImGui::Begin("Processes", &panels_.process_list);
 
     // Auto-refresh logic
-    if (auto_refresh_enabled_ && dma_ && dma_->IsConnected()) {
+    if (auto_refresh_enabled_ && GetDMA() && GetDMA()->IsConnected()) {
         double current_time = glfwGetTime();
         if (current_time - last_process_refresh_ >= process_refresh_interval_) {
             RefreshProcesses();
@@ -21,7 +21,7 @@ void Application::RenderProcessList() {
         }
     }
 
-    if (!dma_ || !dma_->IsConnected()) {
+    if (!GetDMA() || !GetDMA()->IsConnected()) {
         EmptyState("DMA not connected", "Connect to a DMA device to view processes");
         ImGui::End();
         return;

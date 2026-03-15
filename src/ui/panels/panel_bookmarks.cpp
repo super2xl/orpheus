@@ -14,20 +14,20 @@ void Application::RenderBookmarks() {
     ImGui::SetNextWindowSize(ImVec2(400, 500), ImGuiCond_FirstUseEver);
     ImGui::Begin("Bookmarks", &panels_.bookmarks);
 
-    if (!bookmarks_) {
+    if (!GetBookmarks()) {
         EmptyState("Bookmark manager not initialized");
         ImGui::End();
         return;
     }
 
     // Header with count and actions
-    ImGui::Text("Bookmarks: %zu", bookmarks_->Count());
+    ImGui::Text("Bookmarks: %zu", GetBookmarks()->Count());
     ImGui::SameLine(ImGui::GetWindowWidth() - 180);
 
     if (ImGui::SmallButton(ICON_OR_TEXT(icons_loaded_, ICON_FA_BOOKMARK " Add Current", "Add Current"))) {
         if (memory_address_ != 0) {
             show_add_bookmark_popup_ = true;
-            snprintf(bookmark_label_, sizeof(bookmark_label_), "Bookmark_%zu", bookmarks_->Count() + 1);
+            snprintf(bookmark_label_, sizeof(bookmark_label_), "Bookmark_%zu", GetBookmarks()->Count() + 1);
             bookmark_notes_[0] = '\0';
             strncpy(bookmark_category_, "General", sizeof(bookmark_category_) - 1);
         }
@@ -36,7 +36,7 @@ void Application::RenderBookmarks() {
 
     ImGui::SameLine();
     if (ImGui::SmallButton(ICON_OR_TEXT(icons_loaded_, ICON_FA_DOWNLOAD " Save", "Save"))) {
-        bookmarks_->Save();
+        GetBookmarks()->Save();
         status_message_ = "Bookmarks saved";
         status_timer_ = 2.0f;
     }
@@ -53,7 +53,7 @@ void Application::RenderBookmarks() {
 
     if (BeginCenteredModal("Add Bookmark", &show_add_bookmark_popup_)) {
         uint64_t addr = (bookmark_edit_index_ >= 0) ?
-            bookmarks_->GetAll()[bookmark_edit_index_].address : memory_address_;
+            GetBookmarks()->GetAll()[bookmark_edit_index_].address : memory_address_;
 
         KeyValueHex("Address", addr);
         if (!selected_module_name_.empty()) {
@@ -82,9 +82,9 @@ void Application::RenderBookmarks() {
                 bm.notes = bookmark_notes_;
                 bm.category = bookmark_category_;
                 bm.module = selected_module_name_;
-                bookmarks_->Update(bookmark_edit_index_, bm);
+                GetBookmarks()->Update(bookmark_edit_index_, bm);
             } else {
-                bookmarks_->Add(addr, bookmark_label_, bookmark_notes_,
+                GetBookmarks()->Add(addr, bookmark_label_, bookmark_notes_,
                                bookmark_category_, selected_module_name_);
             }
             bookmark_edit_index_ = -1;
@@ -99,9 +99,9 @@ void Application::RenderBookmarks() {
     }
 
     // Bookmark list
-    if (bookmarks_->Count() == 0) {
+    if (GetBookmarks()->Count() == 0) {
         EmptyState("No bookmarks", "Right-click addresses to add bookmarks");
-        if (bookmarks_->IsDirty()) {
+        if (GetBookmarks()->IsDirty()) {
             ImGui::Separator();
             ImGui::TextColored(colors::Warning, "Unsaved changes");
         }
@@ -121,7 +121,7 @@ void Application::RenderBookmarks() {
 
         // Filter bookmarks (custom: searches label, category, and notes)
         std::string filter_str = ToLower(bookmark_filter_);
-        const auto& all_bookmarks = bookmarks_->GetAll();
+        const auto& all_bookmarks = GetBookmarks()->GetAll();
         std::vector<size_t> filtered_indices;
 
         for (size_t i = 0; i < all_bookmarks.size(); i++) {
@@ -164,8 +164,8 @@ void Application::RenderBookmarks() {
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_TABLE_CELLS " View in Memory", "View in Memory"))) {
                         memory_address_ = bm.address;
                         snprintf(address_input_, sizeof(address_input_), "0x%llX", (unsigned long long)bm.address);
-                        if (dma_ && dma_->IsConnected() && selected_pid_ != 0) {
-                            memory_data_ = dma_->ReadMemory(selected_pid_, bm.address, 512);
+                        if (GetDMA() && GetDMA()->IsConnected() && selected_pid_ != 0) {
+                            memory_data_ = GetDMA()->ReadMemory(selected_pid_, bm.address, 512);
                         }
                         panels_.memory_viewer = true;
                     }
@@ -173,10 +173,10 @@ void Application::RenderBookmarks() {
                         disasm_address_ = bm.address;
                         snprintf(disasm_address_input_, sizeof(disasm_address_input_), "0x%llX",
                                 (unsigned long long)bm.address);
-                        if (dma_ && dma_->IsConnected() && selected_pid_ != 0 && disassembler_) {
-                            auto code = dma_->ReadMemory(selected_pid_, bm.address, 1024);
+                        if (GetDMA() && GetDMA()->IsConnected() && selected_pid_ != 0 && core_->GetDisassembler()) {
+                            auto code = GetDMA()->ReadMemory(selected_pid_, bm.address, 1024);
                             if (!code.empty()) {
-                                disasm_instructions_ = disassembler_->Disassemble(code, bm.address);
+                                disasm_instructions_ = core_->GetDisassembler()->Disassemble(code, bm.address);
                             }
                         }
                         panels_.disassembly = true;
@@ -194,7 +194,7 @@ void Application::RenderBookmarks() {
                         show_add_bookmark_popup_ = true;
                     }
                     if (ImGui::MenuItem(ICON_OR_TEXT(icons_loaded_, ICON_FA_XMARK " Delete", "Delete"))) {
-                        bookmarks_->Remove(idx);
+                        GetBookmarks()->Remove(idx);
                     }
                     ImGui::EndPopup();
                 }
@@ -228,7 +228,7 @@ void Application::RenderBookmarks() {
                 // Actions column
                 ImGui::TableNextColumn();
                 if (ImGui::SmallButton("X")) {
-                    bookmarks_->Remove(idx);
+                    GetBookmarks()->Remove(idx);
                 }
                 HelpTooltip("Delete bookmark");
 
@@ -240,7 +240,7 @@ void Application::RenderBookmarks() {
     }
 
     // Unsaved changes indicator
-    if (bookmarks_->IsDirty()) {
+    if (GetBookmarks()->IsDirty()) {
         ImGui::Separator();
         ImGui::TextColored(colors::Warning, "Unsaved changes");
     }

@@ -9,7 +9,7 @@
  */
 
 #include "mcp_server.h"
-#include "ui/application.h"
+#include "core/orpheus_core.h"
 #include "utils/bookmarks.h"
 #include "utils/logger.h"
 
@@ -21,7 +21,7 @@ namespace orpheus::mcp {
 
 std::string MCPServer::HandleBookmarkList(const std::string&) {
     try {
-        auto* bookmarks = app_->GetBookmarks();
+        auto* bookmarks = core_->GetBookmarks();
         if (!bookmarks) {
             return CreateErrorResponse("Bookmark manager not initialized");
         }
@@ -64,7 +64,7 @@ std::string MCPServer::HandleBookmarkAdd(const std::string& body) {
     try {
         auto req = json::parse(body);
 
-        auto* bookmarks = app_->GetBookmarks();
+        auto* bookmarks = core_->GetBookmarks();
         if (!bookmarks) {
             return CreateErrorResponse("Bookmark manager not initialized");
         }
@@ -107,7 +107,7 @@ std::string MCPServer::HandleBookmarkRemove(const std::string& body) {
     try {
         auto req = json::parse(body);
 
-        auto* bookmarks = app_->GetBookmarks();
+        auto* bookmarks = core_->GetBookmarks();
         if (!bookmarks) {
             return CreateErrorResponse("Bookmark manager not initialized");
         }
@@ -156,7 +156,7 @@ std::string MCPServer::HandleBookmarkUpdate(const std::string& body) {
     try {
         auto req = json::parse(body);
 
-        auto* bookmarks = app_->GetBookmarks();
+        auto* bookmarks = core_->GetBookmarks();
         if (!bookmarks) {
             return CreateErrorResponse("Bookmark manager not initialized");
         }
