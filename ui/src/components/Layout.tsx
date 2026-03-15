@@ -83,34 +83,39 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
                 <button
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
-                  className="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm relative overflow-hidden cursor-pointer border-none outline-none"
+                  className="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm relative cursor-pointer border-none outline-none"
                   style={{
-                    background: isActive ? 'var(--active)' : 'transparent',
+                    background: 'transparent',
                     color: isActive ? 'var(--text)' : 'var(--text-secondary)',
                     fontWeight: isActive ? 500 : 400,
-                    transition: 'background 0.1s ease, color 0.1s ease',
-                    borderLeft: isActive ? '2px solid var(--active-border)' : '2px solid transparent',
+                    transition: 'color 0.1s ease',
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
-                      e.currentTarget.style.background = 'var(--hover)';
                       e.currentTarget.style.color = 'var(--text)';
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!isActive) {
-                      e.currentTarget.style.background = 'transparent';
                       e.currentTarget.style.color = 'var(--text-secondary)';
                     }
                   }}
                 >
-                  <span className="text-base leading-none shrink-0 w-5 text-center">
+                  {/* Animated ring border for active item */}
+                  {isActive && (
+                    <motion.div
+                      className="nav-ring"
+                      layoutId="nav-ring"
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                  <span className="text-base leading-none shrink-0 w-5 text-center relative z-10">
                     {item.icon}
                   </span>
                   <AnimatePresence>
                     {!collapsed && (
                       <motion.span
-                        className="whitespace-nowrap"
+                        className="whitespace-nowrap relative z-10"
                         initial={{ opacity: 0, x: -6 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -6 }}

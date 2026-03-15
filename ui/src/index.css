@@ -82,3 +82,39 @@ body {
 ::selection {
   background: rgba(115, 115, 115, 0.25);
 }
+
+/* Animated ring border for active nav item */
+.nav-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.nav-ring::before {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 60%,
+    var(--active-border) 75%,
+    transparent 90%,
+    transparent 100%
+  );
+  animation: ring-spin 3s linear infinite;
+}
+
+.nav-ring::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: calc(0.5rem - 1px);
+  background: var(--surface);
+}
+
+@keyframes ring-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
