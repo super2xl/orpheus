@@ -1,55 +1,43 @@
-use std::process::{Command, Child};
-use std::sync::Mutex;
+use std::path::PathBuf;
+use std::process::Command;
 
-struct BackendProcess(Mutex<Option<Child>>);
-
-fn spawn_backend(core_path: &std::path::Path) -> Option<Child> {
+fn spawn_backend(core_path: &PathBuf) {
     let mut cmd = Command::new(core_path);
     cmd.arg("--auto");
 
-    // Hide console window on Windows
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        cmd.creation_flags(0x08000000);
     }
 
-    cmd.spawn().ok()
+    match cmd.spawn() {
+        Ok(_) => println!("[orpheus] Backend started"),
+        Err(e) => eprintln!("[orpheus] Failed to start backend: {}", e),
+    }
+}
+
+fn find_backend() -> Option<PathBuf> {
+    let core_name = if cfg!(windows) { "orpheus-core.exe" } else { "orpheus-core" };
+    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+
+    let candidates = vec![
+        exe_dir.join(core_name),
+        exe_dir.join("../").join(core_name),
+    ];
+
+    candidates.into_iter().find(|p: &PathBuf| p.exists())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  tauri::Builder::default()
-    .setup(|app| {
-      // Launch the C++ core silently — bundled in resources
-      let core_name = if cfg!(windows) { "orpheus-core.exe" } else { "orpheus-core" };
-
-      // Check next to our exe first, then resource dir
-      let exe_dir = std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.to_path_buf()));
-      let core_path = exe_dir.as_ref()
-          .map(|d| d.join(core_name))
-          .filter(|p| p.exists())
-          .or_else(|| app.path().resource_dir().ok().map(|d| d.join(core_name)).filter(|p| p.exists()));
-
-      if let Some(path) = core_path {
-          if let Some(child) = spawn_backend(&path) {
-              app.manage(BackendProcess(Mutex::new(Some(child))));
-          }
-      }
-
-      Ok(())
-    })
-    .on_event(|app, event| {
-        if let tauri::RunEvent::Exit = event {
-            if let Some(state) = app.try_state::<BackendProcess>() {
-                if let Ok(mut guard) = state.0.lock() {
-                    if let Some(mut child) = guard.take() {
-                        let _ = child.kill();
-                    }
-                }
+    tauri::Builder::default()
+        .setup(|_app| {
+            if let Some(path) = find_backend() {
+                spawn_backend(&path);
             }
-        }
-    })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
