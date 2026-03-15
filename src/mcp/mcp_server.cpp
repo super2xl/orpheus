@@ -253,7 +253,7 @@ std::string MCPServer::FormatAddressWithContext(uint32_t pid, uint64_t address) 
 // ============================================================================
 
 void MCPServer::SetupRoutes() {
-    auto* server = static_cast<httplib::Server*>(http_server_);
+    auto* server = http_server_.get();
 
     // Middleware for authentication
     server->set_pre_routing_handler([this](const httplib::Request& req, httplib::Response& res) {
@@ -443,13 +443,11 @@ void MCPServer::SetupRoutes() {
 // ============================================================================
 
 void MCPServer::ServerThread() {
-    auto* server = static_cast<httplib::Server*>(http_server_);
-
     LOG_INFO("MCP server listening on {}:{}", config_.bind_address, config_.port);
 
     // Use configurable bind address (default: 127.0.0.1 for security)
     // Set to "0.0.0.0" in config to allow remote connections
-    if (!server->listen(config_.bind_address, config_.port)) {
+    if (!http_server_->listen(config_.bind_address, config_.port)) {
         LOG_ERROR("Failed to start MCP server on {}:{}", config_.bind_address, config_.port);
         running_.store(false);
     }
@@ -469,7 +467,7 @@ bool MCPServer::Start(const MCPConfig& config) {
     }
 
     // Create HTTP server
-    http_server_ = new httplib::Server();
+    http_server_ = std::make_unique<httplib::Server>();
 
     SetupRoutes();
 
@@ -488,17 +486,14 @@ void MCPServer::Stop() {
     running_.store(false);
 
     if (http_server_) {
-        static_cast<httplib::Server*>(http_server_)->stop();
+        http_server_->stop();
     }
 
     if (server_thread_.joinable()) {
         server_thread_.join();
     }
 
-    if (http_server_) {
-        delete static_cast<httplib::Server*>(http_server_);
-        http_server_ = nullptr;
-    }
+    http_server_.reset();
 
     LOG_INFO("MCP server stopped");
 }

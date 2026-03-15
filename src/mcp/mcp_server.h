@@ -12,6 +12,8 @@
 #include <chrono>
 #include "../utils/cache_manager.h"
 
+namespace httplib { class Server; }
+
 namespace orpheus {
 
 class DMAInterface;
@@ -254,7 +256,7 @@ private:
     std::atomic<bool> running_{false};
     std::thread server_thread_;
 
-    void* http_server_ = nullptr;  // httplib::Server pointer (opaque)
+    std::unique_ptr<httplib::Server> http_server_;  // HTTP server
 
     // Emulator instance (one per MCP server)
     std::unique_ptr<emulation::Emulator> emulator_;

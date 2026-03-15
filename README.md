@@ -18,7 +18,7 @@
 ### Core Analysis
 - **DMA Memory Access** - Read/write process memory via FPGA DMA hardware
 - **Pattern & String Scanning** - Fast signature scanning with wildcard support, async with progress
-- **x86-64 Disassembler** - Capstone-powered instruction decoding with control flow analysis
+- **x86-64 Disassembler** - Zydis-powered instruction decoding with control flow analysis
 - **Ghidra Decompiler** - Full C pseudocode generation with CS2 schema type injection
 - **Function Recovery** - Automatic discovery via prologue, call targets, pdata, and RTTI
 - **CFG Analysis** - Control flow graphs with loop detection and visualization layout
@@ -206,7 +206,7 @@ Fetched automatically via CMake FetchContent:
 - GLFW 3.3.9
 - Dear ImGui 1.90.1 (docking branch)
 - spdlog 1.13.0
-- Capstone 5.0
+- Zydis 4.0.0
 - Unicorn Engine 2.1.4
 - cpp-httplib 0.15.3
 - nlohmann/json 3.11.3

@@ -297,8 +297,10 @@ DMAInterface::DMAInterface(DMAInterface&& other) noexcept
     : vmm_handle_(other.vmm_handle_)
     , device_type_(std::move(other.device_type_))
     , last_error_(std::move(other.last_error_))
-    , error_callback_(std::move(other.error_callback_))
-    , cache_(std::move(other.cache_)) {
+    , error_callback_(std::move(other.error_callback_)) {
+    // Transfer cache config (MemoryCache contains mutex, not movable)
+    cache_.SetConfig(other.cache_.GetConfig());
+    other.cache_.Clear();
     other.vmm_handle_ = nullptr;
 }
 
@@ -309,7 +311,9 @@ DMAInterface& DMAInterface::operator=(DMAInterface&& other) noexcept {
         device_type_ = std::move(other.device_type_);
         last_error_ = std::move(other.last_error_);
         error_callback_ = std::move(other.error_callback_);
-        cache_ = std::move(other.cache_);
+        // Transfer cache config (MemoryCache contains mutex, not movable)
+        cache_.SetConfig(other.cache_.GetConfig());
+        other.cache_.Clear();
         other.vmm_handle_ = nullptr;
     }
     return *this;

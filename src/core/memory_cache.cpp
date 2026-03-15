@@ -86,10 +86,10 @@ std::optional<std::vector<uint8_t>> MemoryCache::Get(uint32_t pid, uint64_t addr
     // Check TTL
     if (!IsPageValid(it->second)) {
         // Expired - remove and return miss
-        lru_map_.erase(key);
-        auto lru_it = std::find(lru_list_.begin(), lru_list_.end(), key);
-        if (lru_it != lru_list_.end()) {
-            lru_list_.erase(lru_it);
+        auto lru_it = lru_map_.find(key);
+        if (lru_it != lru_map_.end()) {
+            lru_list_.erase(lru_it->second);
+            lru_map_.erase(lru_it);
         }
         pages_.erase(it);
         stats_.misses++;
