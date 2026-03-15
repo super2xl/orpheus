@@ -37,6 +37,12 @@ const navItems: NavItem[] = [
   { id: 'vtable', label: 'VTable', icon: '\u25A4' },
 ];
 
+const utilityItems: NavItem[] = [
+  { id: 'console', label: 'Console', icon: '\u25B8' },
+  { id: 'tasks', label: 'Tasks', icon: '\u22EF' },
+  { id: 'cache', label: 'Cache', icon: '\u25E7' },
+];
+
 const settingsItem: NavItem = { id: 'settings', label: 'Settings', icon: '\u2699' };
 
 function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: LayoutProps) {
@@ -90,7 +96,7 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 py-3 px-2.5 space-y-0.5 overflow-hidden">
+          <nav className="flex-1 py-3 px-2.5 space-y-0.5 overflow-auto">
             {navItems.map((item) => {
               const isActive = activePanel === item.id;
               return (
@@ -116,6 +122,62 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
                   }}
                 >
                   {/* Animated ring border for active item */}
+                  {isActive && (
+                    <motion.div
+                      className="nav-ring"
+                      layoutId="nav-ring"
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                  <span className="text-base leading-none shrink-0 w-5 text-center relative z-10">
+                    {item.icon}
+                  </span>
+                  <AnimatePresence>
+                    {!collapsed && (
+                      <motion.span
+                        className="whitespace-nowrap relative z-10"
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -6 }}
+                        transition={{ duration: 0.12, ease: 'easeOut' }}
+                      >
+                        {item.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </button>
+              );
+            })}
+
+            {/* Utility section divider */}
+            <div className="pt-2 pb-1 px-3">
+              <div style={{ borderTop: '1px solid var(--border)' }} />
+            </div>
+
+            {utilityItems.map((item) => {
+              const isActive = activePanel === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onNavigate(item.id)}
+                  className="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm relative cursor-pointer border-none outline-none"
+                  style={{
+                    background: 'transparent',
+                    color: isActive ? 'var(--text)' : 'var(--text-secondary)',
+                    fontWeight: isActive ? 500 : 400,
+                    transition: 'color 0.1s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.color = 'var(--text)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.color = 'var(--text-secondary)';
+                    }
+                  }}
+                >
                   {isActive && (
                     <motion.div
                       className="nav-ring"

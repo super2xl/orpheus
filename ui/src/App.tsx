@@ -18,6 +18,9 @@ import CFGViewer from './panels/CFGViewer';
 import MemoryRegions from './panels/MemoryRegions';
 import PointerChainPanel from './panels/PointerChain';
 import VTableReader from './panels/VTableReader';
+import Console from './panels/Console';
+import TaskManager from './panels/TaskManager';
+import CacheManager from './panels/CacheManager';
 import Settings from './panels/Settings';
 
 function App() {
@@ -71,6 +74,9 @@ function App() {
         {activePanel === 'regions' && <MemoryRegions onNavigate={handleNavigate} />}
         {activePanel === 'pointers' && <PointerChainPanel onNavigate={handleNavigate} />}
         {activePanel === 'vtable' && <VTableReader onNavigate={handleNavigate} />}
+        {activePanel === 'console' && <Console />}
+        {activePanel === 'tasks' && <TaskManager />}
+        {activePanel === 'cache' && <CacheManager />}
         {activePanel === 'settings' && <Settings dark={dark} onToggleTheme={toggleTheme} />}
       </Layout>
       <CommandPalette

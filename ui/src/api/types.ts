@@ -108,6 +108,15 @@ export interface CacheStats {
   evictions: number;
   hit_rate: number;
   pages_cached: number;
+  max_pages?: number;
+}
+
+export interface CacheEntry {
+  name: string;
+  size: number;
+  filepath: string;
+  cached_at: string;
+  item_count: number;
 }
 
 export interface RTTIClassInfo {
