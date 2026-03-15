@@ -10,31 +10,6 @@ set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 message(STATUS "Fetching dependencies...")
 
 # ============================================================================
-# GLFW - Window management and OpenGL context
-# ============================================================================
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-
-FetchContent_Declare(
-    glfw
-    GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG        3.3.9
-    GIT_SHALLOW    TRUE
-)
-
-# ============================================================================
-# ImGui - Immediate mode GUI
-# ============================================================================
-FetchContent_Declare(
-    imgui
-    GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG        v1.90.1-docking
-    GIT_SHALLOW    TRUE
-)
-
-# ============================================================================
 # spdlog - Fast logging library
 # ============================================================================
 set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
@@ -64,51 +39,6 @@ FetchContent_Declare(
 # ============================================================================
 # Make dependencies available
 # ============================================================================
-
-# Fetch GLFW
-FetchContent_GetProperties(glfw)
-if(NOT glfw_POPULATED)
-    message(STATUS "Fetching GLFW...")
-    FetchContent_Populate(glfw)
-    add_subdirectory(${glfw_SOURCE_DIR} ${glfw_BINARY_DIR})
-endif()
-
-# Fetch ImGui (needs manual setup as it's not CMake based)
-FetchContent_GetProperties(imgui)
-if(NOT imgui_POPULATED)
-    message(STATUS "Fetching ImGui...")
-    FetchContent_Populate(imgui)
-
-    # Create ImGui library manually
-    set(IMGUI_DIR ${imgui_SOURCE_DIR})
-    add_library(imgui STATIC
-        ${IMGUI_DIR}/imgui.cpp
-        ${IMGUI_DIR}/imgui_draw.cpp
-        ${IMGUI_DIR}/imgui_tables.cpp
-        ${IMGUI_DIR}/imgui_widgets.cpp
-        ${IMGUI_DIR}/imgui_demo.cpp
-        ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
-        ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
-    )
-    target_include_directories(imgui PUBLIC
-        ${IMGUI_DIR}
-        ${IMGUI_DIR}/backends
-    )
-    target_link_libraries(imgui PUBLIC glfw)
-
-    # Platform-specific OpenGL linking
-    if(WIN32)
-        target_link_libraries(imgui PUBLIC opengl32)
-    elseif(UNIX AND NOT APPLE)
-        find_package(OpenGL REQUIRED)
-        target_link_libraries(imgui PUBLIC OpenGL::GL)
-    elseif(APPLE)
-        find_library(OPENGL_LIBRARY OpenGL)
-        target_link_libraries(imgui PUBLIC ${OPENGL_LIBRARY})
-    endif()
-
-    target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS)
-endif()
 
 # Fetch spdlog
 FetchContent_GetProperties(spdlog)
@@ -182,23 +112,6 @@ if(NOT json_POPULATED)
 endif()
 
 set(JSON_INCLUDE_DIR ${json_SOURCE_DIR}/include)
-
-# ============================================================================
-# stb (header-only image loading library)
-# ============================================================================
-FetchContent_Declare(
-    stb
-    GIT_REPOSITORY https://github.com/nothings/stb.git
-    GIT_TAG ae721c50eaf761660b4f90cc590453cdb0c2acd0
-)
-
-FetchContent_GetProperties(stb)
-if(NOT stb_POPULATED)
-    message(STATUS "Fetching stb...")
-    FetchContent_Populate(stb)
-endif()
-
-set(STB_INCLUDE_DIR ${stb_SOURCE_DIR})
 
 # ============================================================================
 # GoogleTest (for unit tests only)

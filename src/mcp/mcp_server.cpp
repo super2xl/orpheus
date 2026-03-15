@@ -25,7 +25,6 @@
 
 #include "mcp_server.h"
 #include "core/orpheus_core.h"
-#include "ui/application.h"
 #include "core/dma_interface.h"
 #include "core/runtime_manager.h"
 #include "emulation/emulator.h"  // Required for unique_ptr destructor
@@ -51,13 +50,6 @@ namespace orpheus::mcp {
 
 MCPServer::MCPServer(OrpheusCore* core)
     : core_(core) {
-}
-
-MCPServer::MCPServer(ui::Application* app)
-    : core_(nullptr) {
-    // Legacy constructor — should not be used in new code.
-    // Kept for backward compatibility during transition.
-    (void)app;
 }
 
 MCPServer::~MCPServer() {

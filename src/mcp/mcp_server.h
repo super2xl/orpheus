@@ -29,10 +29,6 @@ namespace dumper {
 
 class OrpheusCore;
 
-namespace ui {
-    class Application;
-}
-
 namespace mcp {
 
 /**
@@ -69,9 +65,6 @@ struct MCPConfig {
 class MCPServer {
 public:
     explicit MCPServer(OrpheusCore* core);
-
-    /// @deprecated Use OrpheusCore* constructor instead.
-    explicit MCPServer(ui::Application* app);
     ~MCPServer();
 
     // Disable copy/move

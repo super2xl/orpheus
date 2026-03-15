@@ -24,7 +24,7 @@ struct LogEntry {
  * Logger - Central logging system
  *
  * Provides both console and file logging, plus an in-memory
- * buffer for displaying logs in the ImGui console.
+ * buffer for displaying logs in the console panel.
  */
 class Logger {
 public:

@@ -89,15 +89,16 @@ endif()
 # Main Executable
 # ============================================================================
 
-# Collect source files (exclude installer and decompiler directories)
+# Collect source files (headless — no UI or installer)
 file(GLOB_RECURSE ORPHEUS_SOURCES
-    "src/*.cpp"
-    "src/**/*.cpp"
+    "src/core/*.cpp"
+    "src/analysis/*.cpp"
+    "src/mcp/*.cpp"
+    "src/emulation/*.cpp"
+    "src/dumper/*.cpp"
+    "src/utils/*.cpp"
+    "src/main.cpp"
 )
-# Remove installer sources from main executable
-list(FILTER ORPHEUS_SOURCES EXCLUDE REGEX ".*installer.*")
-# Remove decompiler sources (added conditionally below)
-list(FILTER ORPHEUS_SOURCES EXCLUDE REGEX ".*/decompiler/.*")
 
 # Windows resource file (for .exe icon)
 if(WIN32)
@@ -114,13 +115,10 @@ target_include_directories(orpheus PRIVATE
     ${EMBEDDED_RESOURCE_INCLUDE_DIR}
     ${HTTPLIB_INCLUDE_DIR}
     ${JSON_INCLUDE_DIR}
-    ${STB_INCLUDE_DIR}
 )
 
 # Link libraries
 target_link_libraries(orpheus PRIVATE
-    imgui
-    glfw
     spdlog::spdlog
     Zydis
     unicorn
@@ -158,14 +156,7 @@ endif()
 if(PLATFORM_WINDOWS)
     # Link Windows libraries
     target_link_libraries(orpheus PRIVATE
-        opengl32
-        dwmapi
         winhttp     # For telemetry webhook
-    )
-
-    # Set Windows subsystem (GUI app, no console window)
-    set_target_properties(orpheus PROPERTIES
-        WIN32_EXECUTABLE TRUE
     )
 
     # MSVC-specific flags
@@ -175,10 +166,8 @@ if(PLATFORM_WINDOWS)
             /MP             # Multi-processor compilation
             /utf-8          # UTF-8 source and execution charset
         )
-        # Use main() as entry point for Windows GUI app
-        # Set UAC elevation to require administrator
+        # UAC elevation to require administrator
         target_link_options(orpheus PRIVATE
-            /ENTRY:mainCRTStartup
             /MANIFESTUAC:level='requireAdministrator'
         )
         # Disable some noisy warnings
@@ -191,7 +180,6 @@ elseif(PLATFORM_LINUX)
     target_link_libraries(orpheus PRIVATE
         dl              # For dlopen
         pthread
-        GL
     )
 
     # GCC/Clang flags
@@ -230,69 +218,13 @@ endif()
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
 
 # ============================================================================
-# MCPinstaller - Standalone MCP Bridge Installer
-# ============================================================================
-
-set(MCPINSTALLER_SOURCES
-    "src/installer/installer_main.cpp"
-    "src/installer/installer_app.cpp"
-)
-
-# Windows resource file (for .exe icon)
-if(WIN32)
-    set(MCPINSTALLER_RESOURCES "${CMAKE_SOURCE_DIR}/resources/orpheus.rc")
-endif()
-
-add_executable(MCPinstaller ${MCPINSTALLER_SOURCES} ${MCPINSTALLER_RESOURCES})
-
-target_include_directories(MCPinstaller PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/include
-    ${EMBEDDED_RESOURCE_INCLUDE_DIR}
-    ${JSON_INCLUDE_DIR}
-    ${STB_INCLUDE_DIR}
-)
-
-target_link_libraries(MCPinstaller PRIVATE
-    imgui
-    glfw
-)
-
-if(PLATFORM_WINDOWS)
-    target_link_libraries(MCPinstaller PRIVATE
-        opengl32
-    )
-
-    set_target_properties(MCPinstaller PROPERTIES
-        WIN32_EXECUTABLE TRUE
-    )
-
-    if(MSVC)
-        target_compile_options(MCPinstaller PRIVATE
-            /W4 /MP /utf-8
-        )
-        target_link_options(MCPinstaller PRIVATE
-            /ENTRY:mainCRTStartup
-            /MANIFESTUAC:level='requireAdministrator'
-        )
-        target_compile_definitions(MCPinstaller PRIVATE
-            _CRT_SECURE_NO_WARNINGS
-        )
-    endif()
-elseif(PLATFORM_LINUX)
-    target_link_libraries(MCPinstaller PRIVATE
-        dl pthread GL
-    )
-endif()
-
-# ============================================================================
 # Tests (separate target, not built with main app)
 # ============================================================================
 enable_testing()
 file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
 if(TEST_SOURCES)
     add_executable(orpheus_tests ${TEST_SOURCES}
-        # Pure-logic source files that can be tested without DMA/UI
+        # Pure-logic source files that can be tested without DMA
         src/analysis/pattern_scanner.cpp
         src/utils/expression_evaluator.cpp
         src/utils/bookmarks.cpp
@@ -334,7 +266,7 @@ endif()
 # Installation
 # ============================================================================
 
-install(TARGETS orpheus MCPinstaller
+install(TARGETS orpheus
     RUNTIME DESTINATION bin
 )
 
