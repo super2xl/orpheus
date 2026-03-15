@@ -286,6 +286,51 @@ elseif(PLATFORM_LINUX)
 endif()
 
 # ============================================================================
+# Tests (separate target, not built with main app)
+# ============================================================================
+enable_testing()
+file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
+if(TEST_SOURCES)
+    add_executable(orpheus_tests ${TEST_SOURCES}
+        # Pure-logic source files that can be tested without DMA/UI
+        src/analysis/pattern_scanner.cpp
+        src/utils/expression_evaluator.cpp
+        src/utils/bookmarks.cpp
+        src/utils/logger.cpp
+        src/core/memory_cache.cpp
+    )
+    target_include_directories(orpheus_tests PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/include
+        ${JSON_INCLUDE_DIR}
+    )
+    target_link_libraries(orpheus_tests PRIVATE
+        GTest::gtest_main
+        spdlog::spdlog
+    )
+    target_compile_features(orpheus_tests PRIVATE cxx_std_20)
+
+    # Platform definitions (needed by logger.cpp)
+    if(WIN32)
+        target_compile_definitions(orpheus_tests PRIVATE
+            PLATFORM_WINDOWS
+            NOMINMAX
+            WIN32_LEAN_AND_MEAN
+            _CRT_SECURE_NO_WARNINGS
+        )
+    elseif(UNIX AND NOT APPLE)
+        target_compile_definitions(orpheus_tests PRIVATE PLATFORM_LINUX)
+    endif()
+
+    if(MSVC)
+        target_compile_options(orpheus_tests PRIVATE /W4 /MP /utf-8)
+    endif()
+
+    include(GoogleTest)
+    gtest_discover_tests(orpheus_tests)
+endif()
+
+# ============================================================================
 # Installation
 # ============================================================================
 

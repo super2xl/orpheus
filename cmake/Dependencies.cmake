@@ -189,8 +189,7 @@ set(JSON_INCLUDE_DIR ${json_SOURCE_DIR}/include)
 FetchContent_Declare(
     stb
     GIT_REPOSITORY https://github.com/nothings/stb.git
-    GIT_TAG master
-    GIT_SHALLOW TRUE
+    GIT_TAG ae721c50eaf761660b4f90cc590453cdb0c2acd0
 )
 
 FetchContent_GetProperties(stb)
@@ -200,5 +199,25 @@ if(NOT stb_POPULATED)
 endif()
 
 set(STB_INCLUDE_DIR ${stb_SOURCE_DIR})
+
+# ============================================================================
+# GoogleTest (for unit tests only)
+# ============================================================================
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.14.0
+    GIT_SHALLOW    TRUE
+)
+set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+FetchContent_GetProperties(googletest)
+if(NOT googletest_POPULATED)
+    message(STATUS "Fetching GoogleTest...")
+    FetchContent_Populate(googletest)
+    add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
+endif()
 
 message(STATUS "All dependencies fetched successfully")
