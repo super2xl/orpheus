@@ -24,23 +24,15 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
   const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
 
-  // Fetch version info when connected
+  // Fetch version info
   useEffect(() => {
-    if (connected) {
-      orpheus.request<VersionInfo>('version')
-        .then(setVersion)
-        .catch(() => setVersion(null));
-    } else {
-      setVersion(null);
-    }
-  }, [connected]);
+    orpheus.request<VersionInfo>('version')
+      .then(setVersion)
+      .catch(() => setVersion(null));
+  }, []);
 
-  // Fetch cache stats when connected
+  // Fetch cache stats
   useEffect(() => {
-    if (!connected) {
-      setCacheStats(null);
-      return;
-    }
     const fetchStats = () => {
       orpheus.request<CacheStats>('tools/cache_stats')
         .then(setCacheStats)
@@ -49,7 +41,7 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
     fetchStats();
     const interval = setInterval(fetchStats, 5000);
     return () => clearInterval(interval);
-  }, [connected]);
+  }, []);
 
   const handleSave = useCallback(() => {
     configure(url, apiKey || undefined);

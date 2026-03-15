@@ -8,7 +8,7 @@ import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
 
 function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
-  const { connected, health } = useConnection();
+  const { health } = useConnection();
   const pid = health?.pid;
   const { result, loading, error, task, scanAsync, cancel } = useStringScan();
   const { modules, refresh: refreshModules } = useModules();
@@ -22,12 +22,12 @@ function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: 
   const [hasScanned, setHasScanned] = useState(false);
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
-  // Fetch modules when connected
+  // Fetch modules when attached
   useEffect(() => {
-    if (connected && pid) {
+    if (pid) {
       refreshModules(pid);
     }
-  }, [connected, pid, refreshModules]);
+  }, [pid, refreshModules]);
 
   const handleScan = useCallback(() => {
     if (!pid) return;

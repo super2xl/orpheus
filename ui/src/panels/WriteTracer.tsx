@@ -172,7 +172,7 @@ function TreeNode({
 }
 
 function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
-  const { connected, health } = useConnection();
+  const { health } = useConnection();
   const pid = health?.pid;
   const { writes, callGraph, loading, error, progress, trace, cancel } = useWriteTracer();
   const { modules, refresh: refreshModules } = useModules();
@@ -184,12 +184,12 @@ function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: st
   const [showCallGraph, setShowCallGraph] = useState(false);
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
-  // Fetch modules when connected
+  // Fetch modules when attached
   useEffect(() => {
-    if (connected && pid) {
+    if (pid) {
       refreshModules(pid);
     }
-  }, [connected, pid, refreshModules]);
+  }, [pid, refreshModules]);
 
   const getSelectedModuleInfo = useCallback((): ModuleInfo | undefined => {
     if (!selectedModule) return undefined;

@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useConnection } from '../hooks/useConnection';
 import { useTasks } from '../hooks/useTasks';
 
 function stateStyle(state: string): { color: string; fontWeight: number } {
@@ -22,15 +21,13 @@ function stateLabel(state: string): string {
 }
 
 function TaskManager() {
-  const { connected } = useConnection();
   const { tasks, error, refresh, cancel, cleanup } = useTasks();
   // Initial fetch + auto-refresh every 2s
   useEffect(() => {
-    if (!connected) return;
     refresh();
     const interval = setInterval(refresh, 2000);
     return () => clearInterval(interval);
-  }, [connected, refresh]);
+  }, [refresh]);
 
   const activeTasks = useMemo(
     () => tasks.filter((t) => t.state.toLowerCase() === 'running' || t.state.toLowerCase() === 'pending'),

@@ -18,7 +18,7 @@ function formatSize(bytes: number): string {
 }
 
 function FunctionRecovery({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
-  const { connected, health } = useConnection();
+  const { health } = useConnection();
   const pid = health?.pid;
   const { functions, scanTime, stats, loading, error, recover } = useFunctionRecovery();
   const { modules, refresh: refreshModules } = useModules();
@@ -38,12 +38,12 @@ function FunctionRecovery({ onNavigate }: { onNavigate?: (panel: string, address
   const [rtti, setRtti] = useState(true);
   const [exports, setExports] = useState(true);
 
-  // Fetch modules when connected
+  // Fetch modules when attached
   useEffect(() => {
-    if (connected && pid) {
+    if (pid) {
       refreshModules(pid);
     }
-  }, [connected, pid, refreshModules]);
+  }, [pid, refreshModules]);
 
   const selectedModuleInfo = useMemo(() => {
     return modules.find((m) => m.name === selectedModule);

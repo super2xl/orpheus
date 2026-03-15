@@ -9,7 +9,7 @@ import { copyToClipboard } from '../utils/clipboard';
 import type { ModuleInfo } from '../api/types';
 
 function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
-  const { connected, health } = useConnection();
+  const { health } = useConnection();
   const pid = health?.pid;
   const { results, loading, error, find, clear } = useXrefs();
   const { modules, refresh: refreshModules } = useModules();
@@ -19,12 +19,12 @@ function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: str
   const [hasSearched, setHasSearched] = useState(false);
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
-  // Fetch modules when connected
+  // Fetch modules when attached
   useEffect(() => {
-    if (connected && pid) {
+    if (pid) {
       refreshModules(pid);
     }
-  }, [connected, pid, refreshModules]);
+  }, [pid, refreshModules]);
 
   const getSelectedModuleInfo = useCallback((): ModuleInfo | undefined => {
     if (!selectedModule) return undefined;

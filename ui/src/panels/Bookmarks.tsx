@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useBookmarks } from '../hooks/useBookmarks';
-import { useConnection } from '../hooks/useConnection';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 
@@ -23,7 +22,6 @@ function formatRelativeTime(timestamp: number): string {
 }
 
 function Bookmarks({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
-  const { connected } = useConnection();
   const { bookmarks, loading, error, refresh, add, remove, update } = useBookmarks();
 
   const [activeCategory, setActiveCategory] = useState('All');
@@ -46,12 +44,10 @@ function Bookmarks({ onNavigate }: { onNavigate?: (panel: string, address?: stri
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
-  // Fetch bookmarks when connected
+  // Fetch bookmarks on mount
   useEffect(() => {
-    if (connected) {
-      refresh();
-    }
-  }, [connected, refresh]);
+    refresh();
+  }, [refresh]);
 
   // Extract unique categories
   const categories = useMemo(() => {

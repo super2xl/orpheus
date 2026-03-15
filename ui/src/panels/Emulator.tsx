@@ -128,7 +128,7 @@ function RegisterCell({
 }
 
 function Emulator({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
-  const { connected, health } = useConnection();
+  const { health } = useConnection();
   const pid = health?.pid;
   const {
     created, registers, result, status, loading, error, changedRegs,
@@ -143,12 +143,12 @@ function Emulator({ onNavigate }: { onNavigate?: (panel: string, address?: strin
   const [selectedModule, setSelectedModule] = useState('');
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
-  // Fetch modules when connected
+  // Fetch modules when attached
   useEffect(() => {
-    if (connected && pid) {
+    if (pid) {
       refreshModules(pid);
     }
-  }, [connected, pid, refreshModules]);
+  }, [pid, refreshModules]);
 
   const handleCreate = useCallback(async () => {
     if (!pid) return;

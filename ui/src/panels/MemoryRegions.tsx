@@ -26,7 +26,7 @@ function formatTotalSize(bytes: number): string {
 }
 
 function MemoryRegions({ onNavigate }: MemoryRegionsProps) {
-  const { connected, health } = useConnection();
+  const { health } = useConnection();
   const pid = health?.pid;
   const { regions, loading, error, refresh } = useMemoryRegions();
 
@@ -38,10 +38,10 @@ function MemoryRegions({ onNavigate }: MemoryRegionsProps) {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   useEffect(() => {
-    if (connected && pid) {
+    if (pid) {
       refresh(pid).then(() => setHasLoaded(true));
     }
-  }, [connected, pid, refresh]);
+  }, [pid, refresh]);
 
   const handleRefresh = useCallback(() => {
     if (pid) refresh(pid);

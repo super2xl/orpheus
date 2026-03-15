@@ -17,7 +17,7 @@ function formatSize(bytes: number): string {
 
 function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { modules, loading, error, refresh } = useModules();
-  const { connected, health } = useConnection();
+  const { health } = useConnection();
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [sortField, setSortField] = useState<SortField>('name');
@@ -28,12 +28,12 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
 
   const pid = health?.pid;
 
-  // Initial fetch when connected and attached
+  // Initial fetch when attached
   useEffect(() => {
-    if (connected && pid) {
+    if (pid) {
       refresh(pid).then(() => setHasLoaded(true));
     }
-  }, [connected, pid, refresh]);
+  }, [pid, refresh]);
 
   // Reset loaded state when PID changes
   useEffect(() => {

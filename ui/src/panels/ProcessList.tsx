@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useProcesses } from '../hooks/useProcesses';
-import { useConnection } from '../hooks/useConnection';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
@@ -12,7 +11,6 @@ type SortDir = 'asc' | 'desc';
 
 function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { processes, loading, error, refresh } = useProcesses();
-  const { connected } = useConnection();
   const [search, setSearch] = useState('');
   const [selectedPid, setSelectedPid] = useState<number | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
@@ -23,17 +21,15 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
 
   // Initial fetch
   useEffect(() => {
-    if (connected) {
-      refresh().then(() => setHasLoaded(true));
-    }
-  }, [connected, refresh]);
+    refresh().then(() => setHasLoaded(true));
+  }, []);
 
   // Auto-refresh
   useEffect(() => {
-    if (!autoRefresh || !connected) return;
+    if (!autoRefresh) return;
     const interval = setInterval(refresh, 3000);
     return () => clearInterval(interval);
-  }, [autoRefresh, connected, refresh]);
+  }, [autoRefresh, refresh]);
 
   // Filter
   const filtered = useMemo(() => {

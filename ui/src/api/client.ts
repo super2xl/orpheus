@@ -38,7 +38,19 @@ class OrpheusClient {
       }
 
       this.setConnected(true);
-      return response.json();
+      const json = await response.json();
+
+      // MCP server wraps responses in { data: {...}, success: true }
+      // Unwrap automatically so hooks get clean data
+      if (json && typeof json === 'object' && 'success' in json) {
+        if (json.success === false) {
+          throw new Error(json.error || json.message || 'Request failed');
+        }
+        if ('data' in json) {
+          return json.data as T;
+        }
+      }
+      return json as T;
     } catch (err: any) {
       if (err.name === 'AbortError') {
         throw new Error('Request timeout');

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useConnection } from '../hooks/useConnection';
 import { useCacheManager } from '../hooks/useCacheManager';
 import type { CacheEntry } from '../api/types';
 
@@ -162,7 +161,6 @@ function CacheGroup({ label, entries, onClearAll, onDelete, delay }: CacheGroupP
 }
 
 function CacheManager() {
-  const { connected } = useConnection();
   const {
     stats,
     rttiEntries,
@@ -178,11 +176,10 @@ function CacheManager() {
 
   // Initial fetch + auto-refresh stats every 5s
   useEffect(() => {
-    if (!connected) return;
     refresh().then(() => setHasLoaded(true));
     const interval = setInterval(refreshStats, 5000);
     return () => clearInterval(interval);
-  }, [connected, refresh, refreshStats]);
+  }, [refresh, refreshStats]);
 
   const totalEntries = rttiEntries.length + schemaEntries.length;
 
