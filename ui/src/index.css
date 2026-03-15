@@ -21,6 +21,18 @@
   --dot-connected: #171717;
   --dot-disconnected: #a3a3a3;
   --skeleton: #e5e5e5;
+
+  /* Syntax colors — light mode */
+  --syn-keyword: #0000ff;
+  --syn-call: #795e26;
+  --syn-jump: #af00db;
+  --syn-return: #af00db;
+  --syn-register: #001080;
+  --syn-number: #098658;
+  --syn-memory: #171717;
+  --syn-nop: #6a9955;
+  --syn-compare: #795e26;
+  --syn-string: #a31515;
 }
 
 .dark {
@@ -37,6 +49,18 @@
   --dot-connected: #e5e5e5;
   --dot-disconnected: #525252;
   --skeleton: #1f1f1f;
+
+  /* Syntax colors — dark mode */
+  --syn-keyword: #569cd6;
+  --syn-call: #dcdcaa;
+  --syn-jump: #c586c0;
+  --syn-return: #c586c0;
+  --syn-register: #9cdcfe;
+  --syn-number: #b5cea8;
+  --syn-memory: #d4d4d4;
+  --syn-nop: #6a9955;
+  --syn-compare: #d7ba7d;
+  --syn-string: #ce9178;
 }
 
 body {

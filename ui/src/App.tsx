@@ -3,6 +3,8 @@ import Layout from './components/Layout';
 import ProcessList from './panels/ProcessList';
 import ModuleBrowser from './panels/ModuleBrowser';
 import MemoryViewer from './panels/MemoryViewer';
+import Disassembly from './panels/Disassembly';
+import PatternScanner from './panels/PatternScanner';
 
 function App() {
   const [activePanel, setActivePanel] = useState('processes');
@@ -23,18 +25,9 @@ function App() {
       {activePanel === 'processes' && <ProcessList />}
       {activePanel === 'modules' && <ModuleBrowser />}
       {activePanel === 'memory' && <MemoryViewer />}
-      {activePanel === 'disassembly' && <PlaceholderPanel name="Disassembly" icon={'\u{1D4AE}'} />}
-      {activePanel === 'scanner' && <PlaceholderPanel name="Scanner" icon={'\u29BF'} />}
+      {activePanel === 'disassembly' && <Disassembly />}
+      {activePanel === 'scanner' && <PatternScanner />}
     </Layout>
-  );
-}
-
-function PlaceholderPanel({ name, icon }: { name: string; icon: string }) {
-  return (
-    <div className="h-full flex flex-col items-center justify-center gap-3">
-      <div className="text-3xl" style={{ color: 'var(--text-muted)' }}>{icon}</div>
-      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{name} panel coming soon</p>
-    </div>
   );
 }
 
