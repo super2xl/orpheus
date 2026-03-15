@@ -109,3 +109,62 @@ export interface CacheStats {
   hit_rate: number;
   pages_cached: number;
 }
+
+export interface RTTIClassInfo {
+  vtable_address: string;
+  mangled_name: string;
+  demangled_name: string;
+  base_classes: string[];
+  method_count: number;
+  is_multiple_inheritance: boolean;
+  has_virtual_base: boolean;
+}
+
+export interface RTTIScanResult {
+  classes: RTTIClassInfo[];
+  scan_time_ms: number;
+}
+
+export interface FunctionInfo {
+  entry_address: string;
+  end_address: string;
+  size: number;
+  name: string;
+  source: string; // "Prologue" | "CallTarget" | "ExceptionData" | "RTTI" | "Export"
+  confidence: number; // 0.0 - 1.0
+  instruction_count: number;
+  basic_block_count: number;
+  is_leaf: boolean;
+  is_thunk: boolean;
+}
+
+export interface FunctionRecoveryResult {
+  functions: FunctionInfo[];
+  scan_time_ms: number;
+  stats: Record<string, number>; // source -> count breakdown
+}
+
+export interface WriteInfo {
+  instruction_address: string;
+  mnemonic: string;
+  operands: string;
+  full_text: string;
+  function_address: string;
+  function_name: string;
+}
+
+export interface CallGraphNode {
+  address: string;
+  name: string;
+  depth: number;
+  type: string; // "DirectWriter" | "Caller"
+  children: CallGraphNode[];
+}
+
+export interface EmulationResult {
+  success: boolean;
+  error?: string;
+  instructions_executed: number;
+  final_rip: string;
+  registers: Record<string, string>;
+}

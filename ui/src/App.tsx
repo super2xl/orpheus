@@ -8,6 +8,8 @@ import PatternScanner from './panels/PatternScanner';
 import StringScanner from './panels/StringScanner';
 import Bookmarks from './panels/Bookmarks';
 import XrefFinder from './panels/XrefFinder';
+import RTTIScanner from './panels/RTTIScanner';
+import FunctionRecovery from './panels/FunctionRecovery';
 import Settings from './panels/Settings';
 
 function App() {
@@ -38,6 +40,8 @@ function App() {
       {activePanel === 'strings' && <StringScanner />}
       {activePanel === 'xrefs' && <XrefFinder onNavigate={handleNavigate} />}
       {activePanel === 'bookmarks' && <Bookmarks />}
+      {activePanel === 'rtti' && <RTTIScanner />}
+      {activePanel === 'functions' && <FunctionRecovery />}
       {activePanel === 'settings' && <Settings dark={dark} onToggleTheme={toggleTheme} />}
     </Layout>
   );

@@ -26,6 +26,8 @@ const navItems: NavItem[] = [
   { id: 'strings', label: 'Strings', icon: 'T' },
   { id: 'xrefs', label: 'Xrefs', icon: '\u2192' },
   { id: 'bookmarks', label: 'Bookmarks', icon: '\u2605' },
+  { id: 'rtti', label: 'RTTI', icon: '\u25C8' },
+  { id: 'functions', label: 'Functions', icon: '\u03BB' },
 ];
 
 const settingsItem: NavItem = { id: 'settings', label: 'Settings', icon: '\u2699' };
