@@ -1,10 +1,8 @@
 export interface ProcessInfo {
   pid: number;
   name: string;
-  ppid: number;
-  base_address: string; // hex string
+  base: string;        // hex string — server sends "base", not "base_address"
   is_64bit: boolean;
-  is_wow64: boolean;
 }
 
 export interface ModuleInfo {
@@ -59,10 +57,15 @@ export interface TaskInfo {
 
 export interface HealthInfo {
   status: string;
+  service?: string;
+  version?: string;
+  version_full?: string;
+  git_hash?: string;
+  build_date?: string;
+  platform?: string;
+  // Not sent by /health endpoint, but used by panels for attached process PID.
+  // Will be populated when process attachment is implemented.
   pid?: number;
-  process_name?: string;
-  device_type?: string;
-  uptime_seconds?: number;
 }
 
 export interface VersionInfo {

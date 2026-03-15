@@ -87,9 +87,21 @@ fn do_shutdown() {
     }
 }
 
+/// Drop guard that calls shutdown when run() returns, even on force-close.
+/// ExitRequested doesn't fire on all exit paths, so this is a safety net.
+struct ShutdownGuard;
+impl Drop for ShutdownGuard {
+    fn drop(&mut self) {
+        do_shutdown();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     init_backend();
+
+    // Safety net: shutdown when run() returns, regardless of how it exits
+    let _guard = ShutdownGuard;
 
     let app = tauri::Builder::default()
         .build(tauri::generate_context!())

@@ -363,16 +363,33 @@ void MCPServer::SetupRoutes() {
             return;
         }
 
-        // Launch connection on background thread — DMA init can take 5-30 seconds
+        // Prevent double-connect races
+        if (dma_connecting_.load()) {
+            json response;
+            response["success"] = false;
+            response["error"] = "Already connecting";
+            response["connecting"] = true;
+            res.set_content(response.dump(), "application/json");
+            return;
+        }
+
+        // Join previous thread if it finished
+        if (dma_connect_thread_.joinable()) {
+            dma_connect_thread_.join();
+        }
+
+        // Launch connection on tracked background thread — DMA init can take 5-30 seconds
+        dma_connecting_.store(true);
         auto* dma_ptr = dma;
-        std::thread([dma_ptr, device_type]() {
+        dma_connect_thread_ = std::thread([this, dma_ptr, device_type]() {
             LOG_INFO("DMA connection starting ({})", device_type);
             if (dma_ptr->Initialize(device_type)) {
                 LOG_INFO("DMA connected: {}", dma_ptr->GetDeviceType());
             } else {
                 LOG_WARN("DMA connection failed ({})", device_type);
             }
-        }).detach();
+            dma_connecting_.store(false);
+        });
 
         // Return immediately — frontend polls dma_status to check when it's done
         json response;
@@ -398,6 +415,7 @@ void MCPServer::SetupRoutes() {
         auto* dma = core_->GetDMA();
         json response;
         response["connected"] = dma && dma->IsConnected();
+        response["connecting"] = dma_connecting_.load();
         if (dma && dma->IsConnected()) {
             response["device_type"] = dma->GetDeviceType();
         }
@@ -544,6 +562,12 @@ bool MCPServer::Start(const MCPConfig& config) {
     // Create HTTP server
     http_server_ = std::make_unique<httplib::Server>();
 
+    // Allow immediate rebind even if previous instance left port in TIME_WAIT
+    http_server_->set_socket_options([](socket_t sock) {
+        int yes = 1;
+        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&yes), sizeof(yes));
+    });
+
     SetupRoutes();
 
     running_.store(true);
@@ -566,6 +590,11 @@ void MCPServer::Stop() {
 
     if (server_thread_.joinable()) {
         server_thread_.join();
+    }
+
+    // Join DMA connect thread if still running
+    if (dma_connect_thread_.joinable()) {
+        dma_connect_thread_.join();
     }
 
     http_server_.reset();

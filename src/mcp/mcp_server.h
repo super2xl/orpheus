@@ -254,6 +254,10 @@ private:
     std::atomic<bool> running_{false};
     std::thread server_thread_;
 
+    // DMA connection thread (tracked, not detached)
+    std::thread dma_connect_thread_;
+    std::atomic<bool> dma_connecting_{false};
+
     std::unique_ptr<httplib::Server> http_server_;  // HTTP server
 
     // Emulator instance (one per MCP server)

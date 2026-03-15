@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { orpheus } from '../api/client';
 
 interface DmaStatus {
   connected: boolean;
   device_type?: string;
+  connecting?: boolean;
 }
 
 interface DmaContextValue {
@@ -37,13 +38,23 @@ export function DmaProvider({ children }: { children: React.ReactNode }) {
       setConnected(status.connected);
       setDeviceType(status.device_type || null);
       if (status.connected) {
-        setLoading(false); // Connection complete
+        setLoading(false);
         setError(null);
+        if (connectTimeoutRef.current) { clearTimeout(connectTimeoutRef.current); connectTimeoutRef.current = null; }
+      } else if (!status.connecting) {
+        // Not connected AND not currently connecting — clear loading state
+        // This handles: connection failed, or never started
+        if (loading) {
+          setLoading(false);
+          setError('Connection failed — check FPGA hardware');
+          if (connectTimeoutRef.current) { clearTimeout(connectTimeoutRef.current); connectTimeoutRef.current = null; }
+        }
       }
+      // If connecting is true, keep loading=true (still in progress)
     } catch {
       // Server not reachable
     }
-  }, []);
+  }, [loading]);
 
   useEffect(() => {
     checkStatus();
@@ -51,21 +62,32 @@ export function DmaProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [checkStatus]);
 
+  const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const connect = useCallback(async (device: string = 'fpga') => {
     setLoading(true);
     setError(null);
+
+    // Safety timeout — if still loading after 60s, stop waiting
+    if (connectTimeoutRef.current) clearTimeout(connectTimeoutRef.current);
+    connectTimeoutRef.current = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) setError('Connection timed out — check FPGA hardware');
+        return false;
+      });
+    }, 60000);
+
     try {
       await orpheus.request('tools/connect_dma', { device_type: device });
       // Server returns immediately — connection happens in background
       // The checkStatus poll (every 3s) will detect when it's actually connected
-      // Keep loading=true until status poll shows connected
       return true;
     } catch (err: any) {
       setError(err.message);
       setLoading(false);
+      if (connectTimeoutRef.current) clearTimeout(connectTimeoutRef.current);
       return false;
     }
-    // Note: loading stays true until checkStatus detects connected=true
   }, []);
 
   const disconnect = useCallback(async () => {

@@ -456,12 +456,11 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
               </span>
             </>
           )}
-          {health?.process_name && (
+          {health?.version && (
             <>
               <span style={{ color: 'var(--border)' }}>|</span>
               <span className="font-mono" style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>
-                {health.process_name}
-                {health.pid ? ` (${health.pid})` : ''}
+                v{health.version}
               </span>
             </>
           )}

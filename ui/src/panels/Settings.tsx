@@ -211,8 +211,7 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
             />
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
               {connected ? 'Connected' : 'Disconnected'}
-              {health?.process_name && ` \u00B7 ${health.process_name}`}
-              {health?.pid ? ` (${health.pid})` : ''}
+              {health?.version && ` \u00B7 v${health.version}`}
             </span>
           </div>
 

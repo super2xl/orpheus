@@ -349,6 +349,18 @@ static bool InitializeVMMModule(RuntimeManager& runtime, std::string& error_out)
 bool DMAInterface::Initialize(const std::string& device) {
     if (vmm_handle_ != nullptr) return true;
 
+    // Prevent concurrent initialization attempts
+    if (connecting_.exchange(true)) {
+        ReportError("Already connecting");
+        return false;
+    }
+
+    // Scope guard: always clear connecting_ on exit
+    struct ConnectingGuard {
+        std::atomic<bool>& flag;
+        ~ConnectingGuard() { flag.store(false); }
+    } guard{connecting_};
+
     auto& runtime = RuntimeManager::Instance();
     if (!runtime.IsInitialized()) {
         ReportError("RuntimeManager not initialized");

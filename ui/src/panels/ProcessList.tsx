@@ -7,7 +7,7 @@ import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
 import type { ProcessInfo } from '../api/types';
 
-type SortField = 'pid' | 'name' | 'arch' | 'base_address';
+type SortField = 'pid' | 'name' | 'arch' | 'base';
 type SortDir = 'asc' | 'desc';
 
 function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
@@ -43,7 +43,7 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
       (p) =>
         p.name.toLowerCase().includes(q) ||
         p.pid.toString().includes(q) ||
-        p.base_address.toLowerCase().includes(q)
+        p.base.toLowerCase().includes(q)
     );
   }, [processes, search]);
 
@@ -62,8 +62,8 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
         case 'arch':
           cmp = (a.is_64bit ? 'x64' : 'x86').localeCompare(b.is_64bit ? 'x64' : 'x86');
           break;
-        case 'base_address':
-          cmp = a.base_address.localeCompare(b.base_address);
+        case 'base':
+          cmp = a.base.localeCompare(b.base);
           break;
       }
       return sortDir === 'asc' ? cmp : -cmp;
@@ -272,7 +272,7 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
                   ['pid', 'PID', 'w-20'],
                   ['name', 'NAME', 'flex-1'],
                   ['arch', 'ARCH', 'w-20'],
-                  ['base_address', 'BASE ADDRESS', 'w-40'],
+                  ['base', 'BASE ADDRESS', 'w-40'],
                 ] as [SortField, string, string][]).map(([field, label, width]) => (
                   <th
                     key={field}
@@ -388,7 +388,7 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
                       </td>
                       {/* Base address */}
                       <td className="px-3 py-1.5 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {proc.base_address}
+                        {proc.base}
                       </td>
                       {/* Attach button */}
                       <td className="px-3 py-1.5 text-right">

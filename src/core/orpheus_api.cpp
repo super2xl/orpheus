@@ -114,26 +114,21 @@ void orpheus_stop_server(void) {
 }
 
 int orpheus_connect_dma(const char* device_type) {
-    std::lock_guard<std::mutex> lock(g_mutex);
-
-    if (!g_initialized || !g_core) {
-        return 1;
+    orpheus::DMAInterface* dma = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        if (!g_initialized || !g_core) return 1;
+        dma = g_core->GetDMA();
+        if (!dma) return 2;
     }
-
-    auto* dma = g_core->GetDMA();
-    if (!dma) {
-        return 2;
-    }
-
+    // Initialize WITHOUT holding the lock — DMA init can block for 5-30 seconds
     std::string dev = (device_type && device_type[0] != '\0') ? device_type : "fpga";
-
     if (dma->Initialize(dev)) {
         LOG_INFO("orpheus_connect_dma: Connected to DMA device ({})", dev);
         return 0;
-    } else {
-        LOG_WARN("orpheus_connect_dma: Failed to connect to DMA device ({})", dev);
-        return 3;
     }
+    LOG_WARN("orpheus_connect_dma: Failed to connect to DMA device ({})", dev);
+    return 3;
 }
 
 int orpheus_is_connected(void) {

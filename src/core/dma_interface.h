@@ -7,6 +7,7 @@
 #include <memory>
 #include <functional>
 #include <cstring>
+#include <atomic>
 
 #include "memory_cache.h"
 
@@ -287,6 +288,7 @@ private:
     std::string device_type_;
     std::string last_error_;
     std::function<void(const std::string&)> error_callback_;
+    std::atomic<bool> connecting_{false};  // Prevents double-init races
     mutable MemoryCache cache_;
 };
 
