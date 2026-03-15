@@ -341,7 +341,7 @@ void MCPServer::SetupRoutes() {
         res.set_content(response.dump(), "application/json");
     });
 
-    // DMA connection management
+    // DMA connection management — runs on a background thread to avoid blocking the HTTP server
     server->Post("/tools/connect_dma", [this](const httplib::Request& req, httplib::Response& res) {
         json body;
         try { body = json::parse(req.body); } catch (...) { body = json::object(); }
@@ -363,15 +363,22 @@ void MCPServer::SetupRoutes() {
             return;
         }
 
-        bool connected = dma->Initialize(device_type);
+        // Launch connection on background thread — DMA init can take 5-30 seconds
+        auto* dma_ptr = dma;
+        std::thread([dma_ptr, device_type]() {
+            LOG_INFO("DMA connection starting ({})", device_type);
+            if (dma_ptr->Initialize(device_type)) {
+                LOG_INFO("DMA connected: {}", dma_ptr->GetDeviceType());
+            } else {
+                LOG_WARN("DMA connection failed ({})", device_type);
+            }
+        }).detach();
+
+        // Return immediately — frontend polls dma_status to check when it's done
         json response;
-        response["success"] = connected;
-        if (connected) {
-            response["message"] = "Connected to DMA device";
-            response["device_type"] = dma->GetDeviceType();
-        } else {
-            response["error"] = "Failed to connect to DMA device";
-        }
+        response["success"] = true;
+        response["message"] = "Connecting...";
+        response["connecting"] = true;
         res.set_content(response.dump(), "application/json");
     });
 

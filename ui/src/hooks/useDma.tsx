@@ -36,6 +36,10 @@ export function DmaProvider({ children }: { children: React.ReactNode }) {
       const status = await orpheus.request<DmaStatus>('tools/dma_status');
       setConnected(status.connected);
       setDeviceType(status.device_type || null);
+      if (status.connected) {
+        setLoading(false); // Connection complete
+        setError(null);
+      }
     } catch {
       // Server not reachable
     }
@@ -51,23 +55,17 @@ export function DmaProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await orpheus.request<{ success: boolean; device_type?: string; error?: string }>(
-        'tools/connect_dma', { device_type: device }
-      );
-      if (result.success) {
-        setConnected(true);
-        setDeviceType(result.device_type || device);
-        return true;
-      } else {
-        setError(result.error || 'Failed to connect');
-        return false;
-      }
+      await orpheus.request('tools/connect_dma', { device_type: device });
+      // Server returns immediately — connection happens in background
+      // The checkStatus poll (every 3s) will detect when it's actually connected
+      // Keep loading=true until status poll shows connected
+      return true;
     } catch (err: any) {
       setError(err.message);
-      return false;
-    } finally {
       setLoading(false);
+      return false;
     }
+    // Note: loading stays true until checkStatus detects connected=true
   }, []);
 
   const disconnect = useCallback(async () => {
