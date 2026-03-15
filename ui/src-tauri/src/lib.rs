@@ -1,61 +1,50 @@
 use std::process::{Command, Child};
 use std::sync::Mutex;
-use std::path::PathBuf;
 
 struct BackendProcess(Mutex<Option<Child>>);
 
-fn find_backend() -> Option<PathBuf> {
-    // Look for orpheus-core.exe next to the Tauri app
-    let exe = std::env::current_exe().ok()?;
-    let dir = exe.parent()?;
+fn spawn_backend(core_path: &std::path::Path) -> Option<Child> {
+    let mut cmd = Command::new(core_path);
+    cmd.arg("--auto");
 
-    let candidates = [
-        dir.join("orpheus-core.exe"),
-        dir.join("orpheus-core"),
-        dir.join("../orpheus-core.exe"),
-        dir.join("../../build/bin/Release/orpheus.exe"),
-    ];
+    // Hide console window on Windows
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
 
-    candidates.into_iter().find(|p| p.exists())
+    cmd.spawn().ok()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
     .setup(|app| {
-      // Auto-launch the C++ backend (MCP server)
-      if let Some(backend_path) = find_backend() {
-          match Command::new(&backend_path).spawn() {
-              Ok(child) => {
-                  println!("[orpheus] Backend started (pid: {})", child.id());
-                  app.manage(BackendProcess(Mutex::new(Some(child))));
-              }
-              Err(e) => {
-                  eprintln!("[orpheus] Failed to start backend: {}", e);
-                  // Continue anyway — user can start it manually
-              }
+      // Launch the C++ core silently — bundled in resources
+      let core_name = if cfg!(windows) { "orpheus-core.exe" } else { "orpheus-core" };
+
+      // Check next to our exe first, then resource dir
+      let exe_dir = std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.to_path_buf()));
+      let core_path = exe_dir.as_ref()
+          .map(|d| d.join(core_name))
+          .filter(|p| p.exists())
+          .or_else(|| app.path().resource_dir().ok().map(|d| d.join(core_name)).filter(|p| p.exists()));
+
+      if let Some(path) = core_path {
+          if let Some(child) = spawn_backend(&path) {
+              app.manage(BackendProcess(Mutex::new(Some(child))));
           }
-      } else {
-          eprintln!("[orpheus] Backend binary not found — start orpheus-core manually");
       }
 
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
-      }
       Ok(())
     })
     .on_event(|app, event| {
-        // Kill backend when Tauri exits
         if let tauri::RunEvent::Exit = event {
             if let Some(state) = app.try_state::<BackendProcess>() {
                 if let Ok(mut guard) = state.0.lock() {
                     if let Some(mut child) = guard.take() {
                         let _ = child.kill();
-                        println!("[orpheus] Backend stopped");
                     }
                 }
             }

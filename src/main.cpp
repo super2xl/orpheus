@@ -27,10 +27,15 @@ int main(int argc, char** argv) {
     LOG_INFO("Starting Orpheus DMA Reversing Framework v{}", orpheus::version::VERSION);
 
     bool auto_connect = false;
+    bool auto_mode = false;
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "--connect" || arg == "-c") {
             auto_connect = true;
+        } else if (arg == "--auto") {
+            // Launched by Tauri frontend — auto-connect, no interactive output
+            auto_connect = true;
+            auto_mode = true;
         } else if (arg == "--help" || arg == "-h") {
             std::cout << "Orpheus - DMA Reversing Framework\n"
                       << "\nUsage: orpheus [options]\n"
