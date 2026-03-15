@@ -10,6 +10,8 @@ import Bookmarks from './panels/Bookmarks';
 import XrefFinder from './panels/XrefFinder';
 import RTTIScanner from './panels/RTTIScanner';
 import FunctionRecovery from './panels/FunctionRecovery';
+import WriteTracer from './panels/WriteTracer';
+import Emulator from './panels/Emulator';
 import Settings from './panels/Settings';
 
 function App() {
@@ -42,6 +44,8 @@ function App() {
       {activePanel === 'bookmarks' && <Bookmarks />}
       {activePanel === 'rtti' && <RTTIScanner />}
       {activePanel === 'functions' && <FunctionRecovery />}
+      {activePanel === 'write-tracer' && <WriteTracer onNavigate={handleNavigate} />}
+      {activePanel === 'emulator' && <Emulator />}
       {activePanel === 'settings' && <Settings dark={dark} onToggleTheme={toggleTheme} />}
     </Layout>
   );

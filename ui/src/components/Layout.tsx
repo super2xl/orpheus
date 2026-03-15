@@ -28,6 +28,8 @@ const navItems: NavItem[] = [
   { id: 'bookmarks', label: 'Bookmarks', icon: '\u2605' },
   { id: 'rtti', label: 'RTTI', icon: '\u25C8' },
   { id: 'functions', label: 'Functions', icon: '\u03BB' },
+  { id: 'write-tracer', label: 'Write Tracer', icon: '\u270E' },
+  { id: 'emulator', label: 'Emulator', icon: '\u25B6' },
 ];
 
 const settingsItem: NavItem = { id: 'settings', label: 'Settings', icon: '\u2699' };
