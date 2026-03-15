@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Theme custom properties */
+:root {
+  --bg: #ffffff;
+  --surface: #f5f5f5;
+  --border: #e5e5e5;
+  --border-subtle: #ebebeb;
+  --text: #171717;
+  --text-secondary: #737373;
+  --text-muted: #a3a3a3;
+  --hover: #fafafa;
+  --active: #f0f0f0;
+  --active-border: #171717;
+  --dot-connected: #171717;
+  --dot-disconnected: #a3a3a3;
+  --skeleton: #e5e5e5;
+
+  /* Syntax colors — light mode */
+  --syn-keyword: #0000ff;
+  --syn-call: #795e26;
+  --syn-jump: #af00db;
+  --syn-return: #af00db;
+  --syn-register: #001080;
+  --syn-number: #098658;
+  --syn-memory: #171717;
+  --syn-nop: #6a9955;
+  --syn-compare: #795e26;
+  --syn-string: #a31515;
+}
+
+.dark {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --border: #1f1f1f;
+  --border-subtle: #1a1a1a;
+  --text: #e5e5e5;
+  --text-secondary: #737373;
+  --text-muted: #525252;
+  --hover: #1a1a1a;
+  --active: #262626;
+  --active-border: #e5e5e5;
+  --dot-connected: #e5e5e5;
+  --dot-disconnected: #525252;
+  --skeleton: #1f1f1f;
+
+  /* Syntax colors — dark mode */
+  --syn-keyword: #569cd6;
+  --syn-call: #dcdcaa;
+  --syn-jump: #c586c0;
+  --syn-return: #c586c0;
+  --syn-register: #9cdcfe;
+  --syn-number: #b5cea8;
+  --syn-memory: #d4d4d4;
+  --syn-nop: #6a9955;
+  --syn-compare: #d7ba7d;
+  --syn-string: #ce9178;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Subtle scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4d4d4;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b3b3b3;
+}
+
+/* Selection color — monochrome */
+::selection {
+  background: rgba(115, 115, 115, 0.25);
+}
+
+/* Animated ring border for active nav item */
+.nav-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.nav-ring::before {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 60%,
+    var(--active-border) 75%,
+    transparent 90%,
+    transparent 100%
+  );
+  animation: ring-spin 3s linear infinite;
+}
+
+.nav-ring::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: calc(0.5rem - 1px);
+  background: var(--surface);
+}
+
+@keyframes ring-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
