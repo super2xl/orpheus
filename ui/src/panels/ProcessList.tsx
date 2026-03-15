@@ -15,7 +15,7 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
   const { connected: dmaConnected } = useDma();
   const [search, setSearch] = useState('');
   const [selectedPid, setSelectedPid] = useState<number | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(() => localStorage.getItem('orpheus-auto-refresh') === 'true');
   const [sortField, setSortField] = useState<SortField>('pid');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -137,7 +137,7 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
           <div className="flex items-center gap-2">
             {/* Auto-refresh toggle */}
             <button
-              onClick={() => setAutoRefresh(!autoRefresh)}
+              onClick={() => { const next = !autoRefresh; setAutoRefresh(next); localStorage.setItem('orpheus-auto-refresh', String(next)); }}
               className="px-2.5 h-7 rounded-md text-xs cursor-pointer border-none outline-none"
               style={{
                 fontWeight: 400,

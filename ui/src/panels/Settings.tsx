@@ -289,10 +289,10 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
             {/* Stats grid */}
             <div className="grid grid-cols-2 gap-3">
               {([
-                ['Hit Rate', `${(cacheStats.hit_rate * 100).toFixed(1)}%`],
-                ['Hits', cacheStats.hits.toLocaleString()],
-                ['Misses', cacheStats.misses.toLocaleString()],
-                ['Pages Cached', cacheStats.pages_cached.toLocaleString()],
+                ['Hit Rate', `${((cacheStats.hit_rate ?? 0) * 100).toFixed(1)}%`],
+                ['Hits', (cacheStats.hits ?? 0).toLocaleString()],
+                ['Misses', (cacheStats.misses ?? 0).toLocaleString()],
+                ['Pages Cached', (cacheStats.pages_cached ?? 0).toLocaleString()],
               ] as [string, string][]).map(([label, value]) => (
                 <div key={label} className="space-y-0.5">
                   <div className="text-[10px] uppercase" style={{ color: 'var(--text-muted)', letterSpacing: '0.08em', fontWeight: 400 }}>
