@@ -255,8 +255,20 @@ std::string MCPServer::FormatAddressWithContext(uint32_t pid, uint64_t address) 
 void MCPServer::SetupRoutes() {
     auto* server = http_server_.get();
 
-    // Middleware for authentication
+    // CORS + Authentication middleware
     server->set_pre_routing_handler([this](const httplib::Request& req, httplib::Response& res) {
+        // Add CORS headers to ALL responses
+        res.set_header("Access-Control-Allow-Origin", "*");
+        res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key");
+
+        // Handle CORS preflight
+        if (req.method == "OPTIONS") {
+            res.status = 204;
+            return httplib::Server::HandlerResponse::Handled;
+        }
+
+        // Auth check
         if (config_.require_auth) {
             auto auth = req.get_header_value("Authorization");
             if (auth.empty() || !auth.starts_with("Bearer ")) {
@@ -265,7 +277,7 @@ void MCPServer::SetupRoutes() {
                 return httplib::Server::HandlerResponse::Handled;
             }
 
-            std::string provided_key = auth.substr(7);  // Remove "Bearer "
+            std::string provided_key = auth.substr(7);
             if (!ValidateAuth(provided_key)) {
                 res.status = 403;
                 res.set_content(CreateErrorResponse("Invalid API key"), "application/json");
