@@ -34,7 +34,7 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../../build/bin/Release/orpheus.exe": "orpheus-core.exe"
+      "../../build/bin/Release/orpheus_core.dll": "orpheus_core.dll"
     }
   }
 }

@@ -86,30 +86,24 @@ if(ORPHEUS_BUILD_DECOMPILER)
 endif()
 
 # ============================================================================
-# Main Executable
+# Common Source Files (shared between exe and DLL)
 # ============================================================================
 
 # Collect source files (headless — no UI or installer)
-file(GLOB_RECURSE ORPHEUS_SOURCES
+file(GLOB_RECURSE ORPHEUS_LIB_SOURCES
     "src/core/*.cpp"
     "src/analysis/*.cpp"
     "src/mcp/*.cpp"
     "src/emulation/*.cpp"
     "src/dumper/*.cpp"
     "src/utils/*.cpp"
-    "src/main.cpp"
 )
 
-# Windows resource file (for .exe icon)
-if(WIN32)
-    set(ORPHEUS_RESOURCES "${CMAKE_SOURCE_DIR}/resources/orpheus.rc")
-endif()
+# Remove orpheus_api.cpp from the lib sources — it's only for the DLL
+list(FILTER ORPHEUS_LIB_SOURCES EXCLUDE REGEX "orpheus_api\\.cpp$")
 
-# Create executable
-add_executable(orpheus ${ORPHEUS_SOURCES} ${ORPHEUS_RESOURCES})
-
-# Include directories
-target_include_directories(orpheus PRIVATE
+# Common include directories
+set(ORPHEUS_INCLUDE_DIRS
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/include
     ${EMBEDDED_RESOURCE_INCLUDE_DIR}
@@ -117,76 +111,111 @@ target_include_directories(orpheus PRIVATE
     ${JSON_INCLUDE_DIR}
 )
 
-# Link libraries
-target_link_libraries(orpheus PRIVATE
+# Common link libraries
+set(ORPHEUS_LINK_LIBS
     spdlog::spdlog
     Zydis
     unicorn
 )
 
-# Optional: Ghidra decompiler
+# ============================================================================
+# Main Executable (standalone CLI)
+# ============================================================================
+
+# Windows resource file (for .exe icon)
+if(WIN32)
+    set(ORPHEUS_RESOURCES "${CMAKE_SOURCE_DIR}/resources/orpheus.rc")
+endif()
+
+# Create executable — lib sources + main.cpp
+add_executable(orpheus ${ORPHEUS_LIB_SOURCES} src/main.cpp ${ORPHEUS_RESOURCES})
+target_include_directories(orpheus PRIVATE ${ORPHEUS_INCLUDE_DIRS})
+target_link_libraries(orpheus PRIVATE ${ORPHEUS_LINK_LIBS})
+
+# ============================================================================
+# Shared Library / DLL (for Tauri FFI integration)
+# ============================================================================
+
+# DLL target — lib sources + orpheus_api.cpp (no main.cpp)
+add_library(orpheus_core SHARED ${ORPHEUS_LIB_SOURCES} src/core/orpheus_api.cpp)
+target_compile_definitions(orpheus_core PRIVATE ORPHEUS_EXPORTS)
+target_include_directories(orpheus_core PRIVATE ${ORPHEUS_INCLUDE_DIRS})
+target_link_libraries(orpheus_core PRIVATE ${ORPHEUS_LINK_LIBS})
+
+# Put DLL in bin/ alongside the exe (not lib/)
+set_target_properties(orpheus_core PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+# ============================================================================
+# Both targets: Ghidra decompiler (optional)
+# ============================================================================
+
 if(ORPHEUS_BUILD_DECOMPILER)
-    # Add decompiler wrapper sources
     file(GLOB DECOMPILER_SOURCES
         "${CMAKE_SOURCE_DIR}/src/decompiler/*.cpp"
         "${CMAKE_SOURCE_DIR}/src/decompiler/*.cc"
     )
-    target_sources(orpheus PRIVATE ${DECOMPILER_SOURCES})
-    target_link_libraries(orpheus PRIVATE ghidra_decompiler)
-    target_include_directories(orpheus PRIVATE
-        ${CMAKE_SOURCE_DIR}/external/ghidra-decompiler/src
-        ${CMAKE_SOURCE_DIR}/src/decompiler
-    )
 
-    # MSVC needs /WHOLEARCHIVE to prevent dead-stripping of static initializers
-    # This ensures PrintCCapability and other capability singletons are linked in
-    if(MSVC)
-        target_link_options(orpheus PRIVATE
-            /WHOLEARCHIVE:ghidra_decompiler
+    foreach(_target orpheus orpheus_core)
+        target_sources(${_target} PRIVATE ${DECOMPILER_SOURCES})
+        target_link_libraries(${_target} PRIVATE ghidra_decompiler)
+        target_include_directories(${_target} PRIVATE
+            ${CMAKE_SOURCE_DIR}/external/ghidra-decompiler/src
+            ${CMAKE_SOURCE_DIR}/src/decompiler
         )
-    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        # GCC/Clang equivalent: --whole-archive
-        target_link_options(orpheus PRIVATE
-            -Wl,--whole-archive $<TARGET_FILE:ghidra_decompiler> -Wl,--no-whole-archive
-        )
-    endif()
+
+        # MSVC needs /WHOLEARCHIVE to prevent dead-stripping of static initializers
+        if(MSVC)
+            target_link_options(${_target} PRIVATE
+                /WHOLEARCHIVE:ghidra_decompiler
+            )
+        elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            target_link_options(${_target} PRIVATE
+                -Wl,--whole-archive $<TARGET_FILE:ghidra_decompiler> -Wl,--no-whole-archive
+            )
+        endif()
+    endforeach()
 endif()
 
-# Platform-specific configuration
-if(PLATFORM_WINDOWS)
-    # Link Windows libraries
-    target_link_libraries(orpheus PRIVATE
-        winhttp     # For telemetry webhook
-    )
+# ============================================================================
+# Both targets: Platform-specific configuration
+# ============================================================================
 
-    # MSVC-specific flags
-    if(MSVC)
-        target_compile_options(orpheus PRIVATE
-            /W4             # Warning level 4
-            /MP             # Multi-processor compilation
-            /utf-8          # UTF-8 source and execution charset
+foreach(_target orpheus orpheus_core)
+    if(PLATFORM_WINDOWS)
+        target_link_libraries(${_target} PRIVATE
+            winhttp     # For telemetry webhook
         )
-        # UAC elevation to require administrator
-        target_link_options(orpheus PRIVATE
-            /MANIFESTUAC:level='requireAdministrator'
+
+        if(MSVC)
+            target_compile_options(${_target} PRIVATE
+                /W4             # Warning level 4
+                /MP             # Multi-processor compilation
+                /utf-8          # UTF-8 source and execution charset
+            )
+            target_compile_definitions(${_target} PRIVATE
+                _CRT_SECURE_NO_WARNINGS
+            )
+        endif()
+    elseif(PLATFORM_LINUX)
+        target_link_libraries(${_target} PRIVATE
+            dl              # For dlopen
+            pthread
         )
-        # Disable some noisy warnings
-        target_compile_definitions(orpheus PRIVATE
-            _CRT_SECURE_NO_WARNINGS
+
+        target_compile_options(${_target} PRIVATE
+            -Wall
+            -Wextra
+            -Wpedantic
         )
     endif()
-elseif(PLATFORM_LINUX)
-    # Link Linux libraries
-    target_link_libraries(orpheus PRIVATE
-        dl              # For dlopen
-        pthread
-    )
+endforeach()
 
-    # GCC/Clang flags
-    target_compile_options(orpheus PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
+# EXE-only: UAC elevation (not for DLL — the host app controls its own manifest)
+if(PLATFORM_WINDOWS AND MSVC)
+    target_link_options(orpheus PRIVATE
+        /MANIFESTUAC:level='requireAdministrator'
     )
 endif()
 
@@ -194,25 +223,27 @@ endif()
 # Build Optimizations
 # ============================================================================
 
-# Precompiled headers for faster incremental builds
-target_precompile_headers(orpheus PRIVATE
-    <string>
-    <vector>
-    <memory>
-    <optional>
-    <cstdint>
-    <functional>
-    <unordered_map>
-    <spdlog/spdlog.h>
-)
-
-# Unity builds for faster clean builds (Release only)
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set_target_properties(orpheus PROPERTIES
-        UNITY_BUILD ON
-        UNITY_BUILD_BATCH_SIZE 16
+foreach(_target orpheus orpheus_core)
+    # Precompiled headers for faster incremental builds
+    target_precompile_headers(${_target} PRIVATE
+        <string>
+        <vector>
+        <memory>
+        <optional>
+        <cstdint>
+        <functional>
+        <unordered_map>
+        <spdlog/spdlog.h>
     )
-endif()
+
+    # Unity builds for faster clean builds (Release only)
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        set_target_properties(${_target} PROPERTIES
+            UNITY_BUILD ON
+            UNITY_BUILD_BATCH_SIZE 16
+        )
+    endif()
+endforeach()
 
 # Link-time optimization for Release builds
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
@@ -266,8 +297,9 @@ endif()
 # Installation
 # ============================================================================
 
-install(TARGETS orpheus
+install(TARGETS orpheus orpheus_core
     RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
 )
 
 # ============================================================================
