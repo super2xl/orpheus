@@ -168,3 +168,38 @@ export interface EmulationResult {
   final_rip: string;
   registers: Record<string, string>;
 }
+
+export interface DecompileResult {
+  code: string;
+  function_name: string;
+}
+
+export interface CFGNode {
+  address: string;
+  end_address: string;
+  size: number;
+  instructions: InstructionInfo[];
+  successors: string[];
+  predecessors: string[];
+  type: string; // Normal, Entry, Exit, Call, ConditionalJump, etc.
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  is_loop_header: boolean;
+}
+
+export interface CFGEdge {
+  from: string;
+  to: string;
+  type: string; // FallThrough, Branch, Unconditional, Call
+  is_back_edge: boolean;
+}
+
+export interface ControlFlowGraph {
+  function_address: string;
+  function_name: string;
+  nodes: Record<string, CFGNode>;
+  edges: CFGEdge[];
+  has_loops: boolean;
+}

@@ -28,6 +28,8 @@ const navItems: NavItem[] = [
   { id: 'bookmarks', label: 'Bookmarks', icon: '\u2605' },
   { id: 'rtti', label: 'RTTI', icon: '\u25C8' },
   { id: 'functions', label: 'Functions', icon: '\u03BB' },
+  { id: 'decompiler', label: 'Decompiler', icon: '{ }' },
+  { id: 'cfg', label: 'CFG', icon: '\u22B6' },
   { id: 'write-tracer', label: 'Write Tracer', icon: '\u270E' },
   { id: 'emulator', label: 'Emulator', icon: '\u25B6' },
 ];

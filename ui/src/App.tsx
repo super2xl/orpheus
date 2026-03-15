@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Layout from './components/Layout';
+import CommandPalette from './components/CommandPalette';
 import ProcessList from './panels/ProcessList';
 import ModuleBrowser from './panels/ModuleBrowser';
 import MemoryViewer from './panels/MemoryViewer';
@@ -12,10 +13,13 @@ import RTTIScanner from './panels/RTTIScanner';
 import FunctionRecovery from './panels/FunctionRecovery';
 import WriteTracer from './panels/WriteTracer';
 import Emulator from './panels/Emulator';
+import Decompiler from './panels/Decompiler';
+import CFGViewer from './panels/CFGViewer';
 import Settings from './panels/Settings';
 
 function App() {
   const [activePanel, setActivePanel] = useState('processes');
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [dark, setDark] = useState(() => {
     const stored = localStorage.getItem('orpheus-theme');
     return stored ? stored === 'dark' : true; // default to dark
@@ -32,22 +36,44 @@ function App() {
     setActivePanel(panel);
   }, []);
 
+  // Global Ctrl+K listener for command palette
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
-    <Layout activePanel={activePanel} onNavigate={handleNavigate} dark={dark} onToggleTheme={toggleTheme}>
-      {activePanel === 'processes' && <ProcessList />}
-      {activePanel === 'modules' && <ModuleBrowser />}
-      {activePanel === 'memory' && <MemoryViewer />}
-      {activePanel === 'disassembly' && <Disassembly />}
-      {activePanel === 'scanner' && <PatternScanner />}
-      {activePanel === 'strings' && <StringScanner />}
-      {activePanel === 'xrefs' && <XrefFinder onNavigate={handleNavigate} />}
-      {activePanel === 'bookmarks' && <Bookmarks />}
-      {activePanel === 'rtti' && <RTTIScanner />}
-      {activePanel === 'functions' && <FunctionRecovery />}
-      {activePanel === 'write-tracer' && <WriteTracer onNavigate={handleNavigate} />}
-      {activePanel === 'emulator' && <Emulator />}
-      {activePanel === 'settings' && <Settings dark={dark} onToggleTheme={toggleTheme} />}
-    </Layout>
+    <>
+      <Layout activePanel={activePanel} onNavigate={handleNavigate} dark={dark} onToggleTheme={toggleTheme}>
+        {activePanel === 'processes' && <ProcessList />}
+        {activePanel === 'modules' && <ModuleBrowser />}
+        {activePanel === 'memory' && <MemoryViewer />}
+        {activePanel === 'disassembly' && <Disassembly />}
+        {activePanel === 'scanner' && <PatternScanner />}
+        {activePanel === 'strings' && <StringScanner />}
+        {activePanel === 'xrefs' && <XrefFinder onNavigate={handleNavigate} />}
+        {activePanel === 'bookmarks' && <Bookmarks />}
+        {activePanel === 'rtti' && <RTTIScanner />}
+        {activePanel === 'functions' && <FunctionRecovery />}
+        {activePanel === 'decompiler' && <Decompiler />}
+        {activePanel === 'cfg' && <CFGViewer />}
+        {activePanel === 'write-tracer' && <WriteTracer onNavigate={handleNavigate} />}
+        {activePanel === 'emulator' && <Emulator />}
+        {activePanel === 'settings' && <Settings dark={dark} onToggleTheme={toggleTheme} />}
+      </Layout>
+      <CommandPalette
+        open={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        onNavigate={handleNavigate}
+        onToggleTheme={toggleTheme}
+      />
+    </>
   );
 }
 
