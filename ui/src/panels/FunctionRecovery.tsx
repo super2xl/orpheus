@@ -3,6 +3,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useFunctionRecovery } from '../hooks/useFunctionRecovery';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useContextMenu } from '../hooks/useContextMenu';
+import ContextMenu from '../components/ContextMenu';
+import { copyToClipboard } from '../utils/clipboard';
+import { orpheus } from '../api/client';
 
 type SortField = 'entry_address' | 'name' | 'size' | 'source' | 'confidence';
 type SortDir = 'asc' | 'desc';
@@ -13,7 +17,7 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function FunctionRecovery() {
+function FunctionRecovery({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { connected, health } = useConnection();
   const pid = health?.pid;
   const { functions, scanTime, stats, loading, error, recover } = useFunctionRecovery();
@@ -25,6 +29,7 @@ function FunctionRecovery() {
   const [sortField, setSortField] = useState<SortField>('entry_address');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [maxFunctions, setMaxFunctions] = useState(10000);
+  const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
   // Technique checkboxes
   const [prologues, setPrologues] = useState(true);
@@ -490,6 +495,22 @@ function FunctionRecovery() {
                     background: 'transparent',
                     transition: 'background 0.1s ease',
                   }}
+                  onContextMenu={(e) => showContextMenu(e, [
+                    { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', fn.entry_address) },
+                    { label: 'Decompile', action: () => onNavigate?.('decompiler', fn.entry_address) },
+                    { label: 'Build CFG', action: () => onNavigate?.('cfg', fn.entry_address) },
+                    { label: 'Add Bookmark', action: () => {
+                      orpheus.request('bookmark_add', {
+                        address: fn.entry_address,
+                        label: fn.name,
+                        notes: '',
+                        category: 'Functions',
+                        module: '',
+                      }).catch(() => {});
+                    }},
+                    { label: 'Copy Address', action: () => copyToClipboard(fn.entry_address), separator: true },
+                    { label: 'Copy Name', action: () => copyToClipboard(fn.name) },
+                  ])}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'var(--hover)';
                   }}
@@ -567,6 +588,18 @@ function FunctionRecovery() {
           </motion.div>
         ) : null}
       </div>
+
+      {/* Context menu */}
+      <AnimatePresence>
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            items={menu.items}
+            onClose={closeContextMenu}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

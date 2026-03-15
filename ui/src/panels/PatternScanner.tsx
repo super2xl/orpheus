@@ -3,8 +3,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { usePatternScan } from '../hooks/usePatternScan';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useContextMenu } from '../hooks/useContextMenu';
+import ContextMenu from '../components/ContextMenu';
+import { copyToClipboard } from '../utils/clipboard';
 
-function PatternScanner() {
+function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { connected, health } = useConnection();
   const pid = health?.pid;
   const { result, loading, error, task, scanAsync } = usePatternScan();
@@ -14,6 +17,7 @@ function PatternScanner() {
   const [selectedModule, setSelectedModule] = useState('');
   const [maxResults, setMaxResults] = useState(50);
   const [hasScanned, setHasScanned] = useState(false);
+  const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
   // Fetch modules when connected
   useEffect(() => {
@@ -338,6 +342,11 @@ function PatternScanner() {
                     background: 'transparent',
                     transition: 'background 0.1s ease',
                   }}
+                  onContextMenu={(e) => showContextMenu(e, [
+                    { label: 'View in Memory', action: () => onNavigate?.('memory', match.address) },
+                    { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', match.address) },
+                    { label: 'Copy Address', action: () => copyToClipboard(match.address), separator: true },
+                  ])}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'var(--hover)';
                   }}
@@ -378,6 +387,18 @@ function PatternScanner() {
           </table>
         ) : null}
       </div>
+
+      {/* Context menu */}
+      <AnimatePresence>
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            items={menu.items}
+            onClose={closeContextMenu}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

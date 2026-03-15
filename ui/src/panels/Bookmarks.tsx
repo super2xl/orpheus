@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useBookmarks } from '../hooks/useBookmarks';
 import { useConnection } from '../hooks/useConnection';
+import { useContextMenu } from '../hooks/useContextMenu';
+import ContextMenu from '../components/ContextMenu';
 
 function formatRelativeTime(timestamp: number): string {
   const now = Date.now() / 1000;
@@ -20,7 +22,7 @@ function formatRelativeTime(timestamp: number): string {
   return `${days} day${days !== 1 ? 's' : ''} ago`;
 }
 
-function Bookmarks() {
+function Bookmarks({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { connected } = useConnection();
   const { bookmarks, loading, error, refresh, add, remove, update } = useBookmarks();
 
@@ -42,6 +44,7 @@ function Bookmarks() {
 
   // Category autocomplete
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
+  const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
   // Fetch bookmarks when connected
   useEffect(() => {
@@ -489,6 +492,12 @@ function Bookmarks() {
                     border: '1px solid var(--border)',
                     transition: 'border-color 0.1s ease',
                   }}
+                  onContextMenu={(e) => showContextMenu(e, [
+                    { label: 'View in Memory', action: () => onNavigate?.('memory', bm.address) },
+                    { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', bm.address) },
+                    { label: 'Edit', action: () => handleStartEdit(actualIndex), separator: true },
+                    { label: 'Delete', action: () => handleDelete(actualIndex) },
+                  ])}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = 'var(--text-muted)';
                   }}
@@ -683,6 +692,18 @@ function Bookmarks() {
           </div>
         )}
       </div>
+
+      {/* Context menu */}
+      <AnimatePresence>
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            items={menu.items}
+            onClose={closeContextMenu}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

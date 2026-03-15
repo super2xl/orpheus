@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useXrefs } from '../hooks/useXrefs';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useContextMenu } from '../hooks/useContextMenu';
+import ContextMenu from '../components/ContextMenu';
+import { copyToClipboard } from '../utils/clipboard';
 import type { ModuleInfo } from '../api/types';
 
 function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
@@ -14,6 +17,7 @@ function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: str
   const [address, setAddress] = useState('');
   const [selectedModule, setSelectedModule] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+  const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
   // Fetch modules when connected
   useEffect(() => {
@@ -290,6 +294,11 @@ function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: str
                     background: 'transparent',
                     transition: 'background 0.1s ease',
                   }}
+                  onContextMenu={(e) => showContextMenu(e, [
+                    { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', xref.address) },
+                    { label: 'View in Memory', action: () => onNavigate?.('memory', xref.address) },
+                    { label: 'Copy Address', action: () => copyToClipboard(xref.address), separator: true },
+                  ])}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'var(--hover)';
                   }}
@@ -347,6 +356,18 @@ function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: str
           </table>
         ) : null}
       </div>
+
+      {/* Context menu */}
+      <AnimatePresence>
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            items={menu.items}
+            onClose={closeContextMenu}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

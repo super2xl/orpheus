@@ -2,6 +2,9 @@ import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDisassembly } from '../hooks/useDisassembly';
 import { useConnection } from '../hooks/useConnection';
+import { useContextMenu } from '../hooks/useContextMenu';
+import ContextMenu from '../components/ContextMenu';
+import { copyToClipboard } from '../utils/clipboard';
 import { orpheus } from '../api/client';
 import type { InstructionInfo } from '../api/types';
 
@@ -63,7 +66,7 @@ function tokenizeOperands(operands: string): OperandToken[] {
   return tokens;
 }
 
-function Disassembly() {
+function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { connected, health } = useConnection();
   const pid = health?.pid;
   const { instructions, loading, error, disassemble } = useDisassembly();
@@ -71,6 +74,7 @@ function Disassembly() {
   const [address, setAddress] = useState('');
   const [instructionCount, setInstructionCount] = useState(50);
   const [hoveredAddr, setHoveredAddr] = useState<string | null>(null);
+  const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
   const handleGo = useCallback(async () => {
     const input = address.trim();
@@ -134,6 +138,13 @@ function Disassembly() {
               navigateToAddress(inst.branch_target);
             }
           }}
+          onContextMenu={(e: React.MouseEvent) => showContextMenu(e, [
+            { label: 'View in Memory', action: () => onNavigate?.('memory', inst.address) },
+            { label: 'Find XRefs', action: () => onNavigate?.('xrefs', inst.address) },
+            { label: 'Generate Signature', action: () => {}, disabled: true },
+            { label: 'Copy Address', action: () => copyToClipboard(inst.address), separator: true },
+            { label: 'Copy Instruction', action: () => copyToClipboard(inst.full_text) },
+          ])}
           onMouseEnter={() => setHoveredAddr(inst.address)}
           onMouseLeave={() => setHoveredAddr(null)}
           initial={{ opacity: 0 }}
@@ -209,7 +220,7 @@ function Disassembly() {
         </motion.div>
       );
     });
-  }, [instructions, hoveredAddr, navigateToAddress]);
+  }, [instructions, hoveredAddr, navigateToAddress, showContextMenu, onNavigate]);
 
   return (
     <div className="h-full flex flex-col">
@@ -424,6 +435,18 @@ function Disassembly() {
           </div>
         )}
       </div>
+
+      {/* Context menu */}
+      <AnimatePresence>
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            items={menu.items}
+            onClose={closeContextMenu}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

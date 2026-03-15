@@ -2,12 +2,15 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useProcesses } from '../hooks/useProcesses';
 import { useConnection } from '../hooks/useConnection';
+import { useContextMenu } from '../hooks/useContextMenu';
+import ContextMenu from '../components/ContextMenu';
+import { copyToClipboard } from '../utils/clipboard';
 import type { ProcessInfo } from '../api/types';
 
 type SortField = 'pid' | 'name' | 'arch' | 'base_address';
 type SortDir = 'asc' | 'desc';
 
-function ProcessList() {
+function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { processes, loading, error, refresh } = useProcesses();
   const { connected } = useConnection();
   const [search, setSearch] = useState('');
@@ -16,6 +19,7 @@ function ProcessList() {
   const [sortField, setSortField] = useState<SortField>('pid');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [hasLoaded, setHasLoaded] = useState(false);
+  const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
   // Initial fetch
   useEffect(() => {
@@ -344,6 +348,11 @@ function ProcessList() {
                       key={proc.pid}
                       onClick={() => handleRowClick(proc.pid)}
                       onDoubleClick={() => handleAttach(proc)}
+                      onContextMenu={(e) => showContextMenu(e, [
+                        { label: 'Attach', action: () => handleAttach(proc) },
+                        { label: 'Copy PID', action: () => copyToClipboard(proc.pid.toString()), separator: true },
+                        { label: 'Copy Name', action: () => copyToClipboard(proc.name) },
+                      ])}
                       className="h-9 cursor-pointer group"
                       style={{
                         background: isSelected ? 'var(--active)' : 'transparent',
@@ -429,6 +438,18 @@ function ProcessList() {
           </table>
         )}
       </div>
+
+      {/* Context menu */}
+      <AnimatePresence>
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            items={menu.items}
+            onClose={closeContextMenu}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

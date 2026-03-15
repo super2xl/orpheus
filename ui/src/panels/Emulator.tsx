@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useEmulator } from '../hooks/useEmulator';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useContextMenu } from '../hooks/useContextMenu';
+import ContextMenu from '../components/ContextMenu';
+import { copyToClipboard } from '../utils/clipboard';
 
 const GPR_NAMES = [
   'rax', 'rbx', 'rcx', 'rdx', 'rsi', 'rdi', 'rbp', 'rsp',
@@ -124,7 +127,7 @@ function RegisterCell({
   );
 }
 
-function Emulator() {
+function Emulator({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { connected, health } = useConnection();
   const pid = health?.pid;
   const {
@@ -138,6 +141,7 @@ function Emulator() {
   const [instrCount, setInstrCount] = useState(100);
   const [useEndAddress, setUseEndAddress] = useState(true);
   const [selectedModule, setSelectedModule] = useState('');
+  const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
   // Fetch modules when connected
   useEffect(() => {
@@ -567,15 +571,26 @@ function Emulator() {
 
               {/* 2-column grid of registers */}
               <div className="grid grid-cols-2 gap-x-4 p-2">
-                {ALL_REGISTERS.map((name) => (
-                  <RegisterCell
-                    key={name}
-                    name={name}
-                    value={registers[name] || '0x0000000000000000'}
-                    changed={changedRegs.has(name)}
-                    onCommit={handleRegisterCommit}
-                  />
-                ))}
+                {ALL_REGISTERS.map((name) => {
+                  const regValue = registers[name] || '0x0000000000000000';
+                  return (
+                    <div
+                      key={name}
+                      onContextMenu={(e) => showContextMenu(e, [
+                        { label: 'View in Memory', action: () => onNavigate?.('memory', regValue) },
+                        { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', regValue) },
+                        { label: 'Copy Value', action: () => copyToClipboard(regValue), separator: true },
+                      ])}
+                    >
+                      <RegisterCell
+                        name={name}
+                        value={regValue}
+                        changed={changedRegs.has(name)}
+                        onCommit={handleRegisterCommit}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -667,6 +682,18 @@ function Emulator() {
           </div>
         )}
       </div>
+
+      {/* Context menu */}
+      <AnimatePresence>
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            items={menu.items}
+            onClose={closeContextMenu}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

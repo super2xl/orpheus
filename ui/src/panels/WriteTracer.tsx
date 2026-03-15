@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useWriteTracer } from '../hooks/useWriteTracer';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useContextMenu } from '../hooks/useContextMenu';
+import ContextMenu from '../components/ContextMenu';
+import { copyToClipboard } from '../utils/clipboard';
 import type { CallGraphNode, ModuleInfo } from '../api/types';
 
 // Syntax coloring — same as Disassembly
@@ -179,6 +182,7 @@ function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: st
   const [maxDepth, setMaxDepth] = useState(3);
   const [hasTraced, setHasTraced] = useState(false);
   const [showCallGraph, setShowCallGraph] = useState(false);
+  const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
   // Fetch modules when connected
   useEffect(() => {
@@ -226,6 +230,11 @@ function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: st
             background: index % 2 === 1 ? 'var(--hover)' : 'transparent',
             transition: 'background 0.1s ease',
           }}
+          onContextMenu={(e: React.MouseEvent) => showContextMenu(e, [
+            { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', write.instruction_address) },
+            { label: 'View in Memory', action: () => onNavigate?.('memory', write.instruction_address) },
+            { label: 'Copy Address', action: () => copyToClipboard(write.instruction_address), separator: true },
+          ])}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'var(--active)';
           }}
@@ -290,7 +299,7 @@ function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: st
         </motion.div>
       );
     });
-  }, [writes, handleAddressClick]);
+  }, [writes, handleAddressClick, showContextMenu, onNavigate]);
 
   return (
     <div className="h-full flex flex-col">
@@ -649,6 +658,18 @@ function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: st
           </div>
         )}
       </div>
+
+      {/* Context menu */}
+      <AnimatePresence>
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            items={menu.items}
+            onClose={closeContextMenu}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

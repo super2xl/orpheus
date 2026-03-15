@@ -3,9 +3,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useRTTI } from '../hooks/useRTTI';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useContextMenu } from '../hooks/useContextMenu';
+import ContextMenu from '../components/ContextMenu';
+import { copyToClipboard } from '../utils/clipboard';
 import type { RTTIClassInfo } from '../api/types';
 
-function RTTIScanner() {
+function RTTIScanner({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { connected, health } = useConnection();
   const pid = health?.pid;
   const { results, scanTime, loading, error, progress, statusMessage, scan, cancel, parseVTable } = useRTTI();
@@ -17,6 +20,7 @@ function RTTIScanner() {
   const [expandedClass, setExpandedClass] = useState<string | null>(null);
   const [vtableEntries, setVtableEntries] = useState<string[]>([]);
   const [vtableLoading, setVtableLoading] = useState(false);
+  const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
   // Fetch modules when connected
   useEffect(() => {
@@ -362,6 +366,12 @@ function RTTIScanner() {
                   <motion.tr
                     key={cls.vtable_address}
                     onClick={() => handleClassClick(cls)}
+                    onContextMenu={(e) => showContextMenu(e, [
+                      { label: 'View VTable in Memory', action: () => onNavigate?.('memory', cls.vtable_address) },
+                      { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', cls.vtable_address) },
+                      { label: 'Copy VTable Address', action: () => copyToClipboard(cls.vtable_address), separator: true },
+                      { label: 'Copy Class Name', action: () => copyToClipboard(cls.demangled_name) },
+                    ])}
                     className="cursor-pointer group"
                     style={{
                       background: isExpanded ? 'var(--active)' : 'transparent',
@@ -534,6 +544,18 @@ function RTTIScanner() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Context menu */}
+      <AnimatePresence>
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            items={menu.items}
+            onClose={closeContextMenu}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

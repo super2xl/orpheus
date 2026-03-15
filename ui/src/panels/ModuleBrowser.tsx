@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useContextMenu } from '../hooks/useContextMenu';
+import ContextMenu from '../components/ContextMenu';
+import { copyToClipboard } from '../utils/clipboard';
 
 type SortField = 'name' | 'base_address' | 'size' | 'entry_point';
 type SortDir = 'asc' | 'desc';
@@ -12,7 +15,7 @@ function formatSize(bytes: number): string {
   return bytes + ' B';
 }
 
-function ModuleBrowser() {
+function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { modules, loading, error, refresh } = useModules();
   const { connected, health } = useConnection();
   const [search, setSearch] = useState('');
@@ -21,6 +24,7 @@ function ModuleBrowser() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [hasLoaded, setHasLoaded] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
   const pid = health?.pid;
 
@@ -325,6 +329,12 @@ function ModuleBrowser() {
                     <motion.tr
                       key={`${mod.base_address}-${mod.name}`}
                       onClick={() => handleRowClick(index)}
+                      onContextMenu={(e) => showContextMenu(e, [
+                        { label: 'View in Memory', action: () => onNavigate?.('memory', mod.base_address) },
+                        { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', mod.entry_point) },
+                        { label: 'Copy Base Address', action: () => copyToClipboard(mod.base_address), separator: true },
+                        { label: 'Copy Name', action: () => copyToClipboard(mod.name) },
+                      ])}
                       className="h-9 cursor-pointer group"
                       style={{
                         background: isSelected ? 'var(--active)' : 'transparent',
@@ -403,6 +413,18 @@ function ModuleBrowser() {
           </table>
         )}
       </div>
+
+      {/* Context menu */}
+      <AnimatePresence>
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            items={menu.items}
+            onClose={closeContextMenu}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

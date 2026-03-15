@@ -3,8 +3,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useStringScan } from '../hooks/useStringScan';
 import { useModules } from '../hooks/useModules';
 import { useConnection } from '../hooks/useConnection';
+import { useContextMenu } from '../hooks/useContextMenu';
+import ContextMenu from '../components/ContextMenu';
+import { copyToClipboard } from '../utils/clipboard';
 
-function StringScanner() {
+function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { connected, health } = useConnection();
   const pid = health?.pid;
   const { result, loading, error, task, scanAsync, cancel } = useStringScan();
@@ -17,6 +20,7 @@ function StringScanner() {
   const [scanUtf16, setScanUtf16] = useState(true);
   const [filter, setFilter] = useState('');
   const [hasScanned, setHasScanned] = useState(false);
+  const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
   // Fetch modules when connected
   useEffect(() => {
@@ -477,6 +481,12 @@ function StringScanner() {
                       background: 'transparent',
                       transition: 'background 0.1s ease',
                     }}
+                    onContextMenu={(e) => showContextMenu(e, [
+                      { label: 'View in Memory', action: () => onNavigate?.('memory', match.address) },
+                      { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', match.address) },
+                      { label: 'Copy Address', action: () => copyToClipboard(match.address), separator: true },
+                      { label: 'Copy String', action: () => copyToClipboard(match.value) },
+                    ])}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = 'var(--hover)';
                     }}
@@ -527,6 +537,18 @@ function StringScanner() {
           </>
         ) : null}
       </div>
+
+      {/* Context menu */}
+      <AnimatePresence>
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            items={menu.items}
+            onClose={closeContextMenu}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
