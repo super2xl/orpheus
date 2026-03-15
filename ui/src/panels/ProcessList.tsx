@@ -93,7 +93,7 @@ function ProcessList() {
   const sortIcon = (field: SortField) => {
     if (sortField !== field) return null;
     return (
-      <span className="ml-1 text-cyan-400">
+      <span className="ml-1" style={{ color: 'var(--text)' }}>
         {sortDir === 'asc' ? '\u25B4' : '\u25BE'}
       </span>
     );
@@ -106,68 +106,89 @@ function ProcessList() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <motion.div
-        className="shrink-0 px-5 pt-5 pb-3 space-y-3"
-        initial={{ opacity: 0, y: -10 }}
+        className="shrink-0 px-6 pt-6 pb-4 space-y-4"
+        initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        transition={{ duration: 0.15, ease: 'easeOut' }}
       >
         {/* Title row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold tracking-tight text-slate-100">
+            <h1 className="text-lg tracking-tight" style={{ color: 'var(--text)', fontWeight: 500 }}>
               Processes
             </h1>
             {processes.length > 0 && (
-              <motion.span
-                className="text-xs text-slate-500 bg-slate-800/60 px-2 py-0.5 rounded-md font-mono"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              <span
+                className="text-xs px-2 py-0.5 rounded-md font-mono"
+                style={{
+                  color: 'var(--text-secondary)',
+                  background: 'var(--active)',
+                }}
               >
                 {filtered.length}
                 {search && ` / ${processes.length}`}
-              </motion.span>
+              </span>
             )}
           </div>
           <div className="flex items-center gap-2">
             {/* Auto-refresh toggle */}
-            <motion.button
+            <button
               onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`
-                px-2.5 h-7 rounded-md text-xs font-medium transition-colors duration-150 cursor-pointer
-                ${autoRefresh
-                  ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
-                  : 'bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-300'
+              className="px-2.5 h-7 rounded-md text-xs cursor-pointer border-none outline-none"
+              style={{
+                fontWeight: 400,
+                background: autoRefresh ? 'var(--active)' : 'transparent',
+                color: autoRefresh ? 'var(--text)' : 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+                transition: 'all 0.1s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!autoRefresh) {
+                  e.currentTarget.style.background = 'var(--hover)';
+                  e.currentTarget.style.color = 'var(--text)';
                 }
-              `}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
+              }}
+              onMouseLeave={(e) => {
+                if (!autoRefresh) {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }
+              }}
             >
               {autoRefresh ? '\u25C9 Auto' : '\u25CB Auto'}
-            </motion.button>
+            </button>
             {/* Manual refresh */}
-            <motion.button
+            <button
               onClick={refresh}
               disabled={loading}
-              className="px-2.5 h-7 rounded-md text-xs font-medium bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-300 transition-colors duration-150 disabled:opacity-40 cursor-pointer"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
+              className="px-2.5 h-7 rounded-md text-xs cursor-pointer border-none outline-none disabled:opacity-40"
+              style={{
+                fontWeight: 400,
+                background: 'transparent',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+                transition: 'all 0.1s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--hover)';
+                e.currentTarget.style.color = 'var(--text)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
             >
-              <motion.span
-                animate={loading ? { rotate: 360 } : { rotate: 0 }}
-                transition={loading ? { duration: 1, repeat: Infinity, ease: 'linear' } : { duration: 0 }}
-                className="inline-block"
-              >
-                {'\u21BB'}
-              </motion.span>
-              {' Refresh'}
-            </motion.button>
+              {'\u21BB'} Refresh
+            </button>
           </div>
         </div>
 
         {/* Search bar */}
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm pointer-events-none">
+          <span
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+            style={{ color: 'var(--text-muted)' }}
+          >
             {'\u2315'}
           </span>
           <input
@@ -175,17 +196,40 @@ function ProcessList() {
             placeholder="Search processes..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-9 pl-8 pr-3 rounded-lg bg-slate-800/50 border border-slate-700/40 text-sm text-slate-200 placeholder:text-slate-600 outline-none focus:border-cyan-500/40 focus:ring-1 focus:ring-cyan-500/20 transition-all duration-200"
+            className="w-full h-9 pl-8 pr-3 rounded-lg text-sm outline-none"
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+              transition: 'border-color 0.1s ease',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = 'var(--text-muted)';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border)';
+            }}
           />
           <AnimatePresence>
             {search && (
               <motion.button
                 onClick={() => setSearch('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-xs w-5 h-5 rounded flex items-center justify-center hover:bg-slate-700/50 transition-colors cursor-pointer"
-                initial={{ opacity: 0, scale: 0.5 }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs w-5 h-5 rounded flex items-center justify-center cursor-pointer border-none outline-none"
+                style={{
+                  color: 'var(--text-muted)',
+                  background: 'transparent',
+                  transition: 'color 0.1s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'var(--text)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--text-muted)';
+                }}
+                initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.5 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.1 }}
               >
                 {'\u2715'}
               </motion.button>
@@ -198,11 +242,16 @@ function ProcessList() {
       <AnimatePresence>
         {error && (
           <motion.div
-            className="mx-5 mb-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs"
+            className="mx-6 mb-2 px-3 py-2 rounded-lg text-xs"
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-secondary)',
+            }}
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            transition={{ duration: 0.12 }}
           >
             {error}
           </motion.div>
@@ -210,24 +259,24 @@ function ProcessList() {
       </AnimatePresence>
 
       {/* Table */}
-      <div className="flex-1 min-h-0 overflow-auto px-5 pb-3">
+      <div className="flex-1 min-h-0 overflow-auto px-6 pb-4">
         {!connected && !hasLoaded ? (
           /* Empty state: not connected */
           <motion.div
             className="h-full flex flex-col items-center justify-center gap-3"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.15 }}
+            transition={{ delay: 0.1 }}
           >
-            <div className="text-3xl text-slate-700">{'\u25A3'}</div>
-            <p className="text-sm text-slate-500">Start Orpheus to view processes</p>
-            <p className="text-xs text-slate-600">Connect to the MCP server first</p>
+            <div className="text-3xl" style={{ color: 'var(--text-muted)' }}>{'\u25A3'}</div>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Start Orpheus to view processes</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Connect to the MCP server first</p>
           </motion.div>
         ) : (
           <table className="w-full text-sm">
             {/* Column headers */}
             <thead className="sticky top-0 z-10">
-              <tr className="bg-slate-950/90 backdrop-blur-sm">
+              <tr style={{ background: 'var(--bg)' }}>
                 {([
                   ['pid', 'PID', 'w-20'],
                   ['name', 'NAME', 'flex-1'],
@@ -237,32 +286,43 @@ function ProcessList() {
                   <th
                     key={field}
                     onClick={() => handleSort(field)}
-                    className={`
-                      text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500
-                      px-3 py-2 border-b border-slate-800/40 cursor-pointer
-                      hover:text-slate-300 transition-colors duration-150 select-none
-                      ${width}
-                    `}
+                    className={`text-left text-[10px] uppercase px-3 py-2.5 cursor-pointer select-none ${width}`}
+                    style={{
+                      fontWeight: 400,
+                      letterSpacing: '0.08em',
+                      color: 'var(--text-muted)',
+                      borderBottom: '1px solid var(--border)',
+                      transition: 'color 0.1s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = 'var(--text)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = 'var(--text-muted)';
+                    }}
                   >
                     {label}
                     {sortIcon(field)}
                   </th>
                 ))}
-                <th className="w-20 px-3 py-2 border-b border-slate-800/40" />
+                <th className="w-20 px-3 py-2.5" style={{ borderBottom: '1px solid var(--border)' }} />
               </tr>
             </thead>
             <tbody>
               {loading && !hasLoaded ? (
                 /* Skeleton loading */
                 skeletonRows.map((i) => (
-                  <tr key={`skeleton-${i}`} className="h-8">
+                  <tr key={`skeleton-${i}`} className="h-9">
                     {[1, 2, 3, 4, 5].map((col) => (
                       <td key={col} className="px-3 py-1.5">
                         <motion.div
-                          className="h-3.5 rounded bg-slate-800/60"
-                          style={{ width: col === 2 ? '60%' : col === 4 ? '70%' : '40%' }}
-                          animate={{ opacity: [0.3, 0.6, 0.3] }}
-                          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut', delay: i * 0.05 }}
+                          className="h-3.5 rounded"
+                          style={{
+                            width: col === 2 ? '60%' : col === 4 ? '70%' : '40%',
+                            background: 'var(--skeleton)',
+                          }}
+                          animate={{ opacity: [0.3, 0.5, 0.3] }}
+                          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: i * 0.04 }}
                         />
                       </td>
                     ))}
@@ -271,7 +331,7 @@ function ProcessList() {
               ) : sorted.length === 0 ? (
                 /* No results */
                 <tr>
-                  <td colSpan={5} className="text-center py-12 text-slate-600 text-sm">
+                  <td colSpan={5} className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
                     {search ? 'No processes match your search' : 'No processes found'}
                   </td>
                 </tr>
@@ -284,74 +344,82 @@ function ProcessList() {
                       key={proc.pid}
                       onClick={() => handleRowClick(proc.pid)}
                       onDoubleClick={() => handleAttach(proc)}
-                      className={`
-                        h-8 cursor-pointer transition-colors duration-100 group
-                        ${isSelected
-                          ? 'bg-cyan-500/8'
-                          : index % 2 === 0
-                            ? 'bg-transparent'
-                            : 'bg-slate-900/30'
+                      className="h-9 cursor-pointer group"
+                      style={{
+                        background: isSelected ? 'var(--active)' : 'transparent',
+                        borderLeft: isSelected ? '2px solid var(--active-border)' : '2px solid transparent',
+                        transition: 'background 0.1s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.background = 'var(--hover)';
                         }
-                        ${!isSelected && 'hover:bg-slate-800/40'}
-                      `}
-                      initial={{ opacity: 0, x: -6 }}
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) {
+                          e.currentTarget.style.background = 'transparent';
+                        }
+                      }}
+                      initial={{ opacity: 0, x: -4 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{
-                        type: 'spring',
-                        stiffness: 400,
-                        damping: 30,
-                        delay: Math.min(index * 0.015, 0.3),
+                        duration: 0.1,
+                        ease: 'easeOut',
+                        delay: Math.min(index * 0.01, 0.2),
                       }}
                       layout
                     >
                       {/* PID */}
-                      <td className="px-3 py-1.5 font-mono text-xs text-slate-400 tabular-nums">
+                      <td className="px-3 py-1.5 font-mono text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                         {proc.pid}
                       </td>
                       {/* Name */}
-                      <td className="px-3 py-1.5 text-slate-200 truncate max-w-0">
-                        <div className="flex items-center gap-2">
-                          {isSelected && (
-                            <motion.div
-                              className="w-1 h-1 rounded-full bg-cyan-400 shrink-0"
-                              layoutId="selected-dot"
-                              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                            />
-                          )}
-                          <span className="truncate">{proc.name}</span>
-                        </div>
+                      <td className="px-3 py-1.5 truncate max-w-0" style={{ color: 'var(--text)' }}>
+                        <span className="truncate">{proc.name}</span>
                       </td>
                       {/* Architecture */}
                       <td className="px-3 py-1.5">
                         <span
-                          className={`
-                            text-[10px] font-mono font-medium px-1.5 py-0.5 rounded
-                            ${proc.is_64bit
-                              ? 'bg-cyan-500/10 text-cyan-400'
-                              : 'bg-amber-500/10 text-amber-400'
-                            }
-                          `}
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                          style={{
+                            fontWeight: 400,
+                            background: 'var(--active)',
+                            color: 'var(--text-secondary)',
+                          }}
                         >
                           {proc.is_64bit ? 'x64' : 'x86'}
                         </span>
                       </td>
                       {/* Base address */}
-                      <td className="px-3 py-1.5 font-mono text-xs text-slate-500">
+                      <td className="px-3 py-1.5 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
                         {proc.base_address}
                       </td>
                       {/* Attach button */}
                       <td className="px-3 py-1.5 text-right">
-                        <motion.button
+                        <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAttach(proc);
                           }}
-                          className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded text-[10px] font-medium bg-cyan-500/15 text-cyan-400 border border-cyan-500/25 hover:bg-cyan-500/25 transition-all duration-150 cursor-pointer"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
+                          className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded text-[10px] cursor-pointer outline-none"
+                          style={{
+                            fontWeight: 400,
+                            background: 'transparent',
+                            color: 'var(--text-secondary)',
+                            border: '1px solid var(--border)',
+                            transition: 'all 0.1s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'var(--active)';
+                            e.currentTarget.style.color = 'var(--text)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'transparent';
+                            e.currentTarget.style.color = 'var(--text-secondary)';
+                          }}
                         >
                           Attach
-                        </motion.button>
+                        </button>
                       </td>
                     </motion.tr>
                   );
