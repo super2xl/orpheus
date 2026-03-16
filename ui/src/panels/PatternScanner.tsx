@@ -32,8 +32,12 @@ function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?:
     const input = pattern.trim();
     if (!input || !pid) return;
     setHasScanned(true);
-    scanAsync(pid, input, selectedModule || undefined);
-  }, [pattern, pid, selectedModule, scanAsync]);
+    // Resolve module name to base+size
+    const mod = modules.find((m) => m.name === selectedModule);
+    const base = mod ? mod.base : '0x0';
+    const size = mod ? mod.size : 0;
+    scanAsync(pid, input, base, size);
+  }, [pattern, pid, selectedModule, modules, scanAsync]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -43,8 +47,8 @@ function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?:
 
   const progressPercent = task?.progress ?? 0;
   const statusMessage = task?.status_message ?? '';
-  const matches = result?.matches ?? [];
-  const scanTime = result?.scan_time_ms;
+  const addresses = result?.addresses ?? [];
+  const matchCount = result?.count ?? addresses.length;
 
   return (
     <div className="h-full flex flex-col">
@@ -69,8 +73,7 @@ function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?:
                   background: 'var(--active)',
                 }}
               >
-                {matches.length} match{matches.length !== 1 ? 'es' : ''}
-                {scanTime != null && ` \u00B7 ${scanTime}ms`}
+                {matchCount} match{matchCount !== 1 ? 'es' : ''}
               </span>
             )}
           </div>
@@ -285,7 +288,7 @@ function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?:
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Enter a byte pattern to scan</p>
             <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>48 8B 05 ?? ?? ?? ??</p>
           </motion.div>
-        ) : result && matches.length === 0 && !loading ? (
+        ) : result && addresses.length === 0 && !loading ? (
           /* Empty state: no results */
           <motion.div
             className="h-full flex flex-col items-center justify-center gap-3"
@@ -297,16 +300,14 @@ function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?:
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No matches found</p>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Try a different pattern or module scope</p>
           </motion.div>
-        ) : matches.length > 0 ? (
+        ) : addresses.length > 0 ? (
           /* Results table */
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
               <tr style={{ background: 'var(--bg)' }}>
                 {([
                   ['#', 'w-12'],
-                  ['ADDRESS', 'w-44'],
-                  ['MODULE+OFFSET', 'w-52'],
-                  ['CONTEXT', ''],
+                  ['ADDRESS', ''],
                 ] as [string, string][]).map(([label, width]) => (
                   <th
                     key={label}
@@ -324,18 +325,18 @@ function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?:
               </tr>
             </thead>
             <tbody>
-              {matches.slice(0, maxResults).map((match, index) => (
+              {addresses.slice(0, maxResults).map((addr, index) => (
                 <motion.tr
-                  key={match.address}
+                  key={addr}
                   className="h-9 cursor-pointer group"
                   style={{
                     background: 'transparent',
                     transition: 'background 0.1s ease',
                   }}
                   onContextMenu={(e) => showContextMenu(e, [
-                    { label: 'View in Memory', action: () => onNavigate?.('memory', match.address) },
-                    { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', match.address) },
-                    { label: 'Copy Address', action: () => copyToClipboard(match.address), separator: true },
+                    { label: 'View in Memory', action: () => onNavigate?.('memory', addr) },
+                    { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', addr) },
+                    { label: 'Copy Address', action: () => copyToClipboard(addr), separator: true },
                   ])}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'var(--hover)';
@@ -361,15 +362,7 @@ function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?:
                     className="px-3 py-1.5 font-mono text-xs tabular-nums"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    {match.address}
-                  </td>
-                  {/* Module+Offset */}
-                  <td className="px-3 py-1.5 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    {match.module_name || '\u2014'}
-                  </td>
-                  {/* Context */}
-                  <td className="px-3 py-1.5 font-mono truncate max-w-0" style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
-                    <span className="truncate">{match.context || ''}</span>
+                    {addr}
                   </td>
                 </motion.tr>
               ))}

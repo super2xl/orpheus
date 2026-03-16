@@ -1,20 +1,16 @@
 import { useState, useCallback } from 'react';
 import { orpheus } from '../api/client';
-import type { FunctionInfo, FunctionRecoveryResult } from '../api/types';
+import type { FunctionRecoveryResult } from '../api/types';
 
 export interface RecoveryOptions {
-  prologues: boolean;
-  call_targets: boolean;
-  exception_data: boolean;
-  rtti: boolean;
-  exports: boolean;
+  use_prologues: boolean;
+  follow_calls: boolean;
+  use_exception_data: boolean;
   max_functions: number;
 }
 
 export function useFunctionRecovery() {
-  const [functions, setFunctions] = useState<FunctionInfo[]>([]);
-  const [scanTime, setScanTime] = useState<number | null>(null);
-  const [stats, setStats] = useState<Record<string, number> | null>(null);
+  const [summary, setSummary] = useState<FunctionRecoveryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,9 +21,7 @@ export function useFunctionRecovery() {
     options: RecoveryOptions,
   ) => {
     setLoading(true);
-    setFunctions([]);
-    setScanTime(null);
-    setStats(null);
+    setSummary(null);
     setError(null);
 
     try {
@@ -35,12 +29,13 @@ export function useFunctionRecovery() {
         pid,
         module_base: moduleBase,
         module_size: moduleSize,
-        ...options,
+        use_prologues: options.use_prologues,
+        follow_calls: options.follow_calls,
+        use_exception_data: options.use_exception_data,
+        max_functions: options.max_functions,
       }, { timeout: 120000 });
 
-      setFunctions(res.functions || []);
-      setScanTime(res.scan_time_ms);
-      setStats(res.stats || null);
+      setSummary(res);
       setError(null);
     } catch (err: any) {
       setError(err.message);
@@ -49,5 +44,5 @@ export function useFunctionRecovery() {
     }
   }, []);
 
-  return { functions, scanTime, stats, loading, error, recover };
+  return { summary, loading, error, recover };
 }

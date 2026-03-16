@@ -262,7 +262,7 @@ function CacheManager() {
                     ['Hits', stats.hits.toLocaleString()],
                     ['Misses', stats.misses.toLocaleString()],
                     ['Evictions', stats.evictions.toLocaleString()],
-                    ['Pages Cached', `${stats.pages_cached.toLocaleString()}${stats.max_pages ? ` / ${stats.max_pages.toLocaleString()}` : ''}`],
+                    ['Pages Cached', `${stats.current_pages.toLocaleString()}${stats.max_pages ? ` / ${stats.max_pages.toLocaleString()}` : ''}`],
                   ] as [string, string][]).map(([label, value]) => (
                     <div key={label} className="space-y-0.5">
                       <div className="text-[10px] uppercase" style={{ color: 'var(--text-muted)', letterSpacing: '0.08em', fontWeight: 400 }}>

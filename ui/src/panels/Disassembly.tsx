@@ -9,8 +9,8 @@ import { copyToClipboard } from '../utils/clipboard';
 import { orpheus } from '../api/client';
 import type { InstructionInfo } from '../api/types';
 
-function getMnemonicColor(category: string): string {
-  switch (category) {
+function getMnemonicColor(type?: string): string {
+  switch (type) {
     case 'Call': return 'var(--syn-call)';
     case 'Jump':
     case 'ConditionalJump': return 'var(--syn-jump)';
@@ -21,6 +21,14 @@ function getMnemonicColor(category: string): string {
     case 'Pop': return 'var(--syn-keyword)';
     default: return 'var(--syn-keyword)';
   }
+}
+
+// Extract mnemonic and operands from instruction text
+function parseInstText(text: string): { mnemonic: string; operands: string } {
+  const trimmed = text.trim();
+  const spaceIdx = trimmed.indexOf(' ');
+  if (spaceIdx === -1) return { mnemonic: trimmed, operands: '' };
+  return { mnemonic: trimmed.substring(0, spaceIdx), operands: trimmed.substring(spaceIdx + 1).trim() };
 }
 
 // Simple regex-based operand colorizer
@@ -122,12 +130,13 @@ function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: st
   // Memoize the rendered instruction list
   const renderedInstructions = useMemo(() => {
     return instructions.map((inst: InstructionInfo, index: number) => {
-      const operandTokens = tokenizeOperands(inst.operands);
-      const isClickable = !!inst.branch_target;
+      const { mnemonic, operands } = parseInstText(inst.text);
+      const operandTokens = tokenizeOperands(operands);
+      const isClickable = !!inst.target;
 
       return (
         <motion.div
-          key={inst.address}
+          key={inst.addr}
           className="flex items-center px-3 font-mono text-xs select-text group"
           style={{
             height: 24,
@@ -136,18 +145,18 @@ function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: st
             transition: 'background 0.1s ease',
           }}
           onClick={() => {
-            if (inst.branch_target) {
-              navigateToAddress(inst.branch_target);
+            if (inst.target) {
+              navigateToAddress(inst.target);
             }
           }}
           onContextMenu={(e: React.MouseEvent) => showContextMenu(e, [
-            { label: 'View in Memory', action: () => onNavigate?.('memory', inst.address) },
-            { label: 'Find XRefs', action: () => onNavigate?.('xrefs', inst.address) },
+            { label: 'View in Memory', action: () => onNavigate?.('memory', inst.addr) },
+            { label: 'Find XRefs', action: () => onNavigate?.('xrefs', inst.addr) },
             { label: 'Generate Signature', action: () => {}, disabled: true },
-            { label: 'Copy Address', action: () => copyToClipboard(inst.address), separator: true },
-            { label: 'Copy Instruction', action: () => copyToClipboard(inst.full_text) },
+            { label: 'Copy Address', action: () => copyToClipboard(inst.addr), separator: true },
+            { label: 'Copy Instruction', action: () => copyToClipboard(inst.text) },
           ])}
-          onMouseEnter={() => setHoveredAddr(inst.address)}
+          onMouseEnter={() => setHoveredAddr(inst.addr)}
           onMouseLeave={() => setHoveredAddr(null)}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -156,22 +165,22 @@ function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: st
             ease: 'easeOut',
             delay: Math.min(index * 0.005, 0.15),
           }}
-          title={inst.full_text}
+          title={inst.text}
         >
           {/* Address */}
           <span
             className="shrink-0 tabular-nums cursor-pointer"
             style={{
               width: 160,
-              color: hoveredAddr === inst.address ? 'var(--text-secondary)' : 'var(--text-muted)',
+              color: hoveredAddr === inst.addr ? 'var(--text-secondary)' : 'var(--text-muted)',
               transition: 'color 0.1s ease',
             }}
             onClick={(e) => {
               e.stopPropagation();
-              navigateToAddress(inst.address);
+              navigateToAddress(inst.addr);
             }}
           >
-            {inst.address.replace(/^0x/i, '').toUpperCase().padStart(16, '0')}
+            {inst.addr.replace(/^0x/i, '').toUpperCase().padStart(16, '0')}
           </span>
 
           {/* Bytes */}
@@ -191,11 +200,11 @@ function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: st
             className="shrink-0"
             style={{
               width: 72,
-              color: getMnemonicColor(inst.category),
+              color: getMnemonicColor(inst.type),
               fontWeight: 500,
             }}
           >
-            {inst.mnemonic}
+            {mnemonic}
           </span>
 
           {/* Operands */}
@@ -206,7 +215,7 @@ function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: st
               </span>
             ))}
             {/* Branch target indicator */}
-            {inst.branch_target && (
+            {inst.target && (
               <span
                 className="ml-2 opacity-0 group-hover:opacity-100"
                 style={{
@@ -215,7 +224,7 @@ function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: st
                   transition: 'opacity 0.1s ease',
                 }}
               >
-                {'\u2192'} {inst.branch_target}
+                {'\u2192'} {inst.target}
               </span>
             )}
           </span>

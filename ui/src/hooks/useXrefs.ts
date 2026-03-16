@@ -7,13 +7,13 @@ export function useXrefs() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const find = useCallback(async (pid: number, address: string, moduleBase?: string, moduleSize?: number) => {
+  const find = useCallback(async (pid: number, target: string, base?: string, size?: number) => {
     setLoading(true);
     setError(null);
     try {
-      const body: Record<string, unknown> = { pid, address };
-      if (moduleBase) body.module_base = moduleBase;
-      if (moduleSize) body.module_size = moduleSize;
+      const body: Record<string, unknown> = { pid, target };
+      if (base) body.base = base;
+      if (size) body.size = size;
       const result = await orpheus.request<{ xrefs: XrefResult[] }>('tools/find_xrefs', body);
       setResults(result.xrefs || []);
     } catch (err: any) {

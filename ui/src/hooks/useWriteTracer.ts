@@ -35,11 +35,11 @@ export function useWriteTracer() {
       try {
         const result = await orpheus.request<{ xrefs: XrefResult[] }>('tools/find_xrefs', {
           pid,
-          address,
+          target: address,
         });
 
         const callers = (result.xrefs || []).filter(
-          (x) => x.mnemonic.toLowerCase() === 'call',
+          (x) => x.type?.toLowerCase() === 'call',
         );
 
         for (const caller of callers) {
@@ -82,41 +82,37 @@ export function useWriteTracer() {
 
     try {
       // Step 1: Find all xrefs to target address
-      const body: Record<string, unknown> = { pid, address: targetAddress };
-      if (moduleBase) body.module_base = moduleBase;
-      if (moduleSize) body.module_size = moduleSize;
+      const body: Record<string, unknown> = { pid, target: targetAddress };
+      if (moduleBase) body.base = moduleBase;
+      if (moduleSize) body.size = moduleSize;
 
       const xrefResult = await orpheus.request<{ xrefs: XrefResult[] }>('tools/find_xrefs', body, { timeout: 60000 });
 
       if (cancelledRef.current) return;
 
-      // Step 2: Filter to write-like instructions
+      // Step 2: Filter to write-like instructions based on xref type/context
       const writeXrefs = (xrefResult.xrefs || []).filter((x) => {
-        const m = x.mnemonic.toLowerCase();
-        return m.startsWith('mov') || m === 'stosb' || m === 'stosd' || m === 'stosq' ||
-               m === 'xchg' || m === 'cmpxchg' || m.startsWith('add') || m.startsWith('sub') ||
-               m.startsWith('and') || m.startsWith('or') || m.startsWith('xor') ||
-               m === 'inc' || m === 'dec' || m === 'neg' || m === 'not';
+        const ctx = (x.context || '').toLowerCase();
+        return ctx.startsWith('mov') || ctx.startsWith('stosb') || ctx.startsWith('stosd') || ctx.startsWith('stosq') ||
+               ctx.startsWith('xchg') || ctx.startsWith('cmpxchg') || ctx.startsWith('add') || ctx.startsWith('sub') ||
+               ctx.startsWith('and') || ctx.startsWith('or') || ctx.startsWith('xor') ||
+               ctx.startsWith('inc') || ctx.startsWith('dec') || ctx.startsWith('neg') || ctx.startsWith('not');
       });
 
       // Build WriteInfo from xrefs
       const functionNames = new Map<string, string>();
       const writeInfos: WriteInfo[] = writeXrefs.map((x) => {
-        const parts = x.instruction.split(/\s+/);
-        const mnemonic = parts[0] || x.mnemonic;
-        const operands = parts.slice(1).join(' ');
-        const funcAddr = x.module_offset
-          ? `${x.module_name}+${x.module_offset}`
-          : x.address;
-        const funcName = x.module_name
-          ? `${x.module_name}+${x.module_offset || '0x0'}`
-          : `sub_${x.address.replace(/^0x/i, '')}`;
+        const contextParts = (x.context || '').split(/\s+/);
+        const mnemonic = contextParts[0] || x.type;
+        const operands = contextParts.slice(1).join(' ');
+        const funcAddr = x.address;
+        const funcName = `sub_${x.address.replace(/^0x/i, '')}`;
         functionNames.set(x.address, funcName);
         return {
           instruction_address: x.address,
           mnemonic,
           operands,
-          full_text: x.instruction,
+          full_text: x.context || '',
           function_address: funcAddr,
           function_name: funcName,
         };

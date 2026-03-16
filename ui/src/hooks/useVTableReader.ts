@@ -7,15 +7,15 @@ export function useVTableReader() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const read = useCallback(async (pid: number, address: string, maxEntries: number = 20) => {
+  const read = useCallback(async (pid: number, address: string, count: number = 20) => {
     setLoading(true);
     setError(null);
     setVtable(null);
     try {
       const result = await orpheus.request<VTableInfo>('tools/read_vtable', {
         pid,
-        address,
-        max_entries: maxEntries,
+        vtable_address: address,
+        count,
       });
       setVtable(result);
     } catch (err: any) {

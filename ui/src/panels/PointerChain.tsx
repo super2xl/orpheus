@@ -92,7 +92,7 @@ function PointerChain({ onNavigate }: PointerChainProps) {
             <h1 className="text-lg tracking-tight" style={{ color: 'var(--text)', fontWeight: 500 }}>
               Pointer Chain
             </h1>
-            {chain && chain.steps.length > 0 && (
+            {chain && chain.chain.length > 0 && (
               <span
                 className="text-xs px-2 py-0.5 rounded-md font-mono"
                 style={{
@@ -100,7 +100,7 @@ function PointerChain({ onNavigate }: PointerChainProps) {
                   background: 'var(--active)',
                 }}
               >
-                {chain.steps.length} steps
+                {chain.chain.length} steps
               </span>
             )}
           </div>
@@ -230,13 +230,13 @@ function PointerChain({ onNavigate }: PointerChainProps) {
                 border: '1px solid var(--border)',
               }}
             >
-              {chain.steps.map((step, index) => (
+              {chain.chain.map((step, index) => (
                 <motion.div
                   key={index}
                   className="flex items-center px-4 font-mono text-xs"
                   style={{
                     height: 36,
-                    borderBottom: index < chain.steps.length - 1 ? '1px solid var(--border)' : 'none',
+                    borderBottom: index < chain.chain.length - 1 ? '1px solid var(--border)' : 'none',
                     background: index % 2 === 1 ? 'var(--hover)' : 'transparent',
                   }}
                   initial={{ opacity: 0, x: -4 }}
@@ -280,12 +280,12 @@ function PointerChain({ onNavigate }: PointerChainProps) {
                     <span
                       className="tabular-nums"
                       style={{
-                        color: index === chain.steps.length - 1 ? 'var(--text)' : 'var(--text-secondary)',
-                        fontWeight: index === chain.steps.length - 1 ? 500 : 400,
+                        color: index === chain.chain.length - 1 ? 'var(--text)' : 'var(--text-secondary)',
+                        fontWeight: index === chain.chain.length - 1 ? 500 : 400,
                       }}
                     >
                       {step.value}
-                      {index === chain.steps.length - 1 && (
+                      {index === chain.chain.length - 1 && (
                         <span className="ml-3" style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
                           (Final)
                         </span>

@@ -1,21 +1,27 @@
 import { useState, useCallback } from 'react';
 import { orpheus } from '../api/client';
-import type { MemoryRegion } from '../api/types';
+
+export interface MemoryReadResult {
+  address: string;
+  hex?: string;
+  bytes?: number[];
+  hexdump?: string;
+}
 
 export function useMemory() {
-  const [regions, setRegions] = useState<MemoryRegion[]>([]);
+  const [data, setData] = useState<MemoryReadResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async (pid: number, address?: string, size?: number) => {
     setLoading(true);
     try {
-      const result = await orpheus.request<{ regions: MemoryRegion[] }>('tools/read_memory', {
+      const result = await orpheus.request<MemoryReadResult>('tools/read_memory', {
         pid,
         ...(address && { address }),
         ...(size && { size }),
       });
-      setRegions(result.regions || []);
+      setData(result);
       setError(null);
     } catch (err: any) {
       setError(err.message);
@@ -24,5 +30,5 @@ export function useMemory() {
     }
   }, []);
 
-  return { regions, loading, error, refresh };
+  return { data, loading, error, refresh };
 }

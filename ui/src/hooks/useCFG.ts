@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { orpheus } from '../api/client';
-import type { ControlFlowGraph } from '../api/types';
+import type { ControlFlowGraph, ControlFlowGraphResponse, CFGNode } from '../api/types';
 
 export function useCFG() {
   const [graph, setGraph] = useState<ControlFlowGraph | null>(null);
@@ -11,11 +11,24 @@ export function useCFG() {
     setLoading(true);
     setError(null);
     try {
-      const result = await orpheus.request<ControlFlowGraph>('tools/build_cfg', {
+      const result = await orpheus.request<ControlFlowGraphResponse>('tools/build_cfg', {
         pid,
         address,
       }, { timeout: 30000 });
-      setGraph(result);
+
+      // Transform nodes array to Record<string, CFGNode> for panel usage
+      const nodesRecord: Record<string, CFGNode> = {};
+      for (const node of result.nodes) {
+        nodesRecord[node.address] = node;
+      }
+
+      setGraph({
+        nodes: nodesRecord,
+        edges: result.edges,
+        has_loops: result.has_loops,
+        node_count: result.node_count,
+        edge_count: result.edge_count,
+      });
       setError(null);
     } catch (err: any) {
       setError(err.message);

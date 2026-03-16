@@ -7,21 +7,16 @@ export function usePointerChain() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const resolve = useCallback(async (pid: number, baseAddress: string, offsets: number[]) => {
+  const resolve = useCallback(async (pid: number, baseAddress: string, offsets: number[], readFinal?: boolean) => {
     setLoading(true);
     setError(null);
     setChain(null);
     try {
-      // Build nested expression: [[[base]+0x10]+0x20]+0x08
-      let expression = baseAddress;
-      for (const offset of offsets) {
-        const offsetHex = '0x' + offset.toString(16).toUpperCase();
-        expression = `[${expression}]+${offsetHex}`;
-      }
-
       const result = await orpheus.request<PointerChainResult>('tools/resolve_pointer', {
         pid,
-        expression,
+        base: baseAddress,
+        offsets,
+        ...(readFinal !== undefined && { read_final: readFinal }),
       });
       setChain(result);
     } catch (err: any) {

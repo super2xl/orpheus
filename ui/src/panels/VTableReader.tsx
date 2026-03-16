@@ -245,8 +245,9 @@ function VTableReader({ onNavigate }: VTableReaderProps) {
                 <tr style={{ background: 'var(--bg)' }}>
                   {([
                     ['INDEX', 'w-16'],
+                    ['OFFSET', 'w-20'],
                     ['ADDRESS', 'w-44'],
-                    ['FUNCTION', ''],
+                    ['STATUS', ''],
                   ] as [string, string][]).map(([label, width]) => (
                     <th
                       key={label}
@@ -266,7 +267,7 @@ function VTableReader({ onNavigate }: VTableReaderProps) {
               <tbody>
                 {vtable.entries.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
+                    <td colSpan={4} className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
                       No vtable entries found
                     </td>
                   </tr>
@@ -298,6 +299,10 @@ function VTableReader({ onNavigate }: VTableReaderProps) {
                       <td className="px-3 py-1.5 font-mono text-xs tabular-nums" style={{ color: 'var(--text-muted)' }}>
                         #{entry.index}
                       </td>
+                      {/* Offset */}
+                      <td className="px-3 py-1.5 font-mono text-xs tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                        +0x{entry.offset.toString(16).toUpperCase()}
+                      </td>
                       {/* Address */}
                       <td className="px-3 py-1.5">
                         <button
@@ -317,10 +322,10 @@ function VTableReader({ onNavigate }: VTableReaderProps) {
                           {entry.address}
                         </button>
                       </td>
-                      {/* Function name */}
+                      {/* Status */}
                       <td className="px-3 py-1.5 font-mono text-xs truncate max-w-0" style={{ color: 'var(--text)' }}>
                         <span className="truncate" style={{ userSelect: 'text' }}>
-                          {entry.function_name || `sub_${entry.address.replace(/^0x0*/i, '')}`}
+                          {entry.status}
                         </span>
                       </td>
                     </motion.tr>

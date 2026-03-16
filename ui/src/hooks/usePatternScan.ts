@@ -9,15 +9,16 @@ export function usePatternScan() {
   const [task, setTask] = useState<TaskInfo | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const scan = useCallback(async (pid: number, pattern: string, moduleName?: string) => {
+  const scan = useCallback(async (pid: number, pattern: string, base: string, size: number) => {
     setLoading(true);
     setResult(null);
     setTask(null);
     try {
       const res = await orpheus.request<ScanResult>('tools/scan_pattern', {
         pid,
+        base,
+        size,
         pattern,
-        ...(moduleName && { module_name: moduleName }),
       });
       setResult(res);
       setError(null);
@@ -28,15 +29,16 @@ export function usePatternScan() {
     }
   }, []);
 
-  const scanAsync = useCallback(async (pid: number, pattern: string, moduleName?: string) => {
+  const scanAsync = useCallback(async (pid: number, pattern: string, base: string, size: number) => {
     setLoading(true);
     setResult(null);
     setTask(null);
     try {
       const res = await orpheus.request<{ task_id: string }>('tools/scan_pattern_async', {
         pid,
+        base,
+        size,
         pattern,
-        ...(moduleName && { module_name: moduleName }),
       });
 
       // Poll for task completion

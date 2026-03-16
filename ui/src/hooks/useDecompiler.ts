@@ -17,7 +17,7 @@ export function useDecompiler() {
         address,
         ...(maxInstructions && { max_instructions: maxInstructions }),
       }, { timeout: 30000 });
-      setCode(result.code || '');
+      setCode(result.c_code || '');
       setFunctionName(result.function_name || '');
       setError(null);
     } catch (err: any) {

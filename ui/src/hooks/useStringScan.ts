@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { orpheus } from '../api/client';
-import type { StringScanResult, TaskInfo } from '../api/types';
+import type { StringMatch, StringScanResult, TaskInfo } from '../api/types';
 
 interface StringScanParams {
   pid: number;
@@ -45,7 +45,9 @@ export function useStringScan() {
           });
           setTask(taskInfo);
           if (taskInfo.state === 'completed' && taskInfo.result) {
-            setResult(taskInfo.result as StringScanResult);
+            // Server returns { strings: [...] } in the task result
+            const taskResult = taskInfo.result as { strings?: StringMatch[] };
+            setResult({ strings: taskResult.strings || [] });
             setLoading(false);
             if (pollRef.current) clearInterval(pollRef.current);
           } else if (taskInfo.state === 'failed') {

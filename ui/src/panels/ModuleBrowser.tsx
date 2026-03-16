@@ -50,7 +50,7 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
     return modules.filter(
       (m) =>
         m.name.toLowerCase().includes(q) ||
-        m.path.toLowerCase().includes(q) ||
+        (m.path || '').toLowerCase().includes(q) ||
         m.base.toLowerCase().includes(q)
     );
   }, [modules, search]);

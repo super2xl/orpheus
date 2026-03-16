@@ -7,7 +7,7 @@ export interface ProcessInfo {
 
 export interface ModuleInfo {
   name: string;
-  path: string;
+  path?: string;
   base: string;
   entry: string;
   size: number;
@@ -22,27 +22,16 @@ export interface MemoryRegion {
 }
 
 export interface InstructionInfo {
-  address: string;
+  addr: string;
   bytes: string;
-  mnemonic: string;
-  operands: string;
-  full_text: string;
-  category: string;
-  is_call: boolean;
-  is_jump: boolean;
-  is_ret: boolean;
-  branch_target?: string;
-}
-
-export interface PatternMatch {
-  address: string;
-  module_name?: string;
-  context?: string;
+  text: string;      // full instruction text (mnemonic + operands)
+  type?: string;      // "Call", "Jump", "ConditionalJump", "Return", etc.
+  target?: string;    // branch/call target address
 }
 
 export interface ScanResult {
-  matches: PatternMatch[];
-  scan_time_ms: number;
+  addresses: string[];
+  count: number;
 }
 
 export interface TaskInfo {
@@ -79,12 +68,10 @@ export interface StringMatch {
   address: string;
   value: string;
   type: string; // "ASCII" | "UTF16_LE"
-  raw_length: number;
 }
 
 export interface StringScanResult {
-  matches: StringMatch[];
-  scan_time_ms: number;
+  strings: StringMatch[];
 }
 
 export interface Bookmark {
@@ -98,10 +85,8 @@ export interface Bookmark {
 
 export interface XrefResult {
   address: string;
-  instruction: string;
-  mnemonic: string;
-  module_name?: string;
-  module_offset?: string;
+  type: string;
+  context: string;
 }
 
 export interface CacheStats {
@@ -110,7 +95,7 @@ export interface CacheStats {
   misses: number;
   evictions: number;
   hit_rate: number;
-  pages_cached: number;
+  current_pages: number;
   max_pages?: number;
 }
 
@@ -151,9 +136,9 @@ export interface FunctionInfo {
 }
 
 export interface FunctionRecoveryResult {
-  functions: FunctionInfo[];
-  scan_time_ms: number;
-  stats: Record<string, number>; // source -> count breakdown
+  status: string;
+  count: number;
+  summary: Record<string, unknown>;
 }
 
 export interface WriteInfo {
@@ -182,7 +167,7 @@ export interface EmulationResult {
 }
 
 export interface DecompileResult {
-  code: string;
+  c_code: string;
   function_name: string;
 }
 
@@ -194,15 +179,17 @@ export interface PointerChainStep {
 }
 
 export interface PointerChainResult {
-  steps: PointerChainStep[];
+  chain: PointerChainStep[];
   final_address: string;
-  final_value: string;
+  visualization: string;
+  final_value?: string;
 }
 
 export interface VTableEntry {
   index: number;
+  offset: number;
   address: string;
-  function_name?: string;
+  status: string;
 }
 
 export interface VTableInfo {
@@ -210,6 +197,13 @@ export interface VTableInfo {
   class_name?: string;
   base_classes?: string[];
   entries: VTableEntry[];
+}
+
+export interface CFGNodeLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface CFGNode {
@@ -220,10 +214,7 @@ export interface CFGNode {
   successors: string[];
   predecessors: string[];
   type: string; // Normal, Entry, Exit, Call, ConditionalJump, etc.
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  layout: CFGNodeLayout;
   is_loop_header: boolean;
 }
 
@@ -234,10 +225,20 @@ export interface CFGEdge {
   is_back_edge: boolean;
 }
 
+// Server response shape (nodes as array)
+export interface ControlFlowGraphResponse {
+  nodes: CFGNode[];
+  edges: CFGEdge[];
+  has_loops: boolean;
+  node_count: number;
+  edge_count: number;
+}
+
+// Internal shape used by UI (nodes as Record for lookups)
 export interface ControlFlowGraph {
-  function_address: string;
-  function_name: string;
   nodes: Record<string, CFGNode>;
   edges: CFGEdge[];
   has_loops: boolean;
+  node_count: number;
+  edge_count: number;
 }

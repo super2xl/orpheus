@@ -24,11 +24,11 @@ export function useCacheManager() {
     setLoading(true);
     try {
       const [rtti, schema] = await Promise.allSettled([
-        orpheus.request<{ entries: CacheEntry[] }>('tools/rtti_cache_list', {}),
-        orpheus.request<{ entries: CacheEntry[] }>('tools/cs2_schema_cache_list', {}),
+        orpheus.request<{ modules: CacheEntry[] }>('tools/rtti_cache_list', {}),
+        orpheus.request<{ scopes: CacheEntry[] }>('tools/cs2_schema_cache_list', {}),
       ]);
-      setRttiEntries(rtti.status === 'fulfilled' ? (rtti.value.entries || []) : []);
-      setSchemaEntries(schema.status === 'fulfilled' ? (schema.value.entries || []) : []);
+      setRttiEntries(rtti.status === 'fulfilled' ? (rtti.value.modules || []) : []);
+      setSchemaEntries(schema.status === 'fulfilled' ? (schema.value.scopes || []) : []);
       setError(null);
     } catch (err: any) {
       setError(err.message);

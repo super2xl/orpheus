@@ -64,7 +64,7 @@ export function useEmulator() {
     setLoading(true);
     setError(null);
     try {
-      await orpheus.request<object>('tools/emu_map_module', { module_name: name });
+      await orpheus.request<object>('tools/emu_map_module', { module: name });
     } catch (err: any) {
       setError(err.message);
     } finally {

@@ -5,8 +5,8 @@ import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 import type { CFGNode, CFGEdge, InstructionInfo } from '../api/types';
 
-function getMnemonicColor(category: string): string {
-  switch (category) {
+function getMnemonicColor(type?: string): string {
+  switch (type) {
     case 'Call': return 'var(--syn-call)';
     case 'Jump':
     case 'ConditionalJump': return 'var(--syn-jump)';
@@ -15,6 +15,14 @@ function getMnemonicColor(category: string): string {
     case 'Nop': return 'var(--syn-nop)';
     default: return 'var(--syn-keyword)';
   }
+}
+
+// Extract mnemonic and operands from instruction text
+function parseInstText(text: string): { mnemonic: string; operands: string } {
+  const trimmed = text.trim();
+  const spaceIdx = trimmed.indexOf(' ');
+  if (spaceIdx === -1) return { mnemonic: trimmed, operands: '' };
+  return { mnemonic: trimmed.substring(0, spaceIdx), operands: trimmed.substring(spaceIdx + 1).trim() };
 }
 
 function getEdgeColor(edge: CFGEdge): string {
@@ -39,10 +47,10 @@ function buildEdgePath(
   toNode: CFGNode,
   edge: CFGEdge,
 ): string {
-  const fromX = fromNode.x + fromNode.width / 2;
-  const fromY = fromNode.y + fromNode.height;
-  const toX = toNode.x + toNode.width / 2;
-  const toY = toNode.y;
+  const fromX = fromNode.layout.x + fromNode.layout.width / 2;
+  const fromY = fromNode.layout.y + fromNode.layout.height;
+  const toX = toNode.layout.x + toNode.layout.width / 2;
+  const toY = toNode.layout.y;
 
   const dy = toY - fromY;
 
@@ -53,7 +61,7 @@ function buildEdgePath(
 
   // Back edge — loop around the right side
   if (edge.is_back_edge) {
-    const loopOffset = Math.max(fromNode.width, toNode.width) / 2 + 40;
+    const loopOffset = Math.max(fromNode.layout.width, toNode.layout.width) / 2 + 40;
     const rightX = Math.max(fromX, toX) + loopOffset;
     return `M ${fromX} ${fromY} C ${fromX} ${fromY + 30}, ${rightX} ${fromY + 30}, ${rightX} ${fromY} L ${rightX} ${toY} C ${rightX} ${toY - 30}, ${toX} ${toY - 30}, ${toX} ${toY}`;
   }
@@ -85,7 +93,7 @@ function NodeBlock({
 
   return (
     <g
-      transform={`translate(${node.x}, ${node.y})`}
+      transform={`translate(${node.layout.x}, ${node.layout.y})`}
       onClick={onSelect}
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
@@ -93,8 +101,8 @@ function NodeBlock({
     >
       {/* Background rect */}
       <rect
-        width={node.width}
-        height={node.height}
+        width={node.layout.width}
+        height={node.layout.height}
         rx={6}
         ry={6}
         fill="var(--surface)"
@@ -104,7 +112,7 @@ function NodeBlock({
       />
       {/* Header: address */}
       <rect
-        width={node.width}
+        width={node.layout.width}
         height={20}
         rx={6}
         ry={6}
@@ -113,7 +121,7 @@ function NodeBlock({
       {/* Bottom rect to square off header bottom corners */}
       <rect
         y={10}
-        width={node.width}
+        width={node.layout.width}
         height={10}
         fill={isSelected ? 'var(--active)' : 'var(--hover)'}
       />
@@ -121,7 +129,7 @@ function NodeBlock({
       <line
         x1={0}
         y1={20}
-        x2={node.width}
+        x2={node.layout.width}
         y2={20}
         stroke="var(--border)"
         strokeWidth={0.5}
@@ -140,7 +148,7 @@ function NodeBlock({
       {/* Loop header indicator */}
       {node.is_loop_header && (
         <text
-          x={node.width - 8}
+          x={node.layout.width - 8}
           y={14}
           fill="var(--syn-jump)"
           fontSize={9}
@@ -151,30 +159,33 @@ function NodeBlock({
         </text>
       )}
       {/* Instructions */}
-      {displayInstructions.map((inst: InstructionInfo, i: number) => (
-        <g key={i}>
-          <text
-            x={8}
-            y={36 + i * 14}
-            fill={getMnemonicColor(inst.category)}
-            fontSize={9}
-            fontFamily="'JetBrains Mono', monospace"
-            fontWeight={400}
-          >
-            {inst.mnemonic}
-          </text>
-          <text
-            x={60}
-            y={36 + i * 14}
-            fill="var(--text)"
-            fontSize={9}
-            fontFamily="'JetBrains Mono', monospace"
-            fontWeight={400}
-          >
-            {inst.operands.length > 28 ? inst.operands.slice(0, 28) + '\u2026' : inst.operands}
-          </text>
-        </g>
-      ))}
+      {displayInstructions.map((inst: InstructionInfo, i: number) => {
+        const { mnemonic, operands } = parseInstText(inst.text);
+        return (
+          <g key={i}>
+            <text
+              x={8}
+              y={36 + i * 14}
+              fill={getMnemonicColor(inst.type)}
+              fontSize={9}
+              fontFamily="'JetBrains Mono', monospace"
+              fontWeight={400}
+            >
+              {mnemonic}
+            </text>
+            <text
+              x={60}
+              y={36 + i * 14}
+              fill="var(--text)"
+              fontSize={9}
+              fontFamily="'JetBrains Mono', monospace"
+              fontWeight={400}
+            >
+              {operands.length > 28 ? operands.slice(0, 28) + '\u2026' : operands}
+            </text>
+          </g>
+        );
+      })}
       {/* "... N more" indicator */}
       {hasMore && (
         <text
@@ -237,10 +248,10 @@ function CFGViewer() {
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const node of nodes) {
-      minX = Math.min(minX, node.x);
-      minY = Math.min(minY, node.y);
-      maxX = Math.max(maxX, node.x + node.width);
-      maxY = Math.max(maxY, node.y + node.height);
+      minX = Math.min(minX, node.layout.x);
+      minY = Math.min(minY, node.layout.y);
+      maxX = Math.max(maxX, node.layout.x + node.layout.width);
+      maxY = Math.max(maxY, node.layout.y + node.layout.height);
     }
 
     const padding = 60;
@@ -346,17 +357,6 @@ function CFGViewer() {
             </h1>
             {graph && (
               <>
-                {graph.function_name && (
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-md font-mono"
-                    style={{
-                      color: 'var(--text-secondary)',
-                      background: 'var(--active)',
-                    }}
-                  >
-                    {graph.function_name}
-                  </span>
-                )}
                 <span
                   className="text-xs px-2 py-0.5 rounded-md font-mono"
                   style={{

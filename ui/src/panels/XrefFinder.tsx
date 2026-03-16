@@ -53,8 +53,8 @@ function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: str
     }
   }, [onNavigate]);
 
-  const getMnemonicStyle = (mnemonic: string): { color: string } => {
-    const lower = mnemonic.toLowerCase();
+  const getTypeStyle = (type: string): { color: string } => {
+    const lower = type.toLowerCase();
     if (lower === 'call') return { color: 'var(--text)' };
     if (lower === 'lea') return { color: 'var(--text)' };
     if (lower.startsWith('j')) return { color: 'var(--text)' };
@@ -256,9 +256,8 @@ function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: str
               <tr style={{ background: 'var(--bg)' }}>
                 {([
                   ['ADDRESS', 'w-40'],
-                  ['INSTRUCTION', ''],
+                  ['CONTEXT', ''],
                   ['TYPE', 'w-20'],
-                  ['MODULE+OFFSET', 'w-48'],
                 ] as [string, string][]).map(([label, width]) => (
                   <th
                     key={label}
@@ -317,9 +316,9 @@ function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: str
                   >
                     {xref.address}
                   </td>
-                  {/* Instruction */}
+                  {/* Context */}
                   <td className="px-3 py-1.5 font-mono text-xs truncate max-w-0" style={{ color: 'var(--text)' }}>
-                    <span className="truncate">{xref.instruction}</span>
+                    <span className="truncate">{xref.context}</span>
                   </td>
                   {/* Type badge */}
                   <td className="px-3 py-1.5">
@@ -328,17 +327,11 @@ function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: str
                       style={{
                         fontWeight: 400,
                         background: 'var(--active)',
-                        ...getMnemonicStyle(xref.mnemonic),
+                        ...getTypeStyle(xref.type),
                       }}
                     >
-                      {xref.mnemonic}
+                      {xref.type}
                     </span>
-                  </td>
-                  {/* Module+Offset */}
-                  <td className="px-3 py-1.5 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {xref.module_name && xref.module_offset
-                      ? `${xref.module_name}+${xref.module_offset}`
-                      : xref.module_name || '\u2014'}
                   </td>
                 </motion.tr>
               ))}

@@ -59,8 +59,7 @@ function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: 
 
   const progressPercent = task?.progress ?? 0;
   const statusMessage = task?.status_message ?? '';
-  const matches = result?.matches ?? [];
-  const scanTime = result?.scan_time_ms;
+  const matches = result?.strings ?? [];
 
   // Client-side filter on found strings
   const filtered = useMemo(() => {
@@ -99,7 +98,6 @@ function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: 
                 {filtered.length}
                 {filter && ` / ${matches.length}`}
                 {' '}string{filtered.length !== 1 ? 's' : ''}
-                {scanTime != null && ` \u00B7 ${scanTime}ms`}
               </span>
             )}
           </div>
@@ -445,7 +443,6 @@ function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: 
                     ['ADDRESS', 'w-44'],
                     ['STRING', ''],
                     ['TYPE', 'w-24'],
-                    ['LENGTH', 'w-20'],
                   ] as [string, string][]).map(([label, width]) => (
                     <th
                       key={label}
@@ -515,10 +512,6 @@ function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: 
                       >
                         {match.type === 'UTF16_LE' ? 'UTF-16' : match.type}
                       </span>
-                    </td>
-                    {/* Length */}
-                    <td className="px-3 py-1.5 font-mono text-xs tabular-nums" style={{ color: 'var(--text-muted)' }}>
-                      {match.raw_length}
                     </td>
                   </motion.tr>
                 ))}
