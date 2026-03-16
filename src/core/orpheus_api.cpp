@@ -76,11 +76,17 @@ int orpheus_start_server(int port, const char* api_key) {
     config.require_auth = true;  // Always require auth
 
     if (api_key && api_key[0] != '\0') {
+        // Explicit key provided — use it
         config.api_key = api_key;
+    } else if (!config.api_key.empty()) {
+        // Reuse key from saved config (persists across restarts)
+        LOG_INFO("orpheus_start_server: Using saved API key");
     } else {
-        // No key provided (NULL or empty) — auto-generate one
+        // No saved key, no provided key — generate and save
         config.api_key = orpheus::mcp::MCPServer::GenerateApiKey();
-        LOG_INFO("orpheus_start_server: Auto-generated API key: {}", config.api_key);
+        LOG_INFO("orpheus_start_server: Generated new API key");
+        // Save config so key persists across restarts
+        orpheus::mcp::MCPServer::SaveConfig(config);
     }
 
     g_mcp = std::make_unique<orpheus::mcp::MCPServer>(g_core.get());
