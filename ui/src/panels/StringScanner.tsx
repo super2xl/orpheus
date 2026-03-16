@@ -37,12 +37,12 @@ function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: 
 
     // Determine scan scope from selected module
     const mod = modules.find((m) => m.name === selectedModule);
-    const address = mod ? mod.base : '0x0';
+    const base = mod ? mod.base : '0x0';
     const size = mod ? mod.size : 0;
 
     scanAsync({
       pid,
-      address,
+      base,
       size,
       min_length: minLength,
       scan_ascii: scanAscii,

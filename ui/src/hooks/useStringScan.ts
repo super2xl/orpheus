@@ -4,7 +4,7 @@ import type { StringScanResult, TaskInfo } from '../api/types';
 
 interface StringScanParams {
   pid: number;
-  address: string;
+  base: string;
   size: number;
   min_length: number;
   scan_ascii: boolean;
