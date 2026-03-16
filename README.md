@@ -89,30 +89,43 @@
 ### Windows
 
 ```bash
+# Full build (C++ core + Tauri app)
+build.bat
+
+# Or manually:
 mkdir build && cd build
 cmake ..
-cmake --build . --config Release
+cmake --build . --config Release --target orpheus_core
+cd ..
+copy build\bin\Release\orpheus_core.dll ui\src-tauri\target\release\
+cd ui && npm run build && cargo tauri build
 ```
 
 ### Linux
 
 ```bash
 # Install dependencies (Ubuntu/Debian)
-sudo apt install build-essential cmake libglfw3-dev libgl1-mesa-dev
+sudo apt install build-essential cmake
 
-# Build
-mkdir build && cd build
+# Full build (C++ core + Tauri app)
+./build.sh
+
+# Or manually:
+mkdir -p build && cd build
 cmake ..
-cmake --build . -j$(nproc)
+cmake --build . -j$(nproc) --target orpheus_core
+cd ..
+cp build/bin/Release/orpheus_core.dll ui/src-tauri/target/release/
+cd ui && npm run build && cargo tauri build
 
 # USB permissions for DMA device
-sudo cp ../resources/99-fpga.rules /etc/udev/rules.d/
+sudo cp resources/99-fpga.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
 
 ### Output
-- `build/bin/Release/orpheus` - Main application
+- `ui/src-tauri/target/release/orpheus` - Main application (Tauri bundle)
 - `build/bin/Release/MCPinstaller` - MCP client configuration tool
 
 ## Usage
@@ -189,8 +202,11 @@ orpheus/
 │   ├── dumper/        # CS2 schema dumper
 │   ├── mcp/           # MCP server (40+ handlers)
 │   ├── installer/     # MCPinstaller standalone tool
-│   ├── ui/            # ImGui application, CS2 panels
 │   └── utils/         # Cache, bookmarks, expression evaluator
+├── ui/                # Tauri desktop application
+│   ├── src/           # React 19 + TypeScript frontend
+│   ├── src-tauri/     # Tauri v2 Rust shell + DLL loader
+│   └── public/        # Static assets
 ├── cmake/             # CMake modules (dependencies, resource embedding)
 ├── resources/
 │   ├── dlls/          # VMM/LeechCore DLLs
@@ -202,15 +218,19 @@ orpheus/
 
 ## Dependencies
 
-Fetched automatically via CMake FetchContent:
-- GLFW 3.3.9
-- Dear ImGui 1.90.1 (docking branch)
+### C++ Core (fetched via CMake FetchContent)
 - spdlog 1.13.0
 - Zydis 4.0.0
 - Unicorn Engine 2.1.4
 - cpp-httplib 0.15.3
 - nlohmann/json 3.11.3
 - Ghidra Decompiler (libdecomp)
+- GoogleTest 1.14.0 (tests only)
+
+### Tauri Frontend
+- React 19 + TypeScript + Tailwind CSS v4
+- Tauri v2 (native desktop shell)
+- Motion (framer-motion) for animations
 
 ## Telemetry
 
