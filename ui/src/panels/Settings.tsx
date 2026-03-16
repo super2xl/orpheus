@@ -1,8 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
+import { invoke } from '@tauri-apps/api/core';
 import { useConnection } from '../hooks/useConnection';
+import { useToast } from '../hooks/useToast';
 import { orpheus } from '../api/client';
 import type { VersionInfo, CacheStats } from '../api/types';
+
+interface McpClientInfo {
+  name: string;
+  config_path: string;
+  detected: boolean;
+  installed: boolean;
+}
 
 interface SettingsProps {
   dark: boolean;
@@ -11,6 +20,7 @@ interface SettingsProps {
 
 function Settings({ dark, onToggleTheme }: SettingsProps) {
   const { connected, health } = useConnection();
+  const { toast } = useToast();
   const config = orpheus.getConfig();
 
   const apiKey = config.apiKey || '';
@@ -29,6 +39,60 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
   } | null>(null);
   const [mcpKeyCopied, setMcpKeyCopied] = useState(false);
   const [mcpUrlCopied, setMcpUrlCopied] = useState(false);
+
+  // MCP Client auto-configuration
+  const [mcpClients, setMcpClients] = useState<McpClientInfo[]>([]);
+  const [mcpClientsLoading, setMcpClientsLoading] = useState(false);
+  const [installingClient, setInstallingClient] = useState<string | null>(null);
+
+  const detectClients = useCallback(async () => {
+    setMcpClientsLoading(true);
+    try {
+      const clients = await invoke<McpClientInfo[]>('detect_mcp_clients');
+      setMcpClients(clients);
+    } catch {
+      toast('Failed to detect MCP clients', 'error');
+    } finally {
+      setMcpClientsLoading(false);
+    }
+  }, [toast]);
+
+  const installConfig = useCallback(async (client: McpClientInfo) => {
+    setInstallingClient(client.name);
+    try {
+      const serverUrl = mcpInfo?.url || config.baseUrl;
+      const key = mcpInfo?.api_key || apiKey;
+      if (!key) {
+        toast('No API key available', 'error');
+        return;
+      }
+
+      let bridgePath: string;
+      try {
+        bridgePath = await invoke<string>('get_bridge_path');
+      } catch {
+        toast('mcp_bridge.js not found', 'error');
+        return;
+      }
+
+      await invoke<string>('install_mcp_config', {
+        configPath: client.config_path,
+        serverUrl,
+        apiKey: key,
+        bridgePath,
+      });
+
+      toast(`${client.name} configured — restart to apply`, 'success');
+
+      // Refresh client list
+      const clients = await invoke<McpClientInfo[]>('detect_mcp_clients');
+      setMcpClients(clients);
+    } catch (err) {
+      toast(`Failed to configure ${client.name}: ${err}`, 'error');
+    } finally {
+      setInstallingClient(null);
+    }
+  }, [mcpInfo, config.baseUrl, apiKey, toast]);
 
   // Fetch version info
   useEffect(() => {
@@ -207,6 +271,103 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
               {health?.version && ` \u00B7 v${health.version}`}
             </span>
           </div>
+        </motion.section>
+
+        {/* MCP Client Configuration */}
+        <motion.section
+          className="rounded-lg p-5 space-y-4"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.15, delay: 0.045 }}
+        >
+          <h2 className="text-[10px] uppercase" style={{ color: 'var(--text-muted)', letterSpacing: '0.08em', fontWeight: 400 }}>
+            MCP Clients
+          </h2>
+
+          <p className="text-xs" style={{ color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+            Auto-detect and configure MCP clients on this machine.
+          </p>
+
+          <button
+            onClick={detectClients}
+            disabled={mcpClientsLoading}
+            className="px-3 h-7 rounded-md text-xs cursor-pointer border-none outline-none disabled:opacity-40"
+            style={{
+              fontWeight: 400,
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border)',
+              transition: 'all 0.1s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--hover)';
+              e.currentTarget.style.color = 'var(--text)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+            }}
+          >
+            {mcpClientsLoading ? 'Detecting...' : 'Detect Clients'}
+          </button>
+
+          {mcpClients.length > 0 && (
+            <div className="space-y-2">
+              {mcpClients.map((client) => (
+                <div
+                  key={client.name}
+                  className="flex items-center justify-between py-2 px-3 rounded-md"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
+                >
+                  <div className="space-y-0.5">
+                    <span className="text-xs block" style={{ color: 'var(--text)' }}>
+                      {client.name}
+                    </span>
+                    {client.detected ? (
+                      <span className="text-[10px] block" style={{ color: client.installed ? 'var(--dot-connected)' : 'var(--text-muted)' }}>
+                        {client.installed ? 'Configured' : 'Detected'}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] block" style={{ color: 'var(--text-muted)' }}>
+                        Not installed
+                      </span>
+                    )}
+                  </div>
+                  {client.detected && (
+                    <button
+                      onClick={() => installConfig(client)}
+                      disabled={client.installed || installingClient === client.name}
+                      className="px-3 h-7 rounded-md text-xs cursor-pointer border-none outline-none disabled:opacity-40 disabled:cursor-default shrink-0"
+                      style={{
+                        fontWeight: 400,
+                        background: 'transparent',
+                        color: client.installed ? 'var(--text-muted)' : 'var(--text-secondary)',
+                        border: '1px solid var(--border)',
+                        transition: 'all 0.1s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!client.installed && installingClient !== client.name) {
+                          e.currentTarget.style.background = 'var(--hover)';
+                          e.currentTarget.style.color = 'var(--text)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = client.installed ? 'var(--text-muted)' : 'var(--text-secondary)';
+                      }}
+                    >
+                      {installingClient === client.name
+                        ? 'Installing...'
+                        : client.installed
+                          ? 'Installed'
+                          : 'Install'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </motion.section>
 
         {/* Section 3: Appearance */}
