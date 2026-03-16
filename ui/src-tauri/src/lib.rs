@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::io::Write;
 use std::sync::OnceLock;
 
 type OrpheusInitFn = unsafe extern "C" fn() -> i32;
@@ -12,12 +11,16 @@ static SHUTDOWN_FN: OnceLock<OrpheusShutdownFn> = OnceLock::new();
 static CORE_LIB: OnceLock<libloading::Library> = OnceLock::new();
 
 fn log(msg: &str) {
-    let path = std::env::current_exe()
-        .ok()
-        .and_then(|e| e.parent().map(|p| p.join("orpheus-debug.log")))
-        .unwrap_or_else(|| PathBuf::from("orpheus-debug.log"));
-    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
-        let _ = writeln!(f, "{}", msg);
+    #[cfg(debug_assertions)]
+    {
+        use std::io::Write;
+        let path = std::env::current_exe()
+            .ok()
+            .and_then(|e| e.parent().map(|p| p.join("orpheus-debug.log")))
+            .unwrap_or_else(|| PathBuf::from("orpheus-debug.log"));
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+            let _ = writeln!(f, "{}", msg);
+        }
     }
 }
 
