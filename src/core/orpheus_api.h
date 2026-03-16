@@ -19,7 +19,8 @@ extern "C" {
 ORPHEUS_API int orpheus_init(void);
 
 // Start the MCP server on the given port
-// api_key can be NULL for no auth
+// api_key: provide a key to use, or NULL/empty to auto-generate one
+// Auth is always required — use orpheus_get_api_key() to retrieve the active key
 // Returns 0 on success
 ORPHEUS_API int orpheus_start_server(int port, const char* api_key);
 

@@ -317,7 +317,7 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
             {/* API Key */}
             <div className="space-y-1.5">
               <label className="text-xs" style={{ color: 'var(--text-secondary)' }}>API Key</label>
-              {mcpInfo.auth_required && mcpInfo.api_key ? (
+              {mcpInfo.api_key ? (
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -367,9 +367,7 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
                     color: 'var(--text-muted)',
                   }}
                 >
-                  {mcpInfo.auth_required
-                    ? 'API key is displayed in the Orpheus console on startup'
-                    : 'Authentication disabled (embedded mode) — no API key required'}
+                  API key is displayed in the Orpheus console on startup
                 </div>
               )}
             </div>

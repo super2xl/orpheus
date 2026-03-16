@@ -9,13 +9,36 @@ class OrpheusClient {
   private apiKey: string | null;
   private connected: boolean = false;
   private listeners: Set<(connected: boolean) => void> = new Set();
+  private initPromise: Promise<void>;
 
   constructor(baseUrl?: string, apiKey?: string) {
     this.baseUrl = baseUrl || localStorage.getItem('orpheus_url') || DEFAULT_URL;
     this.apiKey = apiKey || localStorage.getItem('orpheus_api_key') || null;
+    // Auto-init API key from Tauri backend — requests wait for this to complete
+    this.initPromise = this.initApiKey();
+  }
+
+  /**
+   * Attempt to get the API key from Tauri's Rust backend via IPC.
+   * Falls back to localStorage if not running in Tauri.
+   */
+  private async initApiKey() {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const key = await invoke<string | null>('get_api_key');
+      if (key) {
+        this.apiKey = key;
+        localStorage.setItem('orpheus_api_key', key);
+      }
+    } catch {
+      // Not running in Tauri (browser dev mode) — use existing key from localStorage
+    }
   }
 
   async request<T>(endpoint: string, body?: object, options?: RequestOptions): Promise<T> {
+    // Wait for API key init to complete before first request
+    await this.initPromise;
+
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.apiKey) {
       headers['Authorization'] = `Bearer ${this.apiKey}`;

@@ -5,6 +5,7 @@ interface DmaStatus {
   connected: boolean;
   device_type?: string;
   connecting?: boolean;
+  error?: string;
 }
 
 interface DmaContextValue {
@@ -46,8 +47,12 @@ export function DmaProvider({ children }: { children: React.ReactNode }) {
         // This handles: connection failed, or never started
         if (loading) {
           setLoading(false);
-          setError('Connection failed — check FPGA hardware');
+          // Use server-provided error message if available (from DMA interface)
+          setError(status.error || 'Connection failed — check FPGA hardware');
           if (connectTimeoutRef.current) { clearTimeout(connectTimeoutRef.current); connectTimeoutRef.current = null; }
+        } else if (status.error) {
+          // Even if we weren't loading, surface the error (e.g., page loaded after a failed attempt)
+          setError(status.error);
         }
       }
       // If connecting is true, keep loading=true (still in progress)

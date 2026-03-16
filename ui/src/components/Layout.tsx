@@ -360,33 +360,38 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
           {/* DMA Connection */}
           <div className="px-2.5 pb-2" style={{ borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
             {!dma.connected && (
-              <button
-                onClick={() => dma.connect('fpga')}
-                disabled={dma.loading}
-                className="w-full flex items-center justify-center gap-2 h-9 rounded-lg text-sm cursor-pointer border-none outline-none"
-                style={{
-                  background: 'var(--text)',
-                  color: 'var(--bg)',
-                  fontWeight: 500,
-                  opacity: dma.loading ? 0.6 : 1,
-                  transition: 'opacity 0.1s ease',
-                }}
-              >
-                <span className="text-base leading-none">{dma.loading ? '\u23F3' : '\u26A1'}</span>
-                <AnimatePresence>
-                  {!collapsed && (
-                    <motion.span
-                      className="whitespace-nowrap"
-                      initial={{ opacity: 0, width: 0 }}
-                      animate={{ opacity: 1, width: 'auto' }}
-                      exit={{ opacity: 0, width: 0 }}
-                      transition={{ duration: 0.15, ease: 'easeInOut' }}
-                    >
-                      {dma.loading ? 'Connecting...' : 'Connect DMA'}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </button>
+              <>
+                <button
+                  onClick={() => dma.connect('fpga')}
+                  disabled={dma.loading}
+                  className="w-full flex items-center justify-center gap-2 h-9 rounded-lg text-sm cursor-pointer border-none outline-none"
+                  style={{
+                    background: 'var(--text)',
+                    color: 'var(--bg)',
+                    fontWeight: 500,
+                    opacity: dma.loading ? 0.6 : 1,
+                    transition: 'opacity 0.1s ease',
+                  }}
+                >
+                  <span className="text-base leading-none">{dma.loading ? '\u23F3' : '\u26A1'}</span>
+                  <AnimatePresence>
+                    {!collapsed && (
+                      <motion.span
+                        className="whitespace-nowrap"
+                        initial={{ opacity: 0, width: 0 }}
+                        animate={{ opacity: 1, width: 'auto' }}
+                        exit={{ opacity: 0, width: 0 }}
+                        transition={{ duration: 0.15, ease: 'easeInOut' }}
+                      >
+                        {dma.loading ? 'Connecting...' : 'Connect DMA'}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </button>
+                {dma.error && !dma.loading && !collapsed && (
+                  <p className="text-[11px] px-3 mt-1" style={{ color: 'var(--text-muted)', lineHeight: '1.3' }}>{dma.error}</p>
+                )}
+              </>
             )}
             {dma.connected && (
               <div className="flex items-center gap-2 px-2">

@@ -378,6 +378,12 @@ void MCPServer::SetupRoutes() {
             dma_connect_thread_.join();
         }
 
+        // Clear any previous error before starting
+        {
+            std::lock_guard<std::mutex> lock(dma_error_mutex_);
+            dma_last_error_.clear();
+        }
+
         // Launch connection on tracked background thread — DMA init can take 5-30 seconds
         dma_connecting_.store(true);
         auto* dma_ptr = dma;
@@ -385,8 +391,17 @@ void MCPServer::SetupRoutes() {
             LOG_INFO("DMA connection starting ({})", device_type);
             if (dma_ptr->Initialize(device_type)) {
                 LOG_INFO("DMA connected: {}", dma_ptr->GetDeviceType());
+                std::lock_guard<std::mutex> lock(dma_error_mutex_);
+                dma_last_error_.clear();
             } else {
-                LOG_WARN("DMA connection failed ({})", device_type);
+                // Get specific error from DMA interface if available
+                std::string error_msg = dma_ptr->GetLastError();
+                if (error_msg.empty()) {
+                    error_msg = "Failed to connect — check FPGA hardware and USB connection";
+                }
+                LOG_WARN("DMA connection failed ({}): {}", device_type, error_msg);
+                std::lock_guard<std::mutex> lock(dma_error_mutex_);
+                dma_last_error_ = error_msg;
             }
             dma_connecting_.store(false);
         });
@@ -411,20 +426,14 @@ void MCPServer::SetupRoutes() {
     });
 
     // MCP info endpoint — returns server configuration for MCP client integration
+    // This endpoint is behind auth, so it's safe to expose the API key here
     server->Get("/tools/mcp_info", [this](const httplib::Request&, httplib::Response& res) {
         json response;
         response["port"] = config_.port;
         response["url"] = "http://" + config_.bind_address + ":" + std::to_string(config_.port);
-        response["auth_required"] = config_.require_auth;
-        // Only expose API key when auth is disabled (embedded/Tauri mode)
-        // When auth is enabled, the key is sensitive and should not be served over HTTP
-        if (!config_.require_auth) {
-            response["api_key"] = nullptr;
-            response["auth_note"] = "Authentication disabled (embedded mode)";
-        } else {
-            response["api_key"] = config_.api_key;
-            response["auth_note"] = "Use this API key in MCP client configuration";
-        }
+        response["auth_required"] = true;
+        response["api_key"] = config_.api_key;
+        response["auth_note"] = "Use this API key in MCP client configuration";
         res.set_content(response.dump(), "application/json");
     });
 
@@ -436,6 +445,12 @@ void MCPServer::SetupRoutes() {
         response["connecting"] = dma_connecting_.load();
         if (dma && dma->IsConnected()) {
             response["device_type"] = dma->GetDeviceType();
+        }
+        {
+            std::lock_guard<std::mutex> lock(dma_error_mutex_);
+            if (!dma_last_error_.empty()) {
+                response["error"] = dma_last_error_;
+            }
         }
         res.set_content(response.dump(), "application/json");
     });

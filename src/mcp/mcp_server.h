@@ -258,6 +258,10 @@ private:
     std::thread dma_connect_thread_;
     std::atomic<bool> dma_connecting_{false};
 
+    // DMA connection error tracking (surfaced to frontend via dma_status)
+    std::string dma_last_error_;
+    std::mutex dma_error_mutex_;
+
     std::unique_ptr<httplib::Server> http_server_;  // HTTP server
 
     // Emulator instance (one per MCP server)

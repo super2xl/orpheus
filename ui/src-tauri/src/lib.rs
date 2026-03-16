@@ -4,11 +4,14 @@ use std::sync::OnceLock;
 type OrpheusInitFn = unsafe extern "C" fn() -> i32;
 type OrpheusStartServerFn = unsafe extern "C" fn(port: i32, api_key: *const std::os::raw::c_char) -> i32;
 type OrpheusShutdownFn = unsafe extern "C" fn();
+type OrpheusGetApiKeyFn = unsafe extern "C" fn() -> *const std::os::raw::c_char;
 
 // Store shutdown function globally so we can call it from the exit handler
 static SHUTDOWN_FN: OnceLock<OrpheusShutdownFn> = OnceLock::new();
 // Keep library alive globally — must not drop before shutdown is called
 static CORE_LIB: OnceLock<libloading::Library> = OnceLock::new();
+// Store the auto-generated API key so the frontend can retrieve it via Tauri command
+static API_KEY: OnceLock<String> = OnceLock::new();
 
 fn log(msg: &str) {
     #[cfg(debug_assertions)]
@@ -70,8 +73,19 @@ fn init_backend() -> bool {
             return false;
         }
 
+        // Start server with NULL api_key — server auto-generates one
         if start_server(8765, std::ptr::null()) != 0 {
             log("MCP server failed to start");
+        } else {
+            // Retrieve the auto-generated API key so the frontend can use it
+            if let Ok(get_key) = lib.get::<OrpheusGetApiKeyFn>(b"orpheus_get_api_key") {
+                let key_ptr = get_key();
+                if !key_ptr.is_null() {
+                    let key = std::ffi::CStr::from_ptr(key_ptr).to_string_lossy().to_string();
+                    let _ = API_KEY.set(key);
+                    log("API key retrieved from core");
+                }
+            }
         }
 
         // Store lib globally so it stays loaded
@@ -99,6 +113,12 @@ impl Drop for ShutdownGuard {
     }
 }
 
+/// Tauri command: returns the auto-generated API key to the frontend
+#[tauri::command]
+fn get_api_key() -> Option<String> {
+    API_KEY.get().cloned()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     init_backend();
@@ -107,6 +127,7 @@ pub fn run() {
     let _guard = ShutdownGuard;
 
     let app = tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![get_api_key])
         .build(tauri::generate_context!())
         .expect("error building tauri application");
 

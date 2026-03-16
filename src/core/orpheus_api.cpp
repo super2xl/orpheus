@@ -73,21 +73,14 @@ int orpheus_start_server(int port, const char* api_key) {
 
     config.enabled = true;
     config.port = static_cast<uint16_t>(port);
+    config.require_auth = true;  // Always require auth
 
     if (api_key && api_key[0] != '\0') {
         config.api_key = api_key;
-        config.require_auth = true;
-    } else if (api_key == nullptr) {
-        // NULL api_key = embedded mode (Tauri) — disable auth for localhost
-        config.require_auth = false;
-        config.api_key.clear();
-        LOG_INFO("orpheus_start_server: Auth disabled (embedded mode)");
     } else {
-        // Empty string api_key — use existing config
-        if (config.require_auth && config.api_key.empty()) {
-            config.api_key = orpheus::mcp::MCPServer::GenerateApiKey();
-            LOG_INFO("orpheus_start_server: Generated new API key");
-        }
+        // No key provided (NULL or empty) — auto-generate one
+        config.api_key = orpheus::mcp::MCPServer::GenerateApiKey();
+        LOG_INFO("orpheus_start_server: Auto-generated API key: {}", config.api_key);
     }
 
     g_mcp = std::make_unique<orpheus::mcp::MCPServer>(g_core.get());
