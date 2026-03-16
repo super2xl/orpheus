@@ -268,8 +268,8 @@ void MCPServer::SetupRoutes() {
             return httplib::Server::HandlerResponse::Handled;
         }
 
-        // Auth check
-        if (config_.require_auth) {
+        // Auth check (skip for health endpoint — must be public for connectivity checks)
+        if (config_.require_auth && req.path != "/health") {
             auto auth = req.get_header_value("Authorization");
             if (auth.empty() || !auth.starts_with("Bearer ")) {
                 res.status = 401;
