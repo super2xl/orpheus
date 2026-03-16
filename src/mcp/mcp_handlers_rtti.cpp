@@ -221,7 +221,7 @@ std::string MCPServer::HandleRTTIScanModule(const std::string& body) {
             if (!cached.empty()) {
                 json cache_data = json::parse(cached);
 
-                // Return summary only
+                // Return full class list from cache
                 json result;
                 result["status"] = "cached";
                 result["module"] = module_name;
@@ -230,7 +230,37 @@ std::string MCPServer::HandleRTTIScanModule(const std::string& body) {
                 result["cache_file"] = rtti_cache_.GetFilePath(module_name, module_size);
                 result["summary"] = cache_data.value("summary", json::object());
                 result["count"] = cache_data.contains("classes") ? cache_data["classes"].size() : 0;
-                result["hint"] = "Use rtti_cache_query to search classes by name";
+
+                // Convert cached RVAs back to absolute addresses for the frontend
+                json response_classes = json::array();
+                if (cache_data.contains("classes")) {
+                    for (const auto& cls : cache_data["classes"]) {
+                        json out;
+                        uint64_t rva = cls.value("vtable_rva", (uint64_t)0);
+                        out["vtable_address"] = FormatAddress(module_base + rva);
+                        out["demangled_name"] = cls.value("type", "");
+                        out["mangled_name"] = "";
+                        out["method_count"] = cls.value("methods", 0);
+                        std::string flags = cls.value("flags", "");
+                        out["is_multiple_inheritance"] = flags.find('M') != std::string::npos;
+                        out["has_virtual_base"] = flags.find('V') != std::string::npos;
+                        out["base_classes"] = json::array();
+                        std::string hier = cls.value("hierarchy", "");
+                        if (!hier.empty()) {
+                            // Parse "Base1, Base2" format
+                            std::stringstream ss(hier);
+                            std::string base;
+                            while (std::getline(ss, base, ',')) {
+                                size_t start = base.find_first_not_of(' ');
+                                if (start != std::string::npos) {
+                                    out["base_classes"].push_back(base.substr(start));
+                                }
+                            }
+                        }
+                        response_classes.push_back(out);
+                    }
+                }
+                result["classes"] = response_classes;
 
                 LOG_INFO("RTTI cache hit for {} ({} classes)", module_name,
                     cache_data.contains("classes") ? cache_data["classes"].size() : 0);
@@ -330,7 +360,24 @@ std::string MCPServer::HandleRTTIScanModule(const std::string& body) {
             rtti_cache_.Save(module_name, module_size, cache_data.dump(2));
         }
 
-        // Return summary only (not full class list)
+        // Build class list for response
+        json response_classes = json::array();
+        for (const auto& info : found_classes) {
+            json cls;
+            cls["vtable_address"] = FormatAddress(info.vtable_address);
+            cls["demangled_name"] = info.demangled_name;
+            cls["mangled_name"] = info.mangled_name;
+            cls["method_count"] = info.method_count;
+            cls["is_multiple_inheritance"] = info.is_multiple_inheritance;
+            cls["has_virtual_base"] = info.has_virtual_base;
+            json bases = json::array();
+            for (const auto& b : info.base_classes) {
+                bases.push_back(b);
+            }
+            cls["base_classes"] = bases;
+            response_classes.push_back(cls);
+        }
+
         json result;
         result["status"] = "scanned";
         result["module"] = module_name;
@@ -338,10 +385,10 @@ std::string MCPServer::HandleRTTIScanModule(const std::string& body) {
         result["module_size"] = module_size;
         result["count"] = found_classes.size();
         result["summary"] = summary;
+        result["classes"] = response_classes;
         if (module_size > 0) {
             result["cache_file"] = rtti_cache_.GetFilePath(module_name, module_size);
         }
-        result["hint"] = "Use rtti_cache_query to search classes by name";
 
         return CreateSuccessResponse(result.dump());
 

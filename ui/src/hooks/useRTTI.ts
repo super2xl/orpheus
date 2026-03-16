@@ -7,6 +7,7 @@ interface RTTIScanResponse {
   module: string;
   count: number;
   summary: Record<string, unknown>;
+  classes?: RTTIClassInfo[];
 }
 
 export function useRTTI() {
@@ -39,13 +40,11 @@ export function useRTTI() {
         module_size: moduleSize,
       }, { timeout: 120000 });
 
-      // The response has { status, module, count, summary }
-      // Classes aren't returned inline - they're cached. Show summary info.
       setStatusMessage(`Scan complete: ${res.count} classes found`);
       setProgress(100);
-      // If the response includes classes data in summary, extract it
-      if (res.summary && Array.isArray((res.summary as any).classes)) {
-        setResults((res.summary as any).classes);
+      // Server now includes full class list in response
+      if (res.classes && Array.isArray(res.classes)) {
+        setResults(res.classes);
       }
     } catch (err: any) {
       setError(err.message);
