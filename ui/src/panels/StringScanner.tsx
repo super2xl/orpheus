@@ -7,10 +7,12 @@ import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
+import { useToast } from '../hooks/useToast';
 
 function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
+  const { toast } = useToast();
   const pid = attachedProcess?.pid;
   const { result, loading, error, task, scanAsync, cancel } = useStringScan();
   const { modules, refresh: refreshModules } = useModules();
@@ -471,8 +473,8 @@ function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: 
                     onContextMenu={(e) => showContextMenu(e, [
                       { label: 'View in Memory', action: () => onNavigate?.('memory', match.address) },
                       { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', match.address) },
-                      { label: 'Copy Address', action: () => copyToClipboard(match.address), separator: true },
-                      { label: 'Copy String', action: () => copyToClipboard(match.value) },
+                      { label: 'Copy Address', action: () => { copyToClipboard(match.address); toast('Address copied to clipboard'); }, separator: true },
+                      { label: 'Copy String', action: () => { copyToClipboard(match.value); toast('String copied to clipboard'); } },
                     ])}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = 'var(--hover)';

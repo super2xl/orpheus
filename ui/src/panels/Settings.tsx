@@ -24,11 +24,35 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
   const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
 
+  // MCP Integration info
+  const [mcpInfo, setMcpInfo] = useState<{
+    url: string;
+    port: number;
+    api_key: string | null;
+    auth_required: boolean;
+    auth_note: string;
+  } | null>(null);
+  const [mcpKeyCopied, setMcpKeyCopied] = useState(false);
+  const [mcpUrlCopied, setMcpUrlCopied] = useState(false);
+
   // Fetch version info
   useEffect(() => {
     orpheus.request<VersionInfo>('version')
       .then(setVersion)
       .catch(() => setVersion(null));
+  }, []);
+
+  // Fetch MCP info (for integration section)
+  useEffect(() => {
+    orpheus.request<{
+      url: string;
+      port: number;
+      api_key: string | null;
+      auth_required: boolean;
+      auth_note: string;
+    }>('tools/mcp_info')
+      .then(setMcpInfo)
+      .catch(() => setMcpInfo(null));
   }, []);
 
   // Fetch cache stats
@@ -230,7 +254,140 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
           )}
         </motion.section>
 
-        {/* Section 2: Appearance */}
+        {/* Section 2: MCP Integration (only when connected) */}
+        {connected && mcpInfo && (
+          <motion.section
+            className="rounded-lg p-5 space-y-4"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15, delay: 0.05 }}
+          >
+            <h2 className="text-[10px] uppercase" style={{ color: 'var(--text-muted)', letterSpacing: '0.08em', fontWeight: 400 }}>
+              MCP Integration
+            </h2>
+
+            <p className="text-xs" style={{ color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+              Copy the API key and server URL into MCPinstaller to connect Claude Desktop, Cursor, or other MCP clients.
+            </p>
+
+            {/* Server URL */}
+            <div className="space-y-1.5">
+              <label className="text-xs" style={{ color: 'var(--text-secondary)' }}>Server URL</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={mcpInfo.url}
+                  readOnly
+                  className="flex-1 h-9 px-3 rounded-md font-mono text-xs outline-none"
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text)',
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(mcpInfo.url);
+                    setMcpUrlCopied(true);
+                    setTimeout(() => setMcpUrlCopied(false), 2000);
+                  }}
+                  className="px-3 h-9 rounded-md text-xs cursor-pointer border-none outline-none shrink-0"
+                  style={{
+                    fontWeight: 400,
+                    background: 'transparent',
+                    color: mcpUrlCopied ? 'var(--text)' : 'var(--text-secondary)',
+                    border: '1px solid var(--border)',
+                    transition: 'all 0.1s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--hover)';
+                    e.currentTarget.style.color = 'var(--text)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = mcpUrlCopied ? 'var(--text)' : 'var(--text-secondary)';
+                  }}
+                >
+                  {mcpUrlCopied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            {/* API Key */}
+            <div className="space-y-1.5">
+              <label className="text-xs" style={{ color: 'var(--text-secondary)' }}>API Key</label>
+              {mcpInfo.auth_required && mcpInfo.api_key ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={mcpInfo.api_key}
+                    readOnly
+                    className="flex-1 h-9 px-3 rounded-md font-mono text-xs outline-none"
+                    style={{
+                      background: 'var(--bg)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text)',
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (mcpInfo.api_key) {
+                        navigator.clipboard.writeText(mcpInfo.api_key);
+                        setMcpKeyCopied(true);
+                        setTimeout(() => setMcpKeyCopied(false), 2000);
+                      }
+                    }}
+                    className="px-3 h-9 rounded-md text-xs cursor-pointer border-none outline-none shrink-0"
+                    style={{
+                      fontWeight: 400,
+                      background: 'transparent',
+                      color: mcpKeyCopied ? 'var(--text)' : 'var(--text-secondary)',
+                      border: '1px solid var(--border)',
+                      transition: 'all 0.1s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--hover)';
+                      e.currentTarget.style.color = 'var(--text)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = mcpKeyCopied ? 'var(--text)' : 'var(--text-secondary)';
+                    }}
+                  >
+                    {mcpKeyCopied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="px-3 py-2 rounded-md text-xs"
+                  style={{
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  {mcpInfo.auth_required
+                    ? 'API key is displayed in the Orpheus console on startup'
+                    : 'Authentication disabled (embedded mode) — no API key required'}
+                </div>
+              )}
+            </div>
+
+            {/* Auth status */}
+            <div className="flex items-center gap-2">
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ background: mcpInfo.auth_required ? 'var(--dot-connected)' : 'var(--text-muted)' }}
+              />
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {mcpInfo.auth_note}
+              </span>
+            </div>
+          </motion.section>
+        )}
+
+        {/* Section 3: Appearance */}
         <motion.section
           className="rounded-lg p-5 space-y-4"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
@@ -273,7 +430,7 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
           </div>
         </motion.section>
 
-        {/* Section 3: Cache (only when connected) */}
+        {/* Section 4: Cache (only when connected) */}
         {connected && cacheStats && (
           <motion.section
             className="rounded-lg p-5 space-y-4"
@@ -330,7 +487,7 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
           </motion.section>
         )}
 
-        {/* Section 4: About */}
+        {/* Section 5: About */}
         <motion.section
           className="rounded-lg p-5 space-y-4"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}

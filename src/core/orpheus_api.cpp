@@ -147,6 +147,21 @@ int orpheus_get_port(void) {
     return g_port;
 }
 
+const char* orpheus_get_api_key(void) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!g_mcp) return nullptr;
+    const auto& config = g_mcp->GetConfig();
+    if (!config.require_auth) return nullptr;
+    // api_key string lives inside g_mcp's config — stable as long as server is running
+    return config.api_key.c_str();
+}
+
+int orpheus_get_auth_required(void) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!g_mcp) return 0;
+    return g_mcp->GetConfig().require_auth ? 1 : 0;
+}
+
 void orpheus_shutdown(void) {
     std::lock_guard<std::mutex> lock(g_mutex);
 

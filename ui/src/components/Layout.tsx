@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useConnection } from '../hooks/useConnection';
 import { useDma } from '../hooks/useDma';
@@ -18,24 +18,54 @@ interface NavItem {
   icon: string;
 }
 
-const navItems: NavItem[] = [
-  { id: 'processes', label: 'Processes', icon: '\u25A3' },
-  { id: 'modules', label: 'Modules', icon: '\u29C9' },
-  { id: 'memory', label: 'Memory', icon: '\u2B1A' },
-  { id: 'disassembly', label: 'Disassembly', icon: '\u{1D4AE}' },
-  { id: 'scanner', label: 'Scanner', icon: '\u29BF' },
-  { id: 'strings', label: 'Strings', icon: 'T' },
-  { id: 'xrefs', label: 'Xrefs', icon: '\u2192' },
-  { id: 'bookmarks', label: 'Bookmarks', icon: '\u2605' },
-  { id: 'rtti', label: 'RTTI', icon: '\u25C8' },
-  { id: 'functions', label: 'Functions', icon: '\u03BB' },
-  { id: 'decompiler', label: 'Decompiler', icon: '{ }' },
-  { id: 'cfg', label: 'CFG', icon: '\u22B6' },
-  { id: 'write-tracer', label: 'Write Tracer', icon: '\u270E' },
-  { id: 'emulator', label: 'Emulator', icon: '\u25B6' },
-  { id: 'regions', label: 'Regions', icon: '\u25A6' },
-  { id: 'pointers', label: 'Pointers', icon: '\u21A3' },
-  { id: 'vtable', label: 'VTable', icon: '\u25A4' },
+interface NavCategory {
+  label: string;
+  items: NavItem[];
+  defaultOpen?: boolean;
+}
+
+const categories: NavCategory[] = [
+  {
+    label: 'Core',
+    defaultOpen: true,
+    items: [
+      { id: 'processes', label: 'Processes', icon: '\u25A3' },
+      { id: 'modules', label: 'Modules', icon: '\u29C9' },
+      { id: 'memory', label: 'Memory', icon: '\u2B1A' },
+      { id: 'regions', label: 'Regions', icon: '\u25A6' },
+    ],
+  },
+  {
+    label: 'Analysis',
+    defaultOpen: true,
+    items: [
+      { id: 'disassembly', label: 'Disassembly', icon: '\u{1D4AE}' },
+      { id: 'decompiler', label: 'Decompiler', icon: '{ }' },
+      { id: 'cfg', label: 'CFG', icon: '\u22B6' },
+      { id: 'functions', label: 'Functions', icon: '\u03BB' },
+      { id: 'rtti', label: 'RTTI', icon: '\u25C8' },
+    ],
+  },
+  {
+    label: 'Scanning',
+    defaultOpen: false,
+    items: [
+      { id: 'scanner', label: 'Patterns', icon: '\u29BF' },
+      { id: 'strings', label: 'Strings', icon: 'T' },
+      { id: 'xrefs', label: 'Xrefs', icon: '\u2192' },
+      { id: 'write-tracer', label: 'Write Tracer', icon: '\u270E' },
+    ],
+  },
+  {
+    label: 'Tools',
+    defaultOpen: false,
+    items: [
+      { id: 'emulator', label: 'Emulator', icon: '\u25B6' },
+      { id: 'pointers', label: 'Pointers', icon: '\u21A3' },
+      { id: 'vtable', label: 'VTable', icon: '\u25A4' },
+      { id: 'bookmarks', label: 'Bookmarks', icon: '\u2605' },
+    ],
+  },
 ];
 
 const utilityItems: NavItem[] = [
@@ -46,13 +76,112 @@ const utilityItems: NavItem[] = [
 
 const settingsItem: NavItem = { id: 'settings', label: 'Settings', icon: '\u2699' };
 
+const STORAGE_KEY = 'orpheus-sidebar-categories';
+
+function loadCategoryState(): Record<string, boolean> {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch { /* ignore */ }
+  return {};
+}
+
+function saveCategoryState(state: Record<string, boolean>) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
 function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: LayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { connected, health } = useConnection();
   const dma = useDma();
   const config = orpheus.getConfig();
 
+  // Initialize open state from localStorage, falling back to defaultOpen
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
+    const stored = loadCategoryState();
+    const initial: Record<string, boolean> = {};
+    for (const cat of categories) {
+      initial[cat.label] = stored[cat.label] ?? (cat.defaultOpen ?? false);
+    }
+    return initial;
+  });
+
+  // Auto-expand category containing active item
+  useEffect(() => {
+    for (const cat of categories) {
+      if (cat.items.some((item) => item.id === activePanel)) {
+        if (!openCategories[cat.label]) {
+          setOpenCategories((prev) => {
+            const next = { ...prev, [cat.label]: true };
+            saveCategoryState(next);
+            return next;
+          });
+        }
+        break;
+      }
+    }
+  }, [activePanel]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleCategory = useCallback((label: string) => {
+    setOpenCategories((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      saveCategoryState(next);
+      return next;
+    });
+  }, []);
+
   const sidebarWidth = collapsed ? 60 : 240;
+
+  const renderNavButton = (item: NavItem) => {
+    const isActive = activePanel === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => onNavigate(item.id)}
+        className="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm relative cursor-pointer border-none outline-none"
+        style={{
+          background: 'transparent',
+          color: isActive ? 'var(--text)' : 'var(--text-secondary)',
+          fontWeight: isActive ? 500 : 400,
+          transition: 'color 0.1s ease',
+        }}
+        onMouseEnter={(e) => {
+          if (!isActive) {
+            e.currentTarget.style.color = 'var(--text)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isActive) {
+            e.currentTarget.style.color = 'var(--text-secondary)';
+          }
+        }}
+      >
+        {isActive && (
+          <motion.div
+            className="nav-ring"
+            layoutId="nav-ring"
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          />
+        )}
+        <span className="text-base leading-none shrink-0 w-5 text-center relative z-10">
+          {item.icon}
+        </span>
+        <AnimatePresence>
+          {!collapsed && (
+            <motion.span
+              className="whitespace-nowrap relative z-10"
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -6 }}
+              transition={{ duration: 0.12, ease: 'easeOut' }}
+            >
+              {item.label}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </button>
+    );
+  };
 
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
@@ -98,167 +227,81 @@ function Layout({ activePanel, onNavigate, dark, onToggleTheme, children }: Layo
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 py-3 px-2.5 space-y-0.5 overflow-auto">
-            {navItems.map((item) => {
-              const isActive = activePanel === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => onNavigate(item.id)}
-                  className="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm relative cursor-pointer border-none outline-none"
-                  style={{
-                    background: 'transparent',
-                    color: isActive ? 'var(--text)' : 'var(--text-secondary)',
-                    fontWeight: isActive ? 500 : 400,
-                    transition: 'color 0.1s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = 'var(--text)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = 'var(--text-secondary)';
-                    }
-                  }}
-                >
-                  {/* Animated ring border for active item */}
-                  {isActive && (
-                    <motion.div
-                      className="nav-ring"
-                      layoutId="nav-ring"
-                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                    />
-                  )}
-                  <span className="text-base leading-none shrink-0 w-5 text-center relative z-10">
-                    {item.icon}
-                  </span>
-                  <AnimatePresence>
-                    {!collapsed && (
-                      <motion.span
-                        className="whitespace-nowrap relative z-10"
-                        initial={{ opacity: 0, x: -6 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -6 }}
-                        transition={{ duration: 0.12, ease: 'easeOut' }}
+          <nav className="flex-1 py-3 px-2.5 overflow-auto">
+            {collapsed ? (
+              /* Collapsed: flat icon list, no categories */
+              <div className="space-y-0.5">
+                {categories.flatMap((cat) => cat.items).map(renderNavButton)}
+              </div>
+            ) : (
+              /* Expanded: grouped categories */
+              <div className="space-y-2">
+                {categories.map((cat) => {
+                  const isOpen = openCategories[cat.label];
+                  return (
+                    <div key={cat.label}>
+                      {/* Category header */}
+                      <button
+                        onClick={() => toggleCategory(cat.label)}
+                        className="w-full flex items-center gap-1.5 px-3 py-1.5 cursor-pointer border-none outline-none"
+                        style={{
+                          background: 'transparent',
+                          color: 'var(--text-muted)',
+                          transition: 'color 0.1s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = 'var(--text-secondary)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = 'var(--text-muted)';
+                        }}
                       >
-                        {item.label}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </button>
-              );
-            })}
+                        <motion.span
+                          className="text-[9px] leading-none"
+                          animate={{ rotate: isOpen ? 90 : 0 }}
+                          transition={{ duration: 0.12, ease: 'easeOut' }}
+                        >
+                          {'\u25B8'}
+                        </motion.span>
+                        <span
+                          className="text-[10px] font-medium uppercase tracking-widest select-none"
+                        >
+                          {cat.label}
+                        </span>
+                      </button>
+                      {/* Category items */}
+                      <AnimatePresence initial={false}>
+                        {isOpen && (
+                          <motion.div
+                            className="space-y-0.5 overflow-hidden"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.15, ease: 'easeInOut' }}
+                          >
+                            {cat.items.map(renderNavButton)}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Utility section divider */}
             <div className="pt-2 pb-1 px-3">
               <div style={{ borderTop: '1px solid var(--border)' }} />
             </div>
 
-            {utilityItems.map((item) => {
-              const isActive = activePanel === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => onNavigate(item.id)}
-                  className="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm relative cursor-pointer border-none outline-none"
-                  style={{
-                    background: 'transparent',
-                    color: isActive ? 'var(--text)' : 'var(--text-secondary)',
-                    fontWeight: isActive ? 500 : 400,
-                    transition: 'color 0.1s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = 'var(--text)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = 'var(--text-secondary)';
-                    }
-                  }}
-                >
-                  {isActive && (
-                    <motion.div
-                      className="nav-ring"
-                      layoutId="nav-ring"
-                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                    />
-                  )}
-                  <span className="text-base leading-none shrink-0 w-5 text-center relative z-10">
-                    {item.icon}
-                  </span>
-                  <AnimatePresence>
-                    {!collapsed && (
-                      <motion.span
-                        className="whitespace-nowrap relative z-10"
-                        initial={{ opacity: 0, x: -6 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -6 }}
-                        transition={{ duration: 0.12, ease: 'easeOut' }}
-                      >
-                        {item.label}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </button>
-              );
-            })}
+            <div className="space-y-0.5">
+              {utilityItems.map(renderNavButton)}
+            </div>
           </nav>
 
           {/* Settings nav item */}
           <div className="px-2.5 pb-0.5">
-            {(() => {
-              const isActive = activePanel === settingsItem.id;
-              return (
-                <button
-                  onClick={() => onNavigate(settingsItem.id)}
-                  className="w-full flex items-center gap-3 px-3 h-9 rounded-lg text-sm relative cursor-pointer border-none outline-none"
-                  style={{
-                    background: 'transparent',
-                    color: isActive ? 'var(--text)' : 'var(--text-secondary)',
-                    fontWeight: isActive ? 500 : 400,
-                    transition: 'color 0.1s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = 'var(--text)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = 'var(--text-secondary)';
-                    }
-                  }}
-                >
-                  {isActive && (
-                    <motion.div
-                      className="nav-ring"
-                      layoutId="nav-ring"
-                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                    />
-                  )}
-                  <span className="text-base leading-none shrink-0 w-5 text-center relative z-10">
-                    {settingsItem.icon}
-                  </span>
-                  <AnimatePresence>
-                    {!collapsed && (
-                      <motion.span
-                        className="whitespace-nowrap relative z-10"
-                        initial={{ opacity: 0, x: -6 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -6 }}
-                        transition={{ duration: 0.12, ease: 'easeOut' }}
-                      >
-                        {settingsItem.label}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </button>
-              );
-            })()}
+            {renderNavButton(settingsItem)}
           </div>
 
           {/* Theme toggle */}

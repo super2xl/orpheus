@@ -6,6 +6,7 @@ import { useProcess } from '../hooks/useProcess';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
+import { useToast } from '../hooks/useToast';
 import type { ProcessInfo } from '../api/types';
 
 type SortField = 'pid' | 'name' | 'arch' | 'base';
@@ -15,6 +16,7 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
   const { processes, loading, error, refresh } = useProcesses();
   const { connected: dmaConnected } = useDma();
   const { process: attachedProcess, attach, detach } = useProcess();
+  const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [selectedPid, setSelectedPid] = useState<number | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(() => localStorage.getItem('orpheus-auto-refresh') === 'true');
@@ -344,8 +346,8 @@ function ProcessList({ onNavigate: _onNavigate }: { onNavigate?: (panel: string,
                       onDoubleClick={() => handleAttach(proc)}
                       onContextMenu={(e) => showContextMenu(e, [
                         { label: 'Attach', action: () => handleAttach(proc) },
-                        { label: 'Copy PID', action: () => copyToClipboard(proc.pid.toString()), separator: true },
-                        { label: 'Copy Name', action: () => copyToClipboard(proc.name) },
+                        { label: 'Copy PID', action: () => { copyToClipboard(proc.pid.toString()); toast('PID copied to clipboard'); }, separator: true },
+                        { label: 'Copy Name', action: () => { copyToClipboard(proc.name); toast('Name copied to clipboard'); } },
                       ])}
                       className="h-9 cursor-pointer group"
                       style={{

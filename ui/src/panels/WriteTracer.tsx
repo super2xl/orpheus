@@ -7,6 +7,7 @@ import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
+import { useToast } from '../hooks/useToast';
 import type { CallGraphNode, ModuleInfo } from '../api/types';
 
 // Syntax coloring — same as Disassembly
@@ -175,6 +176,7 @@ function TreeNode({
 function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
+  const { toast } = useToast();
   const pid = attachedProcess?.pid;
   const { writes, callGraph, loading, error, progress, trace, cancel } = useWriteTracer();
   const { modules, refresh: refreshModules } = useModules();
@@ -235,7 +237,7 @@ function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: st
           onContextMenu={(e: React.MouseEvent) => showContextMenu(e, [
             { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', write.instruction_address) },
             { label: 'View in Memory', action: () => onNavigate?.('memory', write.instruction_address) },
-            { label: 'Copy Address', action: () => copyToClipboard(write.instruction_address), separator: true },
+            { label: 'Copy Address', action: () => { copyToClipboard(write.instruction_address); toast('Address copied to clipboard'); }, separator: true },
           ])}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'var(--active)';

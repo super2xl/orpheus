@@ -7,10 +7,12 @@ import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
+import { useToast } from '../hooks/useToast';
 
 function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
+  const { toast } = useToast();
   const pid = attachedProcess?.pid;
   const { result, loading, error, task, scanAsync } = usePatternScan();
   const { modules, refresh: refreshModules } = useModules();
@@ -336,7 +338,7 @@ function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?:
                   onContextMenu={(e) => showContextMenu(e, [
                     { label: 'View in Memory', action: () => onNavigate?.('memory', addr) },
                     { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', addr) },
-                    { label: 'Copy Address', action: () => copyToClipboard(addr), separator: true },
+                    { label: 'Copy Address', action: () => { copyToClipboard(addr); toast('Address copied to clipboard'); }, separator: true },
                   ])}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'var(--hover)';

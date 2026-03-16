@@ -38,6 +38,14 @@ ORPHEUS_API int orpheus_is_connected(void);
 // Get server port (returns 0 if not running)
 ORPHEUS_API int orpheus_get_port(void);
 
+// Get the MCP server API key (returns NULL if auth disabled or not running)
+// Caller must NOT free the returned string — it points to internal storage.
+ORPHEUS_API const char* orpheus_get_api_key(void);
+
+// Check if MCP server requires authentication
+// Returns 1 if auth required, 0 if not
+ORPHEUS_API int orpheus_get_auth_required(void);
+
 // Full shutdown and cleanup
 ORPHEUS_API void orpheus_shutdown(void);
 

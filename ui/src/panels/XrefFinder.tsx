@@ -7,11 +7,13 @@ import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
+import { useToast } from '../hooks/useToast';
 import type { ModuleInfo } from '../api/types';
 
 function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
+  const { toast } = useToast();
   const pid = attachedProcess?.pid;
   const { results, loading, error, find, clear } = useXrefs();
   const { modules, refresh: refreshModules } = useModules();
@@ -286,7 +288,7 @@ function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: str
                   onContextMenu={(e) => showContextMenu(e, [
                     { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', xref.address) },
                     { label: 'View in Memory', action: () => onNavigate?.('memory', xref.address) },
-                    { label: 'Copy Address', action: () => copyToClipboard(xref.address), separator: true },
+                    { label: 'Copy Address', action: () => { copyToClipboard(xref.address); toast('Address copied to clipboard'); }, separator: true },
                   ])}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'var(--hover)';

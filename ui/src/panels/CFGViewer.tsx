@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCFG } from '../hooks/useCFG';
 import { useProcess } from '../hooks/useProcess';
@@ -202,7 +202,10 @@ function NodeBlock({
   );
 }
 
-function CFGViewer() {
+function CFGViewer({ pendingAddress, onAddressConsumed }: {
+  pendingAddress?: string | null;
+  onAddressConsumed?: () => void;
+} = {}) {
   const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
   const pid = attachedProcess?.pid;
@@ -218,6 +221,23 @@ function CFGViewer() {
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, vbX: 0, vbY: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // Consume pending address from cross-panel navigation
+  useEffect(() => {
+    if (pendingAddress && pid) {
+      setAddress(pendingAddress);
+      let addrStr: string;
+      if (pendingAddress.startsWith('0x') || pendingAddress.startsWith('0X')) {
+        addrStr = pendingAddress;
+      } else {
+        addrStr = '0x' + pendingAddress;
+      }
+      setHasBuilt(true);
+      setSelectedNode(null);
+      build(pid, addrStr);
+      onAddressConsumed?.();
+    }
+  }, [pendingAddress, pid, build, onAddressConsumed]);
 
   const handleGo = useCallback(async () => {
     const input = address.trim();

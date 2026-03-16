@@ -7,6 +7,7 @@ import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
+import { useToast } from '../hooks/useToast';
 
 const GPR_NAMES = [
   'rax', 'rbx', 'rcx', 'rdx', 'rsi', 'rdi', 'rbp', 'rsp',
@@ -131,6 +132,7 @@ function RegisterCell({
 function Emulator({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
+  const { toast } = useToast();
   const pid = attachedProcess?.pid;
   const {
     created, registers, result, status, loading, error, changedRegs,
@@ -569,7 +571,7 @@ function Emulator({ onNavigate }: { onNavigate?: (panel: string, address?: strin
                       onContextMenu={(e) => showContextMenu(e, [
                         { label: 'View in Memory', action: () => onNavigate?.('memory', regValue) },
                         { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', regValue) },
-                        { label: 'Copy Value', action: () => copyToClipboard(regValue), separator: true },
+                        { label: 'Copy Value', action: () => { copyToClipboard(regValue); toast('Value copied to clipboard'); }, separator: true },
                       ])}
                     >
                       <RegisterCell

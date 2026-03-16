@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDisassembly } from '../hooks/useDisassembly';
 import { useProcess } from '../hooks/useProcess';
@@ -6,6 +6,7 @@ import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
+import { useToast } from '../hooks/useToast';
 import { orpheus } from '../api/client';
 import type { InstructionInfo } from '../api/types';
 
@@ -75,9 +76,14 @@ function tokenizeOperands(operands: string): OperandToken[] {
   return tokens;
 }
 
-function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
+function Disassembly({ onNavigate, pendingAddress, onAddressConsumed }: {
+  onNavigate?: (panel: string, address?: string) => void;
+  pendingAddress?: string | null;
+  onAddressConsumed?: () => void;
+}) {
   const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
+  const { toast } = useToast();
   const pid = attachedProcess?.pid;
   const { instructions, loading, error, disassemble } = useDisassembly();
 
@@ -85,6 +91,21 @@ function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: st
   const [instructionCount, setInstructionCount] = useState(50);
   const [hoveredAddr, setHoveredAddr] = useState<string | null>(null);
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
+
+  // Consume pending address from cross-panel navigation
+  useEffect(() => {
+    if (pendingAddress && pid) {
+      setAddress(pendingAddress);
+      let addrStr: string;
+      if (pendingAddress.startsWith('0x') || pendingAddress.startsWith('0X')) {
+        addrStr = pendingAddress;
+      } else {
+        addrStr = '0x' + pendingAddress;
+      }
+      disassemble(pid, addrStr, instructionCount);
+      onAddressConsumed?.();
+    }
+  }, [pendingAddress, pid, instructionCount, disassemble, onAddressConsumed]);
 
   const handleGo = useCallback(async () => {
     const input = address.trim();
@@ -153,8 +174,8 @@ function Disassembly({ onNavigate }: { onNavigate?: (panel: string, address?: st
             { label: 'View in Memory', action: () => onNavigate?.('memory', inst.addr) },
             { label: 'Find XRefs', action: () => onNavigate?.('xrefs', inst.addr) },
             { label: 'Generate Signature', action: () => {}, disabled: true },
-            { label: 'Copy Address', action: () => copyToClipboard(inst.addr), separator: true },
-            { label: 'Copy Instruction', action: () => copyToClipboard(inst.text) },
+            { label: 'Copy Address', action: () => { copyToClipboard(inst.addr); toast('Address copied to clipboard'); }, separator: true },
+            { label: 'Copy Instruction', action: () => { copyToClipboard(inst.text); toast('Instruction copied to clipboard'); } },
           ])}
           onMouseEnter={() => setHoveredAddr(inst.addr)}
           onMouseLeave={() => setHoveredAddr(null)}

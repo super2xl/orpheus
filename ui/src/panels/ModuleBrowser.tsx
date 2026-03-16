@@ -6,6 +6,7 @@ import { useProcess } from '../hooks/useProcess';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
+import { useToast } from '../hooks/useToast';
 
 type SortField = 'name' | 'base' | 'size' | 'entry';
 type SortDir = 'asc' | 'desc';
@@ -20,6 +21,7 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
   const { modules, loading, error, refresh } = useModules();
   const { connected: dmaConnected } = useDma();
   const { process: attachedProcess } = useProcess();
+  const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [sortField, setSortField] = useState<SortField>('name');
@@ -321,8 +323,8 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
                       onContextMenu={(e) => showContextMenu(e, [
                         { label: 'View in Memory', action: () => onNavigate?.('memory', mod.base) },
                         { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', mod.entry) },
-                        { label: 'Copy Base Address', action: () => copyToClipboard(mod.base), separator: true },
-                        { label: 'Copy Name', action: () => copyToClipboard(mod.name) },
+                        { label: 'Copy Base Address', action: () => { copyToClipboard(mod.base); toast('Address copied to clipboard'); }, separator: true },
+                        { label: 'Copy Name', action: () => { copyToClipboard(mod.name); toast('Name copied to clipboard'); } },
                       ])}
                       className="h-9 cursor-pointer group"
                       style={{

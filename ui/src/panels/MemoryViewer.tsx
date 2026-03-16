@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
@@ -6,7 +6,7 @@ import { orpheus } from '../api/client';
 
 interface MemoryData {
   address: string;
-  bytes: number[];
+  hex: string;
   size: number;
 }
 
@@ -16,7 +16,21 @@ function formatSize(bytes: number): string {
   return bytes + ' B';
 }
 
-function MemoryViewer() {
+/** Parse a compact hex string into a byte array */
+function hexToBytes(hex: string): number[] {
+  const bytes: number[] = [];
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes.push(parseInt(hex.substring(i, i + 2), 16));
+  }
+  return bytes;
+}
+
+interface MemoryViewerProps {
+  pendingAddress?: string | null;
+  onAddressConsumed?: () => void;
+}
+
+function MemoryViewer({ pendingAddress, onAddressConsumed }: MemoryViewerProps) {
   const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
   const pid = attachedProcess?.pid;
@@ -43,8 +57,11 @@ function MemoryViewer() {
         pid,
         address: addrHex,
         size,
+        format: 'hex',
       });
-      setMemoryData(result.bytes || []);
+      // Server returns compact hex string; parse into byte array for the grid
+      const bytes = result.hex ? hexToBytes(result.hex) : [];
+      setMemoryData(bytes);
       setCurrentAddress(addr);
       setSelectedOffset(null);
     } catch (err: any) {
@@ -54,6 +71,25 @@ function MemoryViewer() {
       setLoading(false);
     }
   }, [pid]);
+
+  // Consume pending address from cross-panel navigation
+  useEffect(() => {
+    if (pendingAddress && pid) {
+      setAddress(pendingAddress);
+      try {
+        let addr: bigint;
+        if (pendingAddress.startsWith('0x') || pendingAddress.startsWith('0X')) {
+          addr = BigInt(pendingAddress);
+        } else {
+          addr = BigInt('0x' + pendingAddress);
+        }
+        readMemory(addr, readSize);
+      } catch {
+        // Address may be a module+offset expression; just set the input
+      }
+      onAddressConsumed?.();
+    }
+  }, [pendingAddress, pid, readSize, readMemory, onAddressConsumed]);
 
   const handleGo = useCallback(async () => {
     const input = address.trim();

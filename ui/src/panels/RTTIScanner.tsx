@@ -7,11 +7,13 @@ import { useDma } from '../hooks/useDma';
 import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
+import { useToast } from '../hooks/useToast';
 import type { RTTIClassInfo } from '../api/types';
 
 function RTTIScanner({ onNavigate }: { onNavigate?: (panel: string, address?: string) => void }) {
   const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
+  const { toast } = useToast();
   const pid = attachedProcess?.pid;
   const { results, scanTime, loading, error, progress, statusMessage, scan, cancel, parseVTable } = useRTTI();
   const { modules, refresh: refreshModules } = useModules();
@@ -359,8 +361,8 @@ function RTTIScanner({ onNavigate }: { onNavigate?: (panel: string, address?: st
                     onContextMenu={(e) => showContextMenu(e, [
                       { label: 'View VTable in Memory', action: () => onNavigate?.('memory', cls.vtable_address) },
                       { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', cls.vtable_address) },
-                      { label: 'Copy VTable Address', action: () => copyToClipboard(cls.vtable_address), separator: true },
-                      { label: 'Copy Class Name', action: () => copyToClipboard(cls.demangled_name) },
+                      { label: 'Copy VTable Address', action: () => { copyToClipboard(cls.vtable_address); toast('Address copied to clipboard'); }, separator: true },
+                      { label: 'Copy Class Name', action: () => { copyToClipboard(cls.demangled_name); toast('Class name copied to clipboard'); } },
                     ])}
                     className="cursor-pointer group"
                     style={{

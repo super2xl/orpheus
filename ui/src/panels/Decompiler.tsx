@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDecompiler } from '../hooks/useDecompiler';
 import { useProcess } from '../hooks/useProcess';
@@ -75,7 +75,10 @@ function tokenizeLine(line: string): Token[] {
   return tokens;
 }
 
-function Decompiler() {
+function Decompiler({ pendingAddress, onAddressConsumed }: {
+  pendingAddress?: string | null;
+  onAddressConsumed?: () => void;
+} = {}) {
   const { process: attachedProcess } = useProcess();
   const { connected: dmaConnected } = useDma();
   const pid = attachedProcess?.pid;
@@ -84,6 +87,22 @@ function Decompiler() {
   const [address, setAddress] = useState('');
   const [maxInstructions, setMaxInstructions] = useState(100000);
   const [hasDecompiled, setHasDecompiled] = useState(false);
+
+  // Consume pending address from cross-panel navigation
+  useEffect(() => {
+    if (pendingAddress && pid) {
+      setAddress(pendingAddress);
+      let addrStr: string;
+      if (pendingAddress.startsWith('0x') || pendingAddress.startsWith('0X')) {
+        addrStr = pendingAddress;
+      } else {
+        addrStr = '0x' + pendingAddress;
+      }
+      setHasDecompiled(true);
+      decompile(pid, addrStr, maxInstructions);
+      onAddressConsumed?.();
+    }
+  }, [pendingAddress, pid, maxInstructions, decompile, onAddressConsumed]);
 
   const handleGo = useCallback(async () => {
     const input = address.trim();

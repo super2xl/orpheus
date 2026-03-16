@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DmaProvider } from './hooks/useDma';
 import { ProcessProvider } from './hooks/useProcess';
+import { ToastProvider } from './hooks/useToast';
 import Layout from './components/Layout';
 import CommandPalette from './components/CommandPalette';
 import ProcessList from './panels/ProcessList';
@@ -28,6 +29,7 @@ import Settings from './panels/Settings';
 function App() {
   const [activePanel, setActivePanel] = useState('processes');
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [pendingAddress, setPendingAddress] = useState<string | null>(null);
   const [dark, setDark] = useState(() => {
     const stored = localStorage.getItem('orpheus-theme');
     return stored ? stored === 'dark' : true; // default to dark
@@ -40,8 +42,15 @@ function App() {
 
   const toggleTheme = useCallback(() => setDark((d) => !d), []);
 
-  const handleNavigate = useCallback((panel: string, _address?: string) => {
+  const handleNavigate = useCallback((panel: string, address?: string) => {
     setActivePanel(panel);
+    if (address) {
+      setPendingAddress(address);
+    }
+  }, []);
+
+  const handleAddressConsumed = useCallback(() => {
+    setPendingAddress(null);
   }, []);
 
   // Global Ctrl+K listener for command palette
@@ -59,19 +68,20 @@ function App() {
   return (
     <DmaProvider>
     <ProcessProvider>
+    <ToastProvider>
       <Layout activePanel={activePanel} onNavigate={handleNavigate} dark={dark} onToggleTheme={toggleTheme}>
         {activePanel === 'processes' && <ProcessList onNavigate={handleNavigate} />}
         {activePanel === 'modules' && <ModuleBrowser onNavigate={handleNavigate} />}
-        {activePanel === 'memory' && <MemoryViewer />}
-        {activePanel === 'disassembly' && <Disassembly onNavigate={handleNavigate} />}
+        {activePanel === 'memory' && <MemoryViewer pendingAddress={pendingAddress} onAddressConsumed={handleAddressConsumed} />}
+        {activePanel === 'disassembly' && <Disassembly onNavigate={handleNavigate} pendingAddress={pendingAddress} onAddressConsumed={handleAddressConsumed} />}
         {activePanel === 'scanner' && <PatternScanner onNavigate={handleNavigate} />}
         {activePanel === 'strings' && <StringScanner onNavigate={handleNavigate} />}
         {activePanel === 'xrefs' && <XrefFinder onNavigate={handleNavigate} />}
         {activePanel === 'bookmarks' && <Bookmarks onNavigate={handleNavigate} />}
         {activePanel === 'rtti' && <RTTIScanner onNavigate={handleNavigate} />}
         {activePanel === 'functions' && <FunctionRecovery onNavigate={handleNavigate} />}
-        {activePanel === 'decompiler' && <Decompiler />}
-        {activePanel === 'cfg' && <CFGViewer />}
+        {activePanel === 'decompiler' && <Decompiler pendingAddress={pendingAddress} onAddressConsumed={handleAddressConsumed} />}
+        {activePanel === 'cfg' && <CFGViewer pendingAddress={pendingAddress} onAddressConsumed={handleAddressConsumed} />}
         {activePanel === 'write-tracer' && <WriteTracer onNavigate={handleNavigate} />}
         {activePanel === 'emulator' && <Emulator onNavigate={handleNavigate} />}
         {activePanel === 'regions' && <MemoryRegions onNavigate={handleNavigate} />}
@@ -88,6 +98,7 @@ function App() {
         onNavigate={handleNavigate}
         onToggleTheme={toggleTheme}
       />
+    </ToastProvider>
     </ProcessProvider>
     </DmaProvider>
   );

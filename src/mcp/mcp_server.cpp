@@ -410,6 +410,24 @@ void MCPServer::SetupRoutes() {
         res.set_content(response.dump(), "application/json");
     });
 
+    // MCP info endpoint — returns server configuration for MCP client integration
+    server->Get("/tools/mcp_info", [this](const httplib::Request&, httplib::Response& res) {
+        json response;
+        response["port"] = config_.port;
+        response["url"] = "http://" + config_.bind_address + ":" + std::to_string(config_.port);
+        response["auth_required"] = config_.require_auth;
+        // Only expose API key when auth is disabled (embedded/Tauri mode)
+        // When auth is enabled, the key is sensitive and should not be served over HTTP
+        if (!config_.require_auth) {
+            response["api_key"] = nullptr;
+            response["auth_note"] = "Authentication disabled (embedded mode)";
+        } else {
+            response["api_key"] = config_.api_key;
+            response["auth_note"] = "Use this API key in MCP client configuration";
+        }
+        res.set_content(response.dump(), "application/json");
+    });
+
     // DMA status
     server->Get("/tools/dma_status", [this](const httplib::Request&, httplib::Response& res) {
         auto* dma = core_->GetDMA();
