@@ -38,7 +38,7 @@ function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: str
     if (!input || !pid) return;
     setHasSearched(true);
     const mod = getSelectedModuleInfo();
-    find(pid, input, mod?.base_address, mod?.size);
+    find(pid, input, mod?.base, mod?.size);
   }, [address, pid, find, getSelectedModuleInfo]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -167,7 +167,7 @@ function XrefFinder({ onNavigate }: { onNavigate?: (panel: string, address?: str
             >
               <option value="">All Modules</option>
               {modules.map((m) => (
-                <option key={m.base_address} value={m.name}>
+                <option key={m.base} value={m.name}>
                   {m.name}
                 </option>
               ))}

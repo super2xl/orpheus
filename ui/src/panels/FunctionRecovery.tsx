@@ -54,7 +54,7 @@ function FunctionRecovery({ onNavigate }: { onNavigate?: (panel: string, address
   const handleRecover = useCallback(() => {
     if (!pid || !selectedModuleInfo) return;
     setHasScanned(true);
-    recover(pid, selectedModuleInfo.base_address, selectedModuleInfo.size, {
+    recover(pid, selectedModuleInfo.base, selectedModuleInfo.size, {
       prologues,
       call_targets: callTargets,
       exception_data: exceptionData,
@@ -187,7 +187,7 @@ function FunctionRecovery({ onNavigate }: { onNavigate?: (panel: string, address
             >
               <option value="">Select module...</option>
               {modules.map((m) => (
-                <option key={m.base_address} value={m.name}>
+                <option key={m.base} value={m.name}>
                   {m.name}
                 </option>
               ))}

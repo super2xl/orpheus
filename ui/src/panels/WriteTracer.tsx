@@ -204,7 +204,7 @@ function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: st
     setHasTraced(true);
     setShowCallGraph(false);
     const mod = getSelectedModuleInfo();
-    trace(pid, input, mod?.base_address, mod?.size, maxDepth);
+    trace(pid, input, mod?.base, mod?.size, maxDepth);
   }, [address, pid, trace, getSelectedModuleInfo, maxDepth]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -408,7 +408,7 @@ function WriteTracer({ onNavigate }: { onNavigate?: (panel: string, address?: st
             >
               <option value="">All Modules</option>
               {modules.map((m) => (
-                <option key={m.base_address} value={m.name}>
+                <option key={m.base} value={m.name}>
                   {m.name}
                 </option>
               ))}

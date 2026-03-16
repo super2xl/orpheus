@@ -4,7 +4,7 @@ import { useMemoryRegions } from '../hooks/useMemoryRegions';
 import { useProcess } from '../hooks/useProcess';
 import { useDma } from '../hooks/useDma';
 
-type SortField = 'base_address' | 'size' | 'protection';
+type SortField = 'base' | 'size' | 'protection';
 type SortDir = 'asc' | 'desc';
 type ProtectionFilter = 'all' | 'execute' | 'write' | 'read';
 type TypeFilter = 'all' | 'MEM_PRIVATE' | 'MEM_IMAGE' | 'MEM_MAPPED';
@@ -36,7 +36,7 @@ function MemoryRegions({ onNavigate }: MemoryRegionsProps) {
   const [search, setSearch] = useState('');
   const [protFilter, setProtFilter] = useState<ProtectionFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
-  const [sortField, setSortField] = useState<SortField>('base_address');
+  const [sortField, setSortField] = useState<SortField>('base');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   useEffect(() => {
@@ -71,7 +71,7 @@ function MemoryRegions({ onNavigate }: MemoryRegionsProps) {
     if (q) {
       list = list.filter(
         (r) =>
-          r.base_address.toLowerCase().includes(q) ||
+          r.base.toLowerCase().includes(q) ||
           r.info.toLowerCase().includes(q) ||
           r.protection.toLowerCase().includes(q)
       );
@@ -85,8 +85,8 @@ function MemoryRegions({ onNavigate }: MemoryRegionsProps) {
     list.sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
-        case 'base_address':
-          cmp = a.base_address.localeCompare(b.base_address);
+        case 'base':
+          cmp = a.base.localeCompare(b.base);
           break;
         case 'size':
           cmp = a.size - b.size;
@@ -368,7 +368,7 @@ function MemoryRegions({ onNavigate }: MemoryRegionsProps) {
             <thead className="sticky top-0 z-10">
               <tr style={{ background: 'var(--bg)' }}>
                 {([
-                  ['base_address', 'BASE ADDRESS', 'w-44'],
+                  ['base', 'BASE ADDRESS', 'w-44'],
                   ['size', 'SIZE', 'w-24'],
                   ['protection', 'PROTECTION', 'w-28'],
                   [null, 'TYPE', 'w-28'],
@@ -428,7 +428,7 @@ function MemoryRegions({ onNavigate }: MemoryRegionsProps) {
               ) : (
                 sorted.map((region, index) => (
                   <motion.tr
-                    key={region.base_address}
+                    key={region.base}
                     className="h-9 group"
                     style={{
                       background: 'transparent',
@@ -452,7 +452,7 @@ function MemoryRegions({ onNavigate }: MemoryRegionsProps) {
                     {/* Base Address */}
                     <td className="px-3 py-1.5">
                       <button
-                        onClick={() => handleAddressClick(region.base_address)}
+                        onClick={() => handleAddressClick(region.base)}
                         className="font-mono text-xs tabular-nums cursor-pointer border-none outline-none bg-transparent p-0"
                         style={{
                           color: 'var(--text-secondary)',
@@ -465,7 +465,7 @@ function MemoryRegions({ onNavigate }: MemoryRegionsProps) {
                           e.currentTarget.style.color = 'var(--text-secondary)';
                         }}
                       >
-                        {region.base_address}
+                        {region.base}
                       </button>
                     </td>
                     {/* Size */}

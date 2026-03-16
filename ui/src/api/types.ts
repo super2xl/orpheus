@@ -8,13 +8,13 @@ export interface ProcessInfo {
 export interface ModuleInfo {
   name: string;
   path: string;
-  base_address: string;
-  entry_point: string;
+  base: string;
+  entry: string;
   size: number;
 }
 
 export interface MemoryRegion {
-  base_address: string;
+  base: string;
   size: number;
   protection: string;
   type: string;

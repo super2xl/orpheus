@@ -37,7 +37,7 @@ function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: 
 
     // Determine scan scope from selected module
     const mod = modules.find((m) => m.name === selectedModule);
-    const address = mod ? mod.base_address : '0x0';
+    const address = mod ? mod.base : '0x0';
     const size = mod ? mod.size : 0;
 
     scanAsync({
@@ -181,7 +181,7 @@ function StringScanner({ onNavigate }: { onNavigate?: (panel: string, address?: 
             >
               <option value="">All Modules</option>
               {modules.map((m) => (
-                <option key={m.base_address} value={m.name}>
+                <option key={m.base} value={m.name}>
                   {m.name}
                 </option>
               ))}

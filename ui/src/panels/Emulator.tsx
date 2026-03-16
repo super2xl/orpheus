@@ -442,7 +442,7 @@ function Emulator({ onNavigate }: { onNavigate?: (panel: string, address?: strin
                 >
                   <option value="">Map Module...</option>
                   {modules.map((m) => (
-                    <option key={m.base_address} value={m.name}>
+                    <option key={m.base} value={m.name}>
                       {m.name}
                     </option>
                   ))}

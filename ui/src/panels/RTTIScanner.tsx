@@ -40,7 +40,7 @@ function RTTIScanner({ onNavigate }: { onNavigate?: (panel: string, address?: st
     setHasScanned(true);
     setExpandedClass(null);
     setVtableEntries([]);
-    scan(pid, selectedModuleInfo.base_address, selectedModuleInfo.size);
+    scan(pid, selectedModuleInfo.base, selectedModuleInfo.size);
   }, [pid, selectedModuleInfo, scan]);
 
   const filtered = useMemo(() => {
@@ -127,7 +127,7 @@ function RTTIScanner({ onNavigate }: { onNavigate?: (panel: string, address?: st
             >
               <option value="">Select module...</option>
               {modules.map((m) => (
-                <option key={m.base_address} value={m.name}>
+                <option key={m.base} value={m.name}>
                   {m.name}
                 </option>
               ))}

@@ -7,7 +7,7 @@ import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
 
-type SortField = 'name' | 'base_address' | 'size' | 'entry_point';
+type SortField = 'name' | 'base' | 'size' | 'entry';
 type SortDir = 'asc' | 'desc';
 
 function formatSize(bytes: number): string {
@@ -51,7 +51,7 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
       (m) =>
         m.name.toLowerCase().includes(q) ||
         m.path.toLowerCase().includes(q) ||
-        m.base_address.toLowerCase().includes(q)
+        m.base.toLowerCase().includes(q)
     );
   }, [modules, search]);
 
@@ -64,14 +64,14 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
         case 'name':
           cmp = a.name.localeCompare(b.name);
           break;
-        case 'base_address':
-          cmp = a.base_address.localeCompare(b.base_address);
+        case 'base':
+          cmp = a.base.localeCompare(b.base);
           break;
         case 'size':
           cmp = a.size - b.size;
           break;
-        case 'entry_point':
-          cmp = a.entry_point.localeCompare(b.entry_point);
+        case 'entry':
+          cmp = a.entry.localeCompare(b.entry);
           break;
       }
       return sortDir === 'asc' ? cmp : -cmp;
@@ -254,9 +254,9 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
               <tr style={{ background: 'var(--bg)' }}>
                 {([
                   ['name', 'NAME', ''],
-                  ['base_address', 'BASE ADDRESS', 'w-44'],
+                  ['base', 'BASE ADDRESS', 'w-44'],
                   ['size', 'SIZE', 'w-28'],
-                  ['entry_point', 'ENTRY POINT', 'w-44'],
+                  ['entry', 'ENTRY POINT', 'w-44'],
                 ] as [SortField, string, string][]).map(([field, label, width]) => (
                   <th
                     key={field}
@@ -316,12 +316,12 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
                   const isSelected = selectedIndex === index;
                   return (
                     <motion.tr
-                      key={`${mod.base_address}-${mod.name}`}
+                      key={`${mod.base}-${mod.name}`}
                       onClick={() => handleRowClick(index)}
                       onContextMenu={(e) => showContextMenu(e, [
-                        { label: 'View in Memory', action: () => onNavigate?.('memory', mod.base_address) },
-                        { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', mod.entry_point) },
-                        { label: 'Copy Base Address', action: () => copyToClipboard(mod.base_address), separator: true },
+                        { label: 'View in Memory', action: () => onNavigate?.('memory', mod.base) },
+                        { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', mod.entry) },
+                        { label: 'Copy Base Address', action: () => copyToClipboard(mod.base), separator: true },
                         { label: 'Copy Name', action: () => copyToClipboard(mod.name) },
                       ])}
                       className="h-9 cursor-pointer group"
@@ -355,7 +355,7 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
                       </td>
                       {/* Base Address */}
                       <td className="px-3 py-1.5 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {mod.base_address}
+                        {mod.base}
                       </td>
                       {/* Size */}
                       <td className="px-3 py-1.5 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -363,7 +363,7 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
                       </td>
                       {/* Entry Point */}
                       <td className="px-3 py-1.5 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {mod.entry_point}
+                        {mod.entry}
                       </td>
                       {/* Action buttons */}
                       <td className="px-3 py-1.5 text-right">
@@ -371,13 +371,13 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleCopyAddress(mod.base_address);
+                              handleCopyAddress(mod.base);
                             }}
                             className="px-2 py-0.5 rounded text-[10px] cursor-pointer outline-none"
                             style={{
                               fontWeight: 400,
                               background: 'transparent',
-                              color: copiedAddress === mod.base_address ? 'var(--text)' : 'var(--text-secondary)',
+                              color: copiedAddress === mod.base ? 'var(--text)' : 'var(--text-secondary)',
                               border: '1px solid var(--border)',
                               transition: 'all 0.1s ease',
                             }}
@@ -390,7 +390,7 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
                               e.currentTarget.style.color = 'var(--text-secondary)';
                             }}
                           >
-                            {copiedAddress === mod.base_address ? 'Copied' : 'Copy'}
+                            {copiedAddress === mod.base ? 'Copied' : 'Copy'}
                           </button>
                         </div>
                       </td>

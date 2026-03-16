@@ -152,7 +152,7 @@ function PatternScanner({ onNavigate }: { onNavigate?: (panel: string, address?:
             >
               <option value="">All Modules</option>
               {modules.map((m) => (
-                <option key={m.base_address} value={m.name}>
+                <option key={m.base} value={m.name}>
                   {m.name}
                 </option>
               ))}
