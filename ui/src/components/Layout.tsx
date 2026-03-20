@@ -54,6 +54,7 @@ const categories: NavCategory[] = [
       { id: 'strings', label: 'Strings', icon: 'T' },
       { id: 'xrefs', label: 'Xrefs', icon: '\u2192' },
       { id: 'write-tracer', label: 'Write Tracer', icon: '\u270E' },
+      { id: 'diff', label: 'Diff', icon: '\u0394' },
     ],
   },
   {
@@ -64,6 +65,13 @@ const categories: NavCategory[] = [
       { id: 'pointers', label: 'Pointers', icon: '\u21A3' },
       { id: 'vtable', label: 'VTable', icon: '\u25A4' },
       { id: 'bookmarks', label: 'Bookmarks', icon: '\u2605' },
+    ],
+  },
+  {
+    label: 'Game',
+    defaultOpen: false,
+    items: [
+      { id: 'cs2', label: 'CS2', icon: '\u25CE' },
     ],
   },
 ];

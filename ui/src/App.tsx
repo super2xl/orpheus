@@ -25,6 +25,8 @@ import Console from './panels/Console';
 import TaskManager from './panels/TaskManager';
 import CacheManager from './panels/CacheManager';
 import Settings from './panels/Settings';
+import MemoryDiff from './panels/MemoryDiff';
+import CS2Inspector from './panels/CS2Inspector';
 
 function App() {
   const [activePanel, setActivePanel] = useState('processes');
@@ -90,6 +92,8 @@ function App() {
         {activePanel === 'console' && <Console />}
         {activePanel === 'tasks' && <TaskManager />}
         {activePanel === 'cache' && <CacheManager />}
+        {activePanel === 'diff' && <MemoryDiff />}
+        {activePanel === 'cs2' && <CS2Inspector onNavigate={handleNavigate} />}
         {activePanel === 'settings' && <Settings dark={dark} onToggleTheme={toggleTheme} />}
       </Layout>
       <CommandPalette
