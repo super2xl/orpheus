@@ -21,6 +21,8 @@ import CFGViewer from './panels/CFGViewer';
 import MemoryRegions from './panels/MemoryRegions';
 import PointerChainPanel from './panels/PointerChain';
 import VTableReader from './panels/VTableReader';
+import MemoryWriter from './panels/MemoryWriter';
+import ExpressionEval from './panels/ExpressionEval';
 import Console from './panels/Console';
 import TaskManager from './panels/TaskManager';
 import CacheManager from './panels/CacheManager';
@@ -89,6 +91,8 @@ function App() {
         {activePanel === 'regions' && <MemoryRegions onNavigate={handleNavigate} />}
         {activePanel === 'pointers' && <PointerChainPanel onNavigate={handleNavigate} />}
         {activePanel === 'vtable' && <VTableReader onNavigate={handleNavigate} />}
+        {activePanel === 'mem-writer' && <MemoryWriter />}
+        {activePanel === 'expr-eval' && <ExpressionEval />}
         {activePanel === 'console' && <Console />}
         {activePanel === 'tasks' && <TaskManager />}
         {activePanel === 'cache' && <CacheManager />}

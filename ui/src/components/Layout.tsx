@@ -64,6 +64,8 @@ const categories: NavCategory[] = [
       { id: 'emulator', label: 'Emulator', icon: '\u25B6' },
       { id: 'pointers', label: 'Pointers', icon: '\u21A3' },
       { id: 'vtable', label: 'VTable', icon: '\u25A4' },
+      { id: 'mem-writer', label: 'Mem Writer', icon: '\u270E' },
+      { id: 'expr-eval', label: 'Expr Eval', icon: '\u03B5' },
       { id: 'bookmarks', label: 'Bookmarks', icon: '\u2605' },
     ],
   },
