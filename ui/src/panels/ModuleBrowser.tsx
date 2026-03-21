@@ -7,6 +7,7 @@ import { useContextMenu } from '../hooks/useContextMenu';
 import ContextMenu from '../components/ContextMenu';
 import { copyToClipboard } from '../utils/clipboard';
 import { useToast } from '../hooks/useToast';
+import { orpheus } from '../api/client';
 
 type SortField = 'name' | 'base' | 'size' | 'entry';
 type SortDir = 'asc' | 'desc';
@@ -28,6 +29,7 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [hasLoaded, setHasLoaded] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  const [dumpingModule, setDumpingModule] = useState<string | null>(null);
   const { menu, show: showContextMenu, close: closeContextMenu } = useContextMenu();
 
   const pid = attachedProcess?.pid;
@@ -105,6 +107,25 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
   const handleRefresh = useCallback(() => {
     if (pid) refresh(pid);
   }, [pid, refresh]);
+
+  const handleDump = useCallback(async (e: React.MouseEvent, moduleName: string) => {
+    e.stopPropagation();
+    if (!pid || dumpingModule) return;
+    setDumpingModule(moduleName);
+    try {
+      const result = await orpheus.request<{ path?: string; file?: string; size?: number }>(
+        'tools/dump_module',
+        { pid, module: moduleName }
+      );
+      const filePath = result.path || result.file || 'unknown path';
+      const sizeStr = result.size ? ` (${(result.size / 1024).toFixed(1)} KB)` : '';
+      toast(`Dumped to ${filePath}${sizeStr}`, 'success');
+    } catch (err: any) {
+      toast(`Dump failed: ${err.message}`, 'error');
+    } finally {
+      setDumpingModule(null);
+    }
+  }, [pid, dumpingModule, toast]);
 
   const sortIcon = (field: SortField) => {
     if (sortField !== field) return null;
@@ -323,7 +344,8 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
                       onContextMenu={(e) => showContextMenu(e, [
                         { label: 'View in Memory', action: () => onNavigate?.('memory', mod.base) },
                         { label: 'View in Disassembly', action: () => onNavigate?.('disassembly', mod.entry) },
-                        { label: 'Copy Base Address', action: () => { copyToClipboard(mod.base); toast('Address copied to clipboard'); }, separator: true },
+                        { label: 'Dump Module', action: () => { const fakeEvt = { stopPropagation: () => {} } as React.MouseEvent; handleDump(fakeEvt, mod.name); }, separator: true },
+                        { label: 'Copy Base Address', action: () => { copyToClipboard(mod.base); toast('Address copied to clipboard'); } },
                         { label: 'Copy Name', action: () => { copyToClipboard(mod.name); toast('Name copied to clipboard'); } },
                       ])}
                       className="h-9 cursor-pointer group"
@@ -370,6 +392,29 @@ function ModuleBrowser({ onNavigate }: { onNavigate?: (panel: string, address?: 
                       {/* Action buttons */}
                       <td className="px-3 py-1.5 text-right">
                         <div className="opacity-0 group-hover:opacity-100 flex items-center justify-end gap-1" style={{ transition: 'opacity 0.1s ease' }}>
+                          <button
+                            onClick={(e) => handleDump(e, mod.name)}
+                            disabled={dumpingModule === mod.name}
+                            className="px-2 py-0.5 rounded text-[10px] cursor-pointer outline-none disabled:opacity-50"
+                            style={{
+                              fontWeight: 400,
+                              background: 'transparent',
+                              color: 'var(--text-secondary)',
+                              border: '1px solid var(--border)',
+                              transition: 'all 0.1s ease',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = 'var(--active)';
+                              e.currentTarget.style.color = 'var(--text)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'transparent';
+                              e.currentTarget.style.color = 'var(--text-secondary)';
+                            }}
+                            title={`Dump ${mod.name} to disk`}
+                          >
+                            {dumpingModule === mod.name ? '...' : 'Dump'}
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
