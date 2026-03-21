@@ -69,13 +69,6 @@ const categories: NavCategory[] = [
       { id: 'bookmarks', label: 'Bookmarks', icon: '\u2605' },
     ],
   },
-  {
-    label: 'Game',
-    defaultOpen: false,
-    items: [
-      { id: 'cs2', label: 'CS2', icon: '\u25CE' },
-    ],
-  },
 ];
 
 const utilityItems: NavItem[] = [
