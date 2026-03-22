@@ -90,29 +90,17 @@ jobs:
       run: |
         mkdir release
 
-        # Tauri installers
         $tauriOut = "ui/src-tauri/target/release/bundle"
+
+        # Installer (all users need)
         if (Test-Path "$tauriOut/nsis/*.exe") {
           Copy-Item "$tauriOut/nsis/*.exe" release/
         }
-        if (Test-Path "$tauriOut/msi/*.msi") {
-          Copy-Item "$tauriOut/msi/*.msi" release/
-        }
 
-        # Standalone files (for users who don't want an installer)
-        if (Test-Path "build/bin/Release/orpheus_core.dll") {
-          Copy-Item "build/bin/Release/orpheus_core.dll" release/
-        }
-        if (Test-Path "ui/src-tauri/target/release/orpheus.exe") {
-          Copy-Item "ui/src-tauri/target/release/orpheus.exe" release/
-        }
+        # MCP bridge (for AI integration — small, worth including)
         if (Test-Path "mcp_bridge.js") {
           Copy-Item "mcp_bridge.js" release/
         }
-
-        # Docs
-        Copy-Item LICENSE release/ -ErrorAction SilentlyContinue
-        Copy-Item README.md release/
 
         Get-ChildItem release/ | Format-Table Name, Length
 
