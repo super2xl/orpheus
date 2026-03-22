@@ -60,8 +60,10 @@ jobs:
         $conf = Get-Content ui/src-tauri/tauri.conf.json | ConvertFrom-Json
         $conf.version = $tag
         $conf | ConvertTo-Json -Depth 10 | Set-Content ui/src-tauri/tauri.conf.json
-        # Also update Cargo.toml version
-        (Get-Content ui/src-tauri/Cargo.toml) -replace 'version = ".*"', "version = `"$tag`"" | Set-Content ui/src-tauri/Cargo.toml
+        # Update only the package version (line 3) in Cargo.toml, not dependency versions
+        $cargo = Get-Content ui/src-tauri/Cargo.toml
+        $cargo[2] = "version = `"$tag`""
+        $cargo | Set-Content ui/src-tauri/Cargo.toml
 
     # Step 1: Build C++ core DLL
     - name: Configure CMake
