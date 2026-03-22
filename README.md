@@ -56,11 +56,10 @@
 </p>
 
 <p align="center">
-  <img src="resources/images/mcp.png" alt="MCP Settings" width="420">
-  <img src="resources/images/mcpinstaller.png" alt="MCPinstaller" width="280">
+  <img src="resources/images/mcp.png" alt="MCP Settings" width="600">
 </p>
 <p align="center">
-  <em>MCP server configuration &nbsp;•&nbsp; MCPinstaller auto-detects clients</em>
+  <em>MCP server configuration with auto-detection</em>
 </p>
 
 <p align="center">
