@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
 import { invoke } from '@tauri-apps/api/core';
 import { useConnection } from '../hooks/useConnection';
@@ -28,6 +28,12 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
   const [version, setVersion] = useState<VersionInfo | null>(null);
   const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
+
+  // Privacy / Telemetry
+  const [telemetryEnabled, setTelemetryEnabled] = useState<boolean | null>(null);
+  const [telemetryEndpoint, setTelemetryEndpoint] = useState<string | null>(null);
+  const [telemetryToggling, setTelemetryToggling] = useState(false);
+  const telemetryToggleRef = useRef<HTMLButtonElement>(null);
 
   // MCP Integration info
   const [mcpInfo, setMcpInfo] = useState<{
@@ -125,6 +131,33 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
     const interval = setInterval(fetchStats, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch telemetry status
+  useEffect(() => {
+    orpheus.request<{ enabled: boolean; endpoint?: string }>('tools/telemetry_status')
+      .then((res) => {
+        setTelemetryEnabled(res.enabled);
+        setTelemetryEndpoint(res.endpoint ?? null);
+      })
+      .catch(() => {
+        setTelemetryEnabled(false);
+        setTelemetryEndpoint(null);
+      });
+  }, []);
+
+  const handleTelemetryToggle = useCallback(async () => {
+    if (telemetryEnabled === null || telemetryToggling) return;
+    const next = !telemetryEnabled;
+    setTelemetryToggling(true);
+    try {
+      await orpheus.request('tools/telemetry_config', { enabled: next });
+      setTelemetryEnabled(next);
+    } catch {
+      // Silently revert — state stays the same
+    } finally {
+      setTelemetryToggling(false);
+    }
+  }, [telemetryEnabled, telemetryToggling]);
 
   const handleClearCache = useCallback(async () => {
     setClearingCache(true);
@@ -413,7 +446,113 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
           </div>
         </motion.section>
 
-        {/* Section 4: Cache (only when connected) */}
+        {/* Section 4: Privacy */}
+        <motion.section
+          className="rounded-lg p-5 space-y-4"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.15, delay: 0.075 }}
+        >
+          <h2 className="text-[10px] uppercase" style={{ color: 'var(--text-muted)', letterSpacing: '0.08em', fontWeight: 400 }}>
+            Privacy
+          </h2>
+
+          {/* Telemetry toggle row */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5 flex-1 min-w-0 pr-4">
+              <span className="text-xs block" style={{ color: 'var(--text-secondary)' }}>Usage Analytics</span>
+              <span className="text-[10px] block" style={{ color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                Anonymous usage analytics help improve Orpheus. No personal data is collected.
+              </span>
+            </div>
+            {/* Toggle switch */}
+            <button
+              ref={telemetryToggleRef}
+              onClick={handleTelemetryToggle}
+              disabled={telemetryEnabled === null || telemetryToggling}
+              aria-label={telemetryEnabled ? 'Disable telemetry' : 'Enable telemetry'}
+              aria-checked={telemetryEnabled ?? false}
+              role="switch"
+              className="relative shrink-0 outline-none disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer border-none"
+              style={{
+                width: 36,
+                height: 20,
+                borderRadius: 10,
+                background: telemetryEnabled ? 'var(--text-secondary)' : 'var(--border)',
+                transition: 'background 0.15s ease',
+                padding: 0,
+              }}
+            >
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 3,
+                  left: telemetryEnabled ? 19 : 3,
+                  width: 14,
+                  height: 14,
+                  borderRadius: '50%',
+                  background: 'var(--bg)',
+                  transition: 'left 0.15s ease',
+                  display: 'block',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.25)',
+                }}
+              />
+            </button>
+          </div>
+
+          {/* What IS and is NOT sent */}
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase" style={{ color: 'var(--text-muted)', letterSpacing: '0.08em', fontWeight: 400 }}>
+                Data sent
+              </span>
+              <ul className="space-y-0.5">
+                {['Version', 'Platform', 'Build type', 'Session duration'].map((item) => (
+                  <li key={item} className="flex items-center gap-1.5">
+                    <span style={{ color: 'var(--dot-connected)', fontSize: 8, lineHeight: 1 }}>●</span>
+                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase" style={{ color: 'var(--text-muted)', letterSpacing: '0.08em', fontWeight: 400 }}>
+                Never sent
+              </span>
+              <ul className="space-y-0.5">
+                {['User data', 'Process names', 'Memory contents'].map((item) => (
+                  <li key={item} className="flex items-center gap-1.5">
+                    <span style={{ color: 'var(--dot-disconnected)', fontSize: 8, lineHeight: 1 }}>●</span>
+                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Endpoint display (only when endpoint is known) */}
+          {telemetryEndpoint && (
+            <div className="space-y-1.5">
+              <span className="text-[10px] uppercase" style={{ color: 'var(--text-muted)', letterSpacing: '0.08em', fontWeight: 400 }}>
+                Endpoint
+              </span>
+              <input
+                type="text"
+                value={telemetryEndpoint}
+                readOnly
+                className="w-full h-9 px-3 rounded-md font-mono text-xs outline-none"
+                style={{
+                  background: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-muted)',
+                }}
+              />
+            </div>
+          )}
+        </motion.section>
+
+        {/* Section 5: Cache (only when connected) */}
         {connected && cacheStats && (
           <motion.section
             className="rounded-lg p-5 space-y-4"
@@ -470,7 +609,7 @@ function Settings({ dark, onToggleTheme }: SettingsProps) {
           </motion.section>
         )}
 
-        {/* Section 5: About */}
+        {/* Section 6: About */}
         <motion.section
           className="rounded-lg p-5 space-y-4"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
