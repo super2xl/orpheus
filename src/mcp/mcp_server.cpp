@@ -17,6 +17,7 @@
  * - mcp_handlers_rtti.cpp
  * - mcp_handlers_cs2_schema.cpp
  * - mcp_handlers_cs2_entity.cpp
+ * - mcp_handlers_telemetry.cpp
  *
  * IMPORTANT: When adding new routes/endpoints, remember to also update:
  *   orpheus\mcp_bridge.js
@@ -556,6 +557,10 @@ void MCPServer::SetupRoutes() {
     ROUTE_POST("/tools/task_cancel", HandleTaskCancel);
     ROUTE_POST("/tools/task_list", HandleTaskList);
     ROUTE_POST("/tools/task_cleanup", HandleTaskCleanup);
+
+    // Telemetry control (always allowed - no special permissions needed)
+    ROUTE_GET("/tools/telemetry_status", HandleTelemetryStatus);
+    ROUTE_POST("/tools/telemetry_config", HandleTelemetryConfig);
 
     #undef ROUTE_POST
     #undef ROUTE_POST_PERM

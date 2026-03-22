@@ -591,6 +591,28 @@ const MCP_TOOLS = [
     }
   },
   {
+    name: 'telemetry_status',
+    description: 'Get current telemetry configuration: whether it is enabled, what endpoint is used, and exactly what data is (and is not) sent.',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'telemetry_config',
+    description: 'Enable or disable telemetry. Setting enabled to false persists the preference to the config file.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        enabled: {
+          type: 'boolean',
+          description: 'Set to true to enable telemetry, false to disable'
+        }
+      },
+      required: ['enabled']
+    }
+  },
+  {
     name: 'get_processes',
     description: 'List all running processes visible to DMA. Returns array of process info with PID, name, and base address.',
     inputSchema: {
@@ -1750,7 +1772,10 @@ const TOOL_ENDPOINT_MAP = {
   'task_status': { method: 'POST', path: '/tools/task_status' },
   'task_cancel': { method: 'POST', path: '/tools/task_cancel' },
   'task_list': { method: 'POST', path: '/tools/task_list' },
-  'task_cleanup': { method: 'POST', path: '/tools/task_cleanup' }
+  'task_cleanup': { method: 'POST', path: '/tools/task_cleanup' },
+  // Telemetry control tools
+  'telemetry_status': { method: 'GET', path: '/tools/telemetry_status' },
+  'telemetry_config': { method: 'POST', path: '/tools/telemetry_config' }
 };
 
 /**

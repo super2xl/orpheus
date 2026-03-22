@@ -227,6 +227,10 @@ private:
     std::string HandleTaskList(const std::string& body);
     std::string HandleTaskCleanup(const std::string& body);
 
+    // Telemetry endpoints
+    std::string HandleTelemetryStatus(const std::string& body);
+    std::string HandleTelemetryConfig(const std::string& body);
+
     // Utility
     std::string CreateErrorResponse(const std::string& error);
     std::string CreateSuccessResponse(const std::string& data);
