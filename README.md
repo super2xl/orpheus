@@ -25,16 +25,17 @@
 - **RTTI Analysis** - Parse MSVC runtime type information, discover class hierarchies
 - **CPU Emulation** - Unicorn-based code emulation for decryption stubs
 
-### CS2 Integration
-- **Schema Dumper** - Extract all classes, fields, and offsets from Source 2
-- **Entity System** - Live player enumeration, local player, entity inspection
-- **Radar Panel** - Real-time minimap with player positions
-- **Dashboard** - Match state, player health bars, team info
-
-### AI Integration
-- **MCP Server** - 40+ REST API endpoints for Claude/LLM integration
+### Tools
+- **Memory Writer** - Type-aware value writing with confirmation and history
+- **Memory Diff** - Snapshot comparison with highlighted changes
 - **Expression Evaluator** - Parse `client.dll+0x1234`, `[[base]+0x10]+0x20`
 - **Bookmarks** - Persistent, categorized address annotations
+- **Module Dumper** - Dump process modules to disk
+
+### AI Integration
+- **MCP Server** - 70+ REST API endpoints for Claude/LLM integration
+- **Auto-Configuration** - Detects and configures Claude Desktop, Cursor, and other MCP clients
+- **Privacy Controls** - Opt-out telemetry with full transparency in Settings
 
 ## Screenshots
 
@@ -126,7 +127,7 @@ sudo udevadm trigger
 
 ### Output
 - `ui/src-tauri/target/release/orpheus` - Main application (Tauri bundle)
-- `build/bin/Release/MCPinstaller` - MCP client configuration tool
+- `build/bin/Release/orpheus_core.dll` - C++ analysis engine
 
 ## Usage
 
@@ -142,16 +143,13 @@ sudo udevadm trigger
 
 #### Quick Setup (Recommended)
 
-Use **MCPinstaller** to automatically configure all your MCP clients:
+Orpheus auto-detects MCP clients from the Settings panel:
 
-1. Start Orpheus and enable MCP server in settings
-2. Copy the API key from Orpheus (Settings > MCP > Copy API Key)
-3. Run `MCPinstaller` (included in releases)
-4. Enter your Orpheus server URL and API key
-5. Select which clients to configure (Claude Desktop, Cursor, VS Code, etc.)
-6. Click Install - restart your MCP clients to apply
-
-MCPinstaller auto-detects and configures: Claude Desktop, Cursor, Claude Code, Windsurf, VS Code, Cline, Roo Code, LM Studio, Zed, Amazon Q, Warp, and more.
+1. Start Orpheus
+2. Go to **Settings > MCP Clients**
+3. Click **Detect Clients** — finds Claude Desktop, Cursor, Claude Code, etc.
+4. Click **Install** next to each client
+5. Restart your MCP client to apply
 
 #### Manual Configuration
 
@@ -187,8 +185,8 @@ Orpheus exposes 40+ tools through the MCP API:
 | Functions | `recover_functions`, `get_function_at`, `get_function_containing`, `build_cfg` |
 | RTTI | `rtti_parse_vtable`, `rtti_scan`, `rtti_scan_module`, `rtti_cache_*` |
 | Emulation | `emu_create`, `emu_run`, `emu_set_registers`, `emu_map_module` |
-| CS2 | `cs2_init`, `cs2_inspect`, `cs2_list_players`, `cs2_get_game_state` |
-| Utilities | `evaluate_expression`, `bookmark_*`, `task_*` |
+| Snapshots | `memory_snapshot`, `memory_diff`, `memory_snapshot_list` |
+| Utilities | `evaluate_expression`, `bookmark_*`, `task_*`, `telemetry_status` |
 
 ## Project Structure
 
@@ -199,9 +197,8 @@ orpheus/
 │   ├── analysis/      # Disassembler, pattern scanner, RTTI, function recovery
 │   ├── decompiler/    # Ghidra integration, type injection
 │   ├── emulation/     # Unicorn CPU emulator
-│   ├── dumper/        # CS2 schema dumper
-│   ├── mcp/           # MCP server (40+ handlers)
-│   ├── installer/     # MCPinstaller standalone tool
+│   ├── dumper/        # Schema dumper
+│   ├── mcp/           # MCP server (70+ handlers)
 │   └── utils/         # Cache, bookmarks, expression evaluator
 ├── ui/                # Tauri desktop application
 │   ├── src/           # React 19 + TypeScript frontend
@@ -210,8 +207,7 @@ orpheus/
 ├── cmake/             # CMake modules (dependencies, resource embedding)
 ├── resources/
 │   ├── dlls/          # VMM/LeechCore DLLs
-│   ├── fonts/         # JetBrains Mono
-│   └── maps/          # CS2 radar minimaps
+│   └── fonts/         # JetBrains Mono
 ├── sleigh/            # Ghidra SLEIGH processor specs
 └── mcp_bridge.js      # MCP stdio-to-HTTP adapter
 ```
@@ -234,7 +230,7 @@ orpheus/
 
 ## Telemetry
 
-Orpheus collects basic, anonymous usage telemetry to help improve the software. You can disable this in Settings > General > Telemetry.
+Orpheus collects basic, anonymous usage telemetry to help improve the software. You can disable this in **Settings > Privacy**.
 
 **What's collected:**
 - Application version, platform, and build type

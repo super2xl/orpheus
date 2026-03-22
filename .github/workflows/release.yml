@@ -15,36 +15,104 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Need full history for git describe
+        fetch-depth: 0
 
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
       with:
         arch: x64
 
-    - name: Cache build dependencies
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache C++ dependencies
       uses: actions/cache@v4
       with:
         path: |
           build/_deps
           build/lib
-        key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
+        key: cpp-deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'cmake/**') }}
         restore-keys: |
-          deps-${{ runner.os }}-
+          cpp-deps-${{ runner.os }}-
 
+    - name: Cache Rust dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          ui/src-tauri/target
+        key: rust-deps-${{ runner.os }}-${{ hashFiles('ui/src-tauri/Cargo.lock') }}
+        restore-keys: |
+          rust-deps-${{ runner.os }}-
+
+    # Step 0: Sync version from git tag into Tauri config
+    - name: Set version from tag
+      shell: pwsh
+      run: |
+        $tag = "${{ github.ref_name }}" -replace '^v', ''
+        Write-Host "Setting version to $tag"
+        $conf = Get-Content ui/src-tauri/tauri.conf.json | ConvertFrom-Json
+        $conf.version = $tag
+        $conf | ConvertTo-Json -Depth 10 | Set-Content ui/src-tauri/tauri.conf.json
+        # Also update Cargo.toml version
+        (Get-Content ui/src-tauri/Cargo.toml) -replace 'version = ".*"', "version = `"$tag`"" | Set-Content ui/src-tauri/Cargo.toml
+
+    # Step 1: Build C++ core DLL
     - name: Configure CMake
       run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
-    - name: Build
+    - name: Build C++ core
       run: cmake --build build --config Release --parallel
 
+    # Step 2: Install frontend dependencies
+    - name: Install npm dependencies
+      working-directory: ui
+      run: npm ci
+
+    # Step 3: Build Tauri app (builds React frontend + Rust shell + bundles DLL)
+    - name: Build Tauri
+      working-directory: ui
+      run: npx tauri build
+      env:
+        TAURI_SIGNING_PRIVATE_KEY: ''
+
+    # Step 4: Package release artifacts
     - name: Package
+      shell: pwsh
       run: |
         mkdir release
-        copy build\bin\Release\orpheus.exe release\
-        copy build\bin\Release\MCPinstaller.exe release\
-        copy LICENSE release\
-        copy README.md release\
+
+        # Tauri installers
+        $tauriOut = "ui/src-tauri/target/release/bundle"
+        if (Test-Path "$tauriOut/nsis/*.exe") {
+          Copy-Item "$tauriOut/nsis/*.exe" release/
+        }
+        if (Test-Path "$tauriOut/msi/*.msi") {
+          Copy-Item "$tauriOut/msi/*.msi" release/
+        }
+
+        # Standalone files (for users who don't want an installer)
+        if (Test-Path "build/bin/Release/orpheus_core.dll") {
+          Copy-Item "build/bin/Release/orpheus_core.dll" release/
+        }
+        if (Test-Path "ui/src-tauri/target/release/orpheus.exe") {
+          Copy-Item "ui/src-tauri/target/release/orpheus.exe" release/
+        }
+        if (Test-Path "mcp_bridge.js") {
+          Copy-Item "mcp_bridge.js" release/
+        }
+
+        # Docs
+        Copy-Item LICENSE release/ -ErrorAction SilentlyContinue
+        Copy-Item README.md release/
+
+        Get-ChildItem release/ | Format-Table Name, Length
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
