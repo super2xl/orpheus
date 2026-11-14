@@ -6,7 +6,6 @@ import type { CacheStats, CacheEntry } from '../api/types';
 export function useCacheManager() {
   const [stats, setStats] = useState<CacheStats | null>(null);
   const [rttiEntries, setRttiEntries] = useState<CacheEntry[]>([]);
-  const [schemaEntries, setSchemaEntries] = useState<CacheEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,12 +22,10 @@ export function useCacheManager() {
   const refreshEntries = useCallback(async () => {
     setLoading(true);
     try {
-      const [rtti, schema] = await Promise.allSettled([
+      const [rtti] = await Promise.allSettled([
         orpheus.request<{ modules: CacheEntry[] }>('tools/rtti_cache_list', {}),
-        orpheus.request<{ scopes: CacheEntry[] }>('tools/cs2_schema_cache_list', {}),
       ]);
       setRttiEntries(rtti.status === 'fulfilled' ? (rtti.value.modules || []) : []);
-      setSchemaEntries(schema.status === 'fulfilled' ? (schema.value.scopes || []) : []);
       setError(null);
     } catch (err: any) {
       setError(err.message);
@@ -61,16 +58,6 @@ export function useCacheManager() {
     }
   }, [refresh]);
 
-  const clearSchema = useCallback(async () => {
-    try {
-      await orpheus.request('tools/cs2_schema_cache_clear', {});
-      log('INF', 'cache', 'Cleared schema cache');
-      await refresh();
-    } catch (err: any) {
-      log('ERR', 'cache', `Failed to clear schema cache: ${err.message}`);
-    }
-  }, [refresh]);
-
   const deleteEntry = useCallback(async (filepath: string) => {
     try {
       await orpheus.request('tools/cache_clear', { filepath });
@@ -84,14 +71,12 @@ export function useCacheManager() {
   return {
     stats,
     rttiEntries,
-    schemaEntries,
     loading,
     error,
     refresh,
     refreshStats,
     clearAll,
     clearRtti,
-    clearSchema,
     deleteEntry,
   };
 }

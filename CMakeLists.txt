@@ -160,8 +160,11 @@ if(ORPHEUS_BUILD_DECOMPILER)
     foreach(_target orpheus orpheus_core)
         target_sources(${_target} PRIVATE ${DECOMPILER_SOURCES})
         target_link_libraries(${_target} PRIVATE ghidra_decompiler)
-        target_include_directories(${_target} PRIVATE
+        # Ghidra's headers are third-party: mark SYSTEM so their warnings stay quiet
+        target_include_directories(${_target} SYSTEM PRIVATE
             ${CMAKE_SOURCE_DIR}/external/ghidra-decompiler/src
+        )
+        target_include_directories(${_target} PRIVATE
             ${CMAKE_SOURCE_DIR}/src/decompiler
         )
 
@@ -193,10 +196,16 @@ foreach(_target orpheus orpheus_core)
                 /W4             # Warning level 4
                 /MP             # Multi-processor compilation
                 /utf-8          # UTF-8 source and execution charset
+                /wd4100         # unreferenced formal parameter: noise, pervasive in third-party headers
+                /external:W0    # suppress warnings from headers included as SYSTEM (vendored deps)
             )
             target_compile_definitions(${_target} PRIVATE
                 _CRT_SECURE_NO_WARNINGS
             )
+            # Treat Unicorn's headers as external so its header warnings stay quiet
+            if(DEFINED unicorn_SOURCE_DIR)
+                target_include_directories(${_target} SYSTEM PRIVATE ${unicorn_SOURCE_DIR}/include)
+            endif()
         endif()
     elseif(PLATFORM_LINUX)
         target_link_libraries(${_target} PRIVATE

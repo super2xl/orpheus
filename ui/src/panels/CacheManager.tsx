@@ -164,12 +164,10 @@ function CacheManager() {
   const {
     stats,
     rttiEntries,
-    schemaEntries,
     refresh,
     refreshStats,
     clearAll,
     clearRtti,
-    clearSchema,
     deleteEntry,
   } = useCacheManager();
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -181,7 +179,7 @@ function CacheManager() {
     return () => clearInterval(interval);
   }, [refresh, refreshStats]);
 
-  const totalEntries = rttiEntries.length + schemaEntries.length;
+  const totalEntries = rttiEntries.length;
 
   return (
     <div className="h-full flex flex-col overflow-auto">
@@ -284,13 +282,6 @@ function CacheManager() {
               onClearAll={clearRtti}
               onDelete={deleteEntry}
               delay={0.06}
-            />
-            <CacheGroup
-              label="Schema"
-              entries={schemaEntries}
-              onClearAll={clearSchema}
-              onDelete={deleteEntry}
-              delay={0.09}
             />
           </>
       </div>

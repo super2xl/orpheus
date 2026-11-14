@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **CS2 subsystem** — retired the CS2 schema dumper, entity tools, and decompiler type-injection. Deleted the dedicated handler/dumper/type-injector sources, removed the 14 `cs2_*` MCP endpoints and their `mcp_bridge.js` schemas, the frontend schema-cache panel, and the dead CS2 radar-map embedding in the build.
+
+### Fixed
+- Resolved all compiler warnings in first-party code: the config `port` read is now an explicit `uint16_t` cast (was a silent truncation), the unused `PagesNeeded` helper was removed, and the `WIN32_LEAN_AND_MEAN` redefinition is guarded.
+
+### Changed
+- Third-party header warnings (Ghidra, Unicorn) are suppressed by treating them as `SYSTEM` includes with `/external:W0`, keeping `/W4` meaningful for first-party code.
+
+## [0.2.1] - 2026-03-22
+
+### Changed
+- Release artifacts simplified to the NSIS installer plus `mcp_bridge.js` only — the loose `orpheus_core.dll`, MSI, README and LICENSE are no longer published as separate downloads
+- README refreshed for the v0.2.0 architecture with current screenshots
+
+### Removed
+- Bundled CS2 radar map resources and superseded screenshots
+
+## [0.2.0] - 2026-03-22
+
+Complete UI rewrite. The ImGui desktop application is gone; Orpheus is now a Tauri v2 +
+React 19 shell driving the C++ core as a DLL over FFI in a single process.
+
+### Added
+- **Tauri v2 + React 19 frontend** replacing the ImGui UI — 24 feature panels (process list,
+  module browser, memory viewer, disassembly, decompiler, CFG viewer, pattern scanner,
+  string scanner, RTTI scanner, function recovery, xref finder, emulator, write tracer,
+  memory regions, pointer chain, vtable reader, memory writer, memory diff, expression
+  evaluator, bookmarks, task manager, cache manager, console, settings)
+- **`OrpheusCore`** extraction, decoupling the engine from any UI and enabling headless MCP operation
+- **MCP client auto-detection** — Settings discovers and configures Claude Desktop, Cursor and
+  other supported clients in one click
+- Memory snapshot and diff viewer
+- Memory writer with type-aware encoding, module dumper, and expression evaluator
+- Privacy and telemetry controls in Settings, with `telemetry_status` and `telemetry_config`
+  MCP endpoints
+- Command palette, toast notifications, right-click context menus with cross-panel navigation,
+  and sidebar category grouping
+- GoogleTest framework with unit tests for bookmarks, expression evaluator, memory cache and
+  pattern scanner
+- Unified build scripts (`build.sh`, `build.bat`)
+
+### Changed
+- C++ core now compiles as `orpheus_core.dll` and is loaded via FFI from the Tauri shell,
+  replacing the previous separate-backend-process model — one process, no subprocess launch
+- Frontend communicates with the core over the same local HTTP API that MCP clients use
+- MCP terminology removed from user-facing UI copy
+
+### Removed
+- ImGui UI, GLFW and OpenGL dependencies, entirely
+- CS2 inspector panel and the "game" panel category
+
+### Fixed
+- 16 endpoint path mismatches between frontend hooks and the C++ server
+- Field-name mismatches in module, region and string-scanner responses
+- Thread safety in the DMA interface, task manager, telemetry and runtime cleanup
+- Server lifecycle and port cleanup; DMA connect flow made async so the server no longer hangs
+- Move constructor correctness and LRU cache behaviour in the memory cache
+- RTTI scan responses now include the full class list; cache RVA conversion corrected
+- Settings crash; auto-refresh toggle now persists across tab switches
+
+### Security
+- MCP authentication enforced with an auto-generated API key, persisted across restarts
+  instead of regenerated each launch
+- Health endpoint permitted without auth for connectivity checks only
+- CORS headers scoped for Tauri webview access
+- Debug file logging gated behind debug builds
+
+## [0.1.9] - 2026-03-01
+
+### Added
+- Write tracer for tracking memory writes
+- Search history persistence
+- DMA health monitoring
+- Assorted UI improvements
+
 ## [0.1.8] - 2026-03-01
 
 ### Added
@@ -117,7 +193,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ImGui-based GUI
 - MCP server for AI integration
 
-[Unreleased]: https://github.com/super2xl/orpheus/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/super2xl/orpheus/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/super2xl/orpheus/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/super2xl/orpheus/compare/v0.1.9...v0.2.0
+[0.1.9]: https://github.com/super2xl/orpheus/compare/v0.1.8...v0.1.9
+[0.1.8]: https://github.com/super2xl/orpheus/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/super2xl/orpheus/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/super2xl/orpheus/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/super2xl/orpheus/compare/v0.1.4...v0.1.5

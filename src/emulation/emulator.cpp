@@ -19,13 +19,6 @@ static uint64_t AlignToPage(uint64_t addr) {
     return addr & PAGE_MASK;
 }
 
-// Helper to calculate pages needed for a region
-static size_t PagesNeeded(uint64_t addr, size_t size) {
-    uint64_t start_page = AlignToPage(addr);
-    uint64_t end_page = AlignToPage(addr + size + PAGE_SIZE - 1);
-    return static_cast<size_t>((end_page - start_page) / PAGE_SIZE);
-}
-
 Emulator::Emulator() = default;
 
 Emulator::~Emulator() {

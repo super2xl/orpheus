@@ -185,52 +185,6 @@ function(embed_all_dlls)
         message(WARNING "MCP bridge not found: ${MCP_BRIDGE_FILE}")
     endif()
 
-    # Process CS2 map resources (radar images and info files)
-    set(MAPS_DIR "${CMAKE_SOURCE_DIR}/resources/maps")
-    set(CS2_MAPS
-        "de_dust2"
-        "de_mirage"
-        "de_inferno"
-        "de_nuke"
-        "de_overpass"
-        "de_ancient"
-        "de_anubis"
-        "de_vertigo"
-        "cs_office"
-        "ar_shoots"
-    )
-    set(HAS_MAPS FALSE)
-    set(MAP_COUNT 0)
-    foreach(map_name ${CS2_MAPS})
-        set(MAP_DIR "${MAPS_DIR}/${map_name}")
-        set(RADAR_FILE "${MAP_DIR}/radar.png")
-        set(INFO_FILE "${MAP_DIR}/info.txt")
-
-        if(EXISTS "${RADAR_FILE}" AND EXISTS "${INFO_FILE}")
-            # Generate safe variable prefix (replace - with _ for valid C++ identifier)
-            string(REPLACE "-" "_" safe_map_name "${map_name}")
-            set(var_prefix "map_${safe_map_name}_")
-
-            # Embed radar image with unique variable prefix
-            set(output_file "${OUTPUT_DIR}/embedded_map_${map_name}_radar.h")
-            embed_resource("${RADAR_FILE}" "${output_file}" "${var_prefix}")
-            list(APPEND EMBEDDED_HEADERS "${output_file}")
-
-            # Embed info.txt with unique variable prefix
-            set(output_file "${OUTPUT_DIR}/embedded_map_${map_name}_info.h")
-            embed_resource("${INFO_FILE}" "${output_file}" "${var_prefix}")
-            list(APPEND EMBEDDED_HEADERS "${output_file}")
-
-            set(HAS_MAPS TRUE)
-            math(EXPR MAP_COUNT "${MAP_COUNT} + 1")
-            message(STATUS "Embedded map: ${map_name}")
-        else()
-            message(STATUS "Map not found (optional): ${map_name}")
-        endif()
-    endforeach()
-    if(HAS_MAPS)
-        message(STATUS "Embedded ${MAP_COUNT} CS2 maps")
-    endif()
 
     # Generate a master header that includes all embedded resources
     set(MASTER_HEADER "${OUTPUT_DIR}/embedded_resources.h")
@@ -371,56 +325,6 @@ function(embed_all_dlls)
         )
     endif()
 
-    # CS2 Map resources
-    if(HAS_MAPS)
-        file(APPEND "${MASTER_HEADER}"
-            "// CS2 Map resources (radar images and info files)\n"
-            "inline constexpr bool has_maps = true;\n"
-            "inline constexpr size_t map_count = ${MAP_COUNT};\n\n"
-            "struct MapResource {\n"
-            "    std::string_view name;\n"
-            "    const unsigned char* radar_data;\n"
-            "    size_t radar_size;\n"
-            "    const unsigned char* info_data;\n"
-            "    size_t info_size;\n"
-            "};\n\n"
-            "inline constexpr std::array<MapResource, ${MAP_COUNT}> map_resources = {{\n"
-        )
-
-        # Generate entries for each map
-        set(FIRST_MAP TRUE)
-        foreach(map_name ${CS2_MAPS})
-            set(MAP_DIR "${MAPS_DIR}/${map_name}")
-            if(EXISTS "${MAP_DIR}/radar.png" AND EXISTS "${MAP_DIR}/info.txt")
-                if(NOT FIRST_MAP)
-                    file(APPEND "${MASTER_HEADER}" ",\n")
-                endif()
-                # Variable names match embed_resource output: map_{mapname}_radar_png, map_{mapname}_info_txt
-                string(REPLACE "-" "_" safe_name "${map_name}")
-                file(APPEND "${MASTER_HEADER}"
-                    "    {\"${map_name}\", map_${safe_name}_radar_png, map_${safe_name}_radar_png_size, map_${safe_name}_info_txt, map_${safe_name}_info_txt_size}"
-                )
-                set(FIRST_MAP FALSE)
-            endif()
-        endforeach()
-
-        file(APPEND "${MASTER_HEADER}"
-            "\n}};\n\n"
-            "// Map lookup helper\n"
-            "inline const MapResource* GetMapResource(std::string_view name) {\n"
-            "    for (const auto& map : map_resources) {\n"
-            "        if (map.name == name) return &map;\n"
-            "    }\n"
-            "    return nullptr;\n"
-            "}\n\n"
-        )
-    else()
-        file(APPEND "${MASTER_HEADER}"
-            "// CS2 Map resources (not found)\n"
-            "inline constexpr bool has_maps = false;\n"
-            "inline constexpr size_t map_count = 0;\n\n"
-        )
-    endif()
 
     file(APPEND "${MASTER_HEADER}"
         "} // namespace orpheus::embedded\n"

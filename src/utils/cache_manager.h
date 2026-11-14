@@ -26,7 +26,7 @@ struct CacheEntry {
 
 /**
  * Generic cache manager for JSON-based caches.
- * Used by RTTI cache, CS2 schema cache, and any future cache systems.
+ * Used by the RTTI cache, the function-recovery cache, and any future cache systems.
  *
  * Template parameter T is not used directly but allows type-safe factory creation.
  */
@@ -34,8 +34,8 @@ class CacheManager {
 public:
     /**
      * Create a cache manager for a specific subdirectory.
-     * @param subdirectory Name of subdirectory under AppData/cache/ (e.g., "rtti", "cs2_schema")
-     * @param log_prefix Prefix for log messages (e.g., "RTTI", "CS2 schema")
+     * @param subdirectory Name of subdirectory under AppData/cache/ (e.g., "rtti", "functions")
+     * @param log_prefix Prefix for log messages (e.g., "RTTI", "Function recovery")
      */
     explicit CacheManager(const std::string& subdirectory, const std::string& log_prefix = "Cache")
         : subdirectory_(subdirectory)
@@ -244,10 +244,6 @@ private:
 // Factory functions for common cache types
 inline CacheManager CreateRTTICache() {
     return CacheManager("rtti", "RTTI");
-}
-
-inline CacheManager CreateCS2SchemaCache() {
-    return CacheManager("cs2_schema", "CS2 schema");
 }
 
 } // namespace orpheus::utils

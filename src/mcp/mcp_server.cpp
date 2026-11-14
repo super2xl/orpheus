@@ -15,8 +15,6 @@
  * - mcp_handlers_analysis.cpp
  * - mcp_handlers_emulation.cpp
  * - mcp_handlers_rtti.cpp
- * - mcp_handlers_cs2_schema.cpp
- * - mcp_handlers_cs2_entity.cpp
  * - mcp_handlers_telemetry.cpp
  *
  * IMPORTANT: When adding new routes/endpoints, remember to also update:
@@ -29,7 +27,6 @@
 #include "core/dma_interface.h"
 #include "core/runtime_manager.h"
 #include "emulation/emulator.h"  // Required for unique_ptr destructor
-#include "dumper/cs2_schema.h"   // Required for destructor cleanup
 #include "utils/logger.h"
 #include "version.h"
 
@@ -55,7 +52,6 @@ MCPServer::MCPServer(OrpheusCore* core)
 
 MCPServer::~MCPServer() {
     Stop();
-    cs2_schema_.reset();
 }
 
 // ============================================================================
@@ -100,7 +96,6 @@ bool MCPServer::SaveConfig(const MCPConfig& config, const std::string& filepath)
         j["allow_disasm"] = config.allow_disasm;
         j["allow_emu"] = config.allow_emu;
         j["allow_rtti"] = config.allow_rtti;
-        j["allow_cs2_schema"] = config.allow_cs2_schema;
 
         std::ofstream file(actual_path);
         if (!file.is_open()) {
@@ -133,7 +128,7 @@ bool MCPServer::LoadConfig(MCPConfig& config, const std::string& filepath) {
         file.close();
 
         config.enabled = j.value("enabled", false);
-        config.port = j.value("port", 8765);
+        config.port = static_cast<uint16_t>(j.value("port", 8765));
         config.api_key = j.value("api_key", "");
         config.require_auth = j.value("require_auth", true);
         config.bind_address = j.value("bind_address", "127.0.0.1");
@@ -144,7 +139,6 @@ bool MCPServer::LoadConfig(MCPConfig& config, const std::string& filepath) {
         config.allow_disasm = j.value("allow_disasm", true);
         config.allow_emu = j.value("allow_emu", true);
         config.allow_rtti = j.value("allow_rtti", true);
-        config.allow_cs2_schema = j.value("allow_cs2_schema", true);
 
         LOG_INFO("MCP config loaded from {}", filepath);
         return true;
@@ -516,28 +510,6 @@ void MCPServer::SetupRoutes() {
     ROUTE_POST("/tools/bookmarks/add", HandleBookmarkAdd);
     ROUTE_POST("/tools/bookmarks/remove", HandleBookmarkRemove);
     ROUTE_POST("/tools/bookmarks/update", HandleBookmarkUpdate);
-
-    // CS2 Schema endpoints
-    // cs2_schema_init and cs2_schema_dump removed - use cs2_init one-shot instead
-    ROUTE_POST_PERM("/tools/cs2_schema_get_offset", allow_cs2_schema, "CS2Schema", HandleCS2SchemaGetOffset);
-    ROUTE_POST_PERM("/tools/cs2_schema_find_class", allow_cs2_schema, "CS2Schema", HandleCS2SchemaFindClass);
-    ROUTE_POST_PERM("/tools/cs2_schema_cache_list", allow_cs2_schema, "CS2Schema", HandleCS2SchemaCacheList);
-    ROUTE_POST_PERM("/tools/cs2_schema_cache_query", allow_cs2_schema, "CS2Schema", HandleCS2SchemaCacheQuery);
-    ROUTE_POST_PERM("/tools/cs2_schema_cache_get", allow_cs2_schema, "CS2Schema", HandleCS2SchemaCacheGet);
-    ROUTE_POST_PERM("/tools/cs2_schema_cache_clear", allow_cs2_schema, "CS2Schema", HandleCS2SchemaCacheClear);
-
-    // CS2 Consolidated init (one-shot initialization)
-    ROUTE_POST_PERM("/tools/cs2_init", allow_cs2_schema, "CS2", HandleCS2Init);
-
-    // CS2 Entity tools (RTTI + Schema bridge)
-    // cs2_entity_init removed - use cs2_init one-shot instead
-    ROUTE_POST_PERM("/tools/cs2_identify", allow_cs2_schema, "CS2Entity", HandleCS2Identify);
-    ROUTE_POST_PERM("/tools/cs2_read_field", allow_cs2_schema, "CS2Entity", HandleCS2ReadField);
-    ROUTE_POST_PERM("/tools/cs2_inspect", allow_cs2_schema, "CS2Entity", HandleCS2Inspect);
-    ROUTE_POST_PERM("/tools/cs2_get_local_player", allow_cs2_schema, "CS2Entity", HandleCS2GetLocalPlayer);
-    ROUTE_POST_PERM("/tools/cs2_get_entity", allow_cs2_schema, "CS2Entity", HandleCS2GetEntity);
-    ROUTE_POST_PERM("/tools/cs2_list_players", allow_cs2_schema, "CS2Entity", HandleCS2ListPlayers);
-    ROUTE_POST_PERM("/tools/cs2_get_game_state", allow_cs2_schema, "CS2Entity", HandleCS2GetGameState);
 
     // Function recovery
     ROUTE_POST_PERM("/tools/recover_functions", allow_disasm, "Analysis", HandleRecoverFunctions);

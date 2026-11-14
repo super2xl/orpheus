@@ -10,7 +10,6 @@
 #include "dma_arch.hh"
 #include "funcdata.hh"
 #include "printc.hh"
-#include "type_injector.hh"
 #include <sstream>
 #endif
 
@@ -95,7 +94,6 @@ void Decompiler::SetMemoryCallback(DMAReadCallback callback)
 
 DecompileResult Decompiler::DecompileFunction(uint64_t address,
                                                const std::string& function_name,
-                                               const std::string& this_type,
                                                uint32_t max_instructions)
 {
     DecompileResult result;
@@ -154,23 +152,6 @@ DecompileResult Decompiler::DecompileFunction(uint64_t address,
 
         impl_->current_function = fd;
 
-        // If this_type is specified, verify it exists and add to warnings
-        // Note: Full prototype injection is complex in Ghidra's API
-        // For now, we verify the type exists and note it for reference
-        if (!this_type.empty() && type_injector_) {
-            ghidra::Datatype* ptr_type = type_injector_->GetPointerType(this_type);
-            if (ptr_type) {
-                // Type exists in the factory - note it in warnings for reference
-                result.warnings.push_back("this_type available: " + this_type + "* (use for manual analysis)");
-
-                // The injected types mean that any offsets that match schema fields
-                // will be recognized if the decompiler can infer the type through
-                // data flow analysis. For explicit typing, use the Ghidra GUI.
-            } else {
-                result.warnings.push_back("this_type '" + this_type + "' not found in schema");
-            }
-        }
-
         // Perform decompilation using Action framework
         if (!fd->isProcStarted()) {
             // Reset and perform analysis actions
@@ -189,7 +170,6 @@ DecompileResult Decompiler::DecompileFunction(uint64_t address,
         result.error = "Decompile error: " + std::string(e.what());
     }
 #else
-    (void)this_type;
     result.error = "Ghidra decompiler not compiled in";
 #endif
 
@@ -286,64 +266,6 @@ std::string Decompiler::CaptureOutput(ghidra::Funcdata* fd)
 #else
     (void)fd;
     return "";
-#endif
-}
-
-// ===== CS2 Schema Type Injection Implementation =====
-
-int Decompiler::InjectSchemaTypes(const std::vector<orpheus::dumper::SchemaClass>& schema_classes)
-{
-#ifdef ORPHEUS_HAS_GHIDRA_DECOMPILER
-    if (!initialized_) {
-        last_error_ = "Decompiler not initialized";
-        return 0;
-    }
-
-    // Ensure architecture is set up
-    if (!impl_->architecture) {
-        if (!SetupArchitecture()) {
-            return 0;
-        }
-    }
-
-    // Create type injector if needed
-    if (!type_injector_) {
-        type_injector_ = std::make_unique<TypeInjector>();
-    }
-
-    // Configure injector with our architecture
-    type_injector_->SetArchitecture(impl_->architecture);
-
-    // Add schema classes
-    type_injector_->AddSchemaClasses(schema_classes);
-
-    // Perform injection
-    injected_type_count_ = type_injector_->InjectTypes();
-    types_injected_ = (injected_type_count_ > 0);
-
-    if (!type_injector_->GetLastError().empty()) {
-        last_error_ = type_injector_->GetLastError();
-    }
-
-    return injected_type_count_;
-#else
-    (void)schema_classes;
-    last_error_ = "Ghidra decompiler not compiled in";
-    return 0;
-#endif
-}
-
-void Decompiler::ClearInjectedTypes()
-{
-#ifdef ORPHEUS_HAS_GHIDRA_DECOMPILER
-    if (type_injector_) {
-        type_injector_->ClearSchemaClasses();
-    }
-    types_injected_ = false;
-    injected_type_count_ = 0;
-
-    // Note: To fully clear types from the factory, we'd need to
-    // re-initialize the architecture. For now, just reset our tracking.
 #endif
 }
 

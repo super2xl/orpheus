@@ -14,7 +14,6 @@
 #include "analysis/disassembler.h"
 #include "analysis/signature.h"
 #include "decompiler/decompiler.hh"
-#include "dumper/cs2_schema.h"
 
 #include <nlohmann/json.hpp>
 #include <sstream>
@@ -222,12 +221,6 @@ std::string MCPServer::HandleDecompile(const std::string& body) {
         uint64_t address = std::stoull(req["address"].get<std::string>(), nullptr, 16);
         std::string func_name = req.value("function_name", "");
 
-        // New parameter for Level 3 integration: inject CS2 schema types
-        bool inject_schema = req.value("inject_schema", false);
-
-        // Optional: specify 'this' type for field name resolution
-        std::string this_type = req.value("this_type", "");
-
         // Optional: max_instructions limit for flow analysis
         // Increase for large functions that hit "Flow exceeded maximum allowable instructions"
         // Default 0 = use library default (100000)
@@ -252,7 +245,6 @@ std::string MCPServer::HandleDecompile(const std::string& body) {
         // Initialize decompiler if needed
         static std::unique_ptr<Decompiler> decompiler;
         static bool decompiler_init = false;
-        static bool schema_types_injected = false;
 
         if (!decompiler_init) {
             decompiler = std::make_unique<Decompiler>();
@@ -275,7 +267,6 @@ std::string MCPServer::HandleDecompile(const std::string& body) {
                 return CreateErrorResponse("Failed to initialize decompiler: " + decompiler->GetLastError());
             }
             decompiler_init = true;
-            schema_types_injected = false;
         }
 
         // Set up memory callback for this request
@@ -289,42 +280,14 @@ std::string MCPServer::HandleDecompile(const std::string& body) {
             return false;
         });
 
-        // Level 3 Integration: Inject CS2 schema types if requested
-        int types_injected = 0;
-        if (inject_schema && !schema_types_injected) {
-            if (cs2_schema_) {
-                auto* schema_dumper = cs2_schema_.get();
-                if (schema_dumper->IsInitialized()) {
-                    auto schema_classes = schema_dumper->DumpAllDeduplicated();
-                    if (!schema_classes.empty()) {
-                        types_injected = decompiler->InjectSchemaTypes(schema_classes);
-                        if (types_injected > 0) {
-                            schema_types_injected = true;
-                        }
-                    }
-                }
-            }
-        }
-
         // Decompile the function
-        auto result = decompiler->DecompileFunction(address, func_name, this_type, max_instructions);
+        auto result = decompiler->DecompileFunction(address, func_name, max_instructions);
 
         json response;
         response["success"] = result.success;
         response["address"] = FormatAddress(address);
         response["context"] = FormatAddressWithContext(pid, address);
         response["function_name"] = result.function_name;
-
-        // Include schema injection info
-        if (inject_schema) {
-            response["schema_injected"] = schema_types_injected;
-            response["types_injected"] = decompiler->GetInjectedTypeCount();
-        }
-
-        // Include this_type info if specified
-        if (!this_type.empty()) {
-            response["this_type"] = this_type;
-        }
 
         // Include max_instructions if specified
         if (max_instructions > 0) {

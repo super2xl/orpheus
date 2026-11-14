@@ -24,7 +24,6 @@ namespace emulation {
 }
 
 namespace dumper {
-    class CS2SchemaDumper;
 }
 
 class OrpheusCore;
@@ -49,7 +48,6 @@ struct MCPConfig {
     bool allow_disasm = true;
     bool allow_emu = true;        // Emulation
     bool allow_rtti = true;       // RTTI analysis
-    bool allow_cs2_schema = true; // CS2 schema dumper
 };
 
 /**
@@ -186,27 +184,6 @@ private:
     std::string HandleBookmarkRemove(const std::string& body);
     std::string HandleBookmarkUpdate(const std::string& body);
 
-    // CS2 Schema query endpoints (use cs2_init for initialization)
-    std::string HandleCS2SchemaGetOffset(const std::string& body);
-    std::string HandleCS2SchemaFindClass(const std::string& body);
-
-    // CS2 Schema cache endpoints
-    std::string HandleCS2SchemaCacheList(const std::string& body);
-    std::string HandleCS2SchemaCacheQuery(const std::string& body);
-    std::string HandleCS2SchemaCacheGet(const std::string& body);
-    std::string HandleCS2SchemaCacheClear(const std::string& body);
-
-    // CS2 Consolidated init (one-shot)
-    std::string HandleCS2Init(const std::string& body);
-
-    // CS2 Entity tools (RTTI + Schema bridge) - use cs2_init for initialization
-    std::string HandleCS2Identify(const std::string& body);
-    std::string HandleCS2ReadField(const std::string& body);
-    std::string HandleCS2Inspect(const std::string& body);
-    std::string HandleCS2GetLocalPlayer(const std::string& body);
-    std::string HandleCS2GetEntity(const std::string& body);
-    std::string HandleCS2ListPlayers(const std::string& body);
-    std::string HandleCS2GetGameState(const std::string& body);
 
     // Function recovery endpoints
     std::string HandleRecoverFunctions(const std::string& body);
@@ -276,51 +253,7 @@ private:
     // Protected by cache_mutex_ for thread-safe access from HTTP handlers
     mutable std::mutex cache_mutex_;
     utils::CacheManager rtti_cache_{"rtti", "RTTI"};
-    utils::CacheManager cs2_schema_cache_{"cs2_schema", "CS2 schema"};
     utils::CacheManager function_cache_{"functions", "Function recovery"};
-
-    // CS2 Schema instance (lazy-initialized)
-    std::unique_ptr<dumper::CS2SchemaDumper> cs2_schema_;
-    uint32_t cs2_schema_pid_ = 0;
-
-    // CS2 scope size lookup helper
-    uint32_t GetModuleSizeForScope(const std::string& scope_name);
-
-    // CS2 Entity system cache (discovered via pattern scanning)
-    struct CS2EntityCache {
-        uint64_t entity_system = 0;         // CGameEntitySystem*
-        uint64_t local_player_controller = 0; // LocalPlayerController array base
-        uint64_t client_base = 0;           // client.dll base
-        uint32_t client_size = 0;           // client.dll size
-        bool initialized = false;
-    };
-    CS2EntityCache cs2_entity_cache_;
-
-    // In-memory schema cache for fast field lookups (loaded from disk cache on cs2_init)
-    struct SchemaFieldInfo {
-        std::string name;
-        std::string type;
-        uint32_t offset;
-    };
-    struct SchemaClassInfo {
-        std::string name;
-        std::string scope;  // e.g., "client.dll"
-        std::string parent;
-        std::vector<SchemaFieldInfo> fields;
-    };
-    mutable std::mutex schema_mem_cache_mutex_;
-    std::unordered_map<std::string, SchemaClassInfo> schema_mem_cache_;  // key: lowercase class name
-    bool schema_mem_cache_loaded_ = false;
-
-    // Helper to load schema into memory cache
-    void LoadSchemaIntoMemory();
-    // Helper to find class in memory cache (case-insensitive)
-    const SchemaClassInfo* FindSchemaClass(const std::string& class_name) const;
-
-    // RTTI+Schema helper: identify class from pointer
-    std::string IdentifyClassFromPointer(uint32_t pid, uint64_t ptr, uint64_t module_base = 0);
-    // RTTI+Schema helper: strip "class " or "struct " prefix
-    static std::string StripTypePrefix(const std::string& name);
 
     // Memory snapshot storage for diff engine
     struct MemorySnapshot {
