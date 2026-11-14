@@ -15,19 +15,19 @@
 
 ---
 
-Orpheus reads process memory through FPGA-based DMA hardware, completely invisible to the target system. It pairs a C++ analysis engine with a modern desktop UI and exposes 70+ tools through the Model Context Protocol, letting AI assistants like Claude perform reverse engineering tasks directly.
+Orpheus reads process memory through FPGA-based DMA hardware, completely invisible to the target system. It pairs a C++ analysis engine with a modern desktop UI and exposes 50+ tools through the Model Context Protocol, letting AI assistants like Claude perform reverse engineering tasks directly.
 
 ## Features
 
 **Core** — Process enumeration, module browsing, hex memory viewer, memory region mapping
 
-**Analysis** — Zydis disassembler, Ghidra decompiler with type injection, control flow graphs, function recovery (prologue + pdata + RTTI), cross-reference finder
+**Analysis** — Zydis disassembler, Ghidra decompiler, control flow graphs, function recovery (prologue + pdata + RTTI), cross-reference finder
 
 **Scanning** — IDA-style pattern matching with wildcards, string scanning (ASCII/UTF-16), memory snapshots with diff comparison, write tracing
 
 **Tools** — Memory writer with type-aware encoding, expression evaluator (`module.dll+0x1234`), pointer chain resolver, vtable reader, Unicorn x64 emulator, module dumper, persistent bookmarks
 
-**AI Integration** — 70+ MCP endpoints, auto-detection and configuration of Claude Desktop / Cursor / Claude Code, transparent opt-out telemetry
+**AI Integration** — 50+ MCP endpoints, auto-detection and configuration of Claude Desktop / Cursor / Claude Code, transparent opt-out telemetry
 
 ## Screenshots
 
@@ -116,9 +116,9 @@ orpheus/
 ├── src/
 │   ├── core/          # DMA interface, runtime management, task system
 │   ├── analysis/      # Disassembler, pattern scanner, RTTI, function recovery
-│   ├── decompiler/    # Ghidra integration, type injection
+│   ├── decompiler/    # Ghidra integration
 │   ├── emulation/     # Unicorn CPU emulator
-│   ├── mcp/           # MCP server (70+ handlers)
+│   ├── mcp/           # MCP server (50+ handlers)
 │   └── utils/         # Cache, bookmarks, telemetry, expression evaluator
 ├── ui/                # Tauri v2 desktop application
 │   ├── src/           # React 19 + TypeScript frontend (24 panels)
