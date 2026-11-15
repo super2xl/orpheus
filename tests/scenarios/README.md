@@ -11,6 +11,7 @@ Env vars: `ORPHEUS_MCP_URL` (default http://127.0.0.1:8765), `ORPHEUS_API_KEY` (
 `ORPHEUS_TARGET_PROCESS` (default explorer.exe), `ORPHEUS_DEVICE` (default fpga),
 `ORPHEUS_TIMEOUT_MS`, `ORPHEUS_CONNECT_TIMEOUT_MS`, `ORPHEUS_TASK_TIMEOUT_MS`.
 
-Run everything: `node tests/scenarios/run.mjs` (ui_parity, then journeys 1-3; exits nonzero on failure).
+Journeys: 1 connect, 2 process/memory, 3 scan, 4 snapshot/diff (KUSER_SHARED_DATA), 5 disassemble/decompile/CFG.
+Run everything: `node tests/scenarios/run.mjs` (ui_parity, then journeys 1-5; exits nonzero on failure).
 Offline only: `node tests/scenarios/ui_parity.mjs` (no server or rig needed).
-Single journey: `node tests/scenarios/journey2_process_memory.mjs`.
+Single journey: `node tests/scenarios/journey4_snapshot.mjs`.
