@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Stale-session recovery now triggers on empty results.** The 0.2.2 refresh-and-retry only ran when a module or memory-region lookup failed outright, but a stale session returns a successful lookup with zero entries. Empty results now trigger the retry too, and refreshes are rate-limited so processes that really have no modules (such as Memory Compression) don't flush the cache on every call.
+
 ## [0.2.3] - 2026-11-15
 
 Analysis accuracy release. Function recovery, function lookups, and snapshot diffs were checked against live hardware and fixed where they gave wrong or incomplete answers.

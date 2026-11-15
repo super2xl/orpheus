@@ -293,6 +293,8 @@ private:
 
     // Run a per-process map fetch; on failure, refresh VMM caches and retry.
     bool WithRefreshRetry(uint32_t pid, const char* what, const std::function<bool()>& fetch);
+    std::atomic<int64_t> last_process_refresh_ms_{0};
+    std::atomic<int64_t> last_full_refresh_ms_{0};
 
     // Uncached read (bypasses cache)
     std::vector<uint8_t> ReadMemoryDirect(uint32_t pid, uint64_t address, size_t size);

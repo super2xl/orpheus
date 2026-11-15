@@ -1,4 +1,5 @@
 #include "dma_interface.h"
+#include <chrono>
 #include "runtime_manager.h"
 #include "utils/logger.h"
 
@@ -515,13 +516,26 @@ bool DMAInterface::WithRefreshRetry(uint32_t pid, const char* what,
     if (fetch()) return true;
     if (fn_ConfigSet == nullptr) return false;
 
-    LOG_WARN("{} failed for pid {}; retrying after process refresh", what, pid);
-    fn_ConfigSet(vmm_handle_, OPT_REFRESH_FREQ_MEDIUM, 1);
-    if (fetch()) return true;
+    // Rate-limit refreshes: processes that genuinely have no modules
+    // (Registry, MemCompression) must not trigger a cache flush per call.
+    const int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    auto claim = [now](std::atomic<int64_t>& last, int64_t min_gap_ms) {
+        int64_t prev = last.load();
+        return (prev == 0 || now - prev >= min_gap_ms) && last.compare_exchange_strong(prev, now);
+    };
 
-    LOG_WARN("{} still failing for pid {}; retrying after full refresh", what, pid);
-    fn_ConfigSet(vmm_handle_, OPT_REFRESH_ALL, 1);
-    if (fetch()) return true;
+    if (claim(last_process_refresh_ms_, 5000)) {
+        LOG_WARN("{} failed for pid {}; retrying after process refresh", what, pid);
+        fn_ConfigSet(vmm_handle_, OPT_REFRESH_FREQ_MEDIUM, 1);
+        if (fetch()) return true;
+    }
+
+    if (claim(last_full_refresh_ms_, 30000)) {
+        LOG_WARN("{} still failing for pid {}; retrying after full refresh", what, pid);
+        fn_ConfigSet(vmm_handle_, OPT_REFRESH_ALL, 1);
+        if (fetch()) return true;
+    }
 
     LOG_WARN("{} unavailable for pid {} after refresh; DMA session may be stale", what, pid);
     return false;
@@ -532,11 +546,18 @@ std::vector<ModuleInfo> DMAInterface::GetModuleList(uint32_t pid) {
     if (!IsConnected() || fn_MapGetModuleU == nullptr) return result;
 
     VMM_MAP_MODULE* pModuleMap = nullptr;
+    // An empty map counts as a failure: the observed stale state returned
+    // success with zero entries, and every live user process has modules.
     auto fetch = [&] {
-        pModuleMap = nullptr;
-        return fn_MapGetModuleU(vmm_handle_, pid, &pModuleMap, 0) && pModuleMap != nullptr;
+        if (pModuleMap) { fn_MemFree(pModuleMap); pModuleMap = nullptr; }
+        if (!fn_MapGetModuleU(vmm_handle_, pid, &pModuleMap, 0) || pModuleMap == nullptr) {
+            pModuleMap = nullptr;
+            return false;
+        }
+        return pModuleMap->cMap > 0;
     };
     if (!WithRefreshRetry(pid, "module map", fetch)) {
+        if (pModuleMap) fn_MemFree(pModuleMap);
         return result;
     }
 
@@ -575,10 +596,15 @@ std::vector<MemoryRegion> DMAInterface::GetMemoryRegions(uint32_t pid) {
 
     VMM_MAP_VAD* pVadMap = nullptr;
     auto fetch = [&] {
-        pVadMap = nullptr;
-        return fn_MapGetVadU(vmm_handle_, pid, TRUE, &pVadMap) && pVadMap != nullptr;
+        if (pVadMap) { fn_MemFree(pVadMap); pVadMap = nullptr; }
+        if (!fn_MapGetVadU(vmm_handle_, pid, TRUE, &pVadMap) || pVadMap == nullptr) {
+            pVadMap = nullptr;
+            return false;
+        }
+        return pVadMap->cMap > 0;
     };
     if (!WithRefreshRetry(pid, "VAD map", fetch)) {
+        if (pVadMap) fn_MemFree(pVadMap);
         return result;
     }
 
