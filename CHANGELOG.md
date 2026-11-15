@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Scenario journey 6 (resilience):** processes with no modules, an exited pid across every per-process tool, and a DMA disconnect during a running 512 MB async scan followed by reconnect.
+- **`tests/scenarios/soak.mjs`:** holds one DMA session open for hours and samples modules, regions and the MZ header every minute, to catch the long-session stale state.
+
 ### Fixed
+- **`get_modules` and `memory_regions` on an exited process returned success with no entries.** They now return "Process not found", like the read and scan tools.
+- **Processes with no modules got a "session may be stale" error.** Memory Compression and similar processes now report 0 modules when their memory regions still read; the stale-session error only appears when neither can be read.
 - **Stale-session recovery now triggers on empty results.** The 0.2.2 refresh-and-retry only ran when a module or memory-region lookup failed outright, but a stale session returns a successful lookup with zero entries. Empty results now trigger the retry too, and refreshes are rate-limited so processes that really have no modules (such as Memory Compression) don't flush the cache on every call.
 
 ## [0.2.3] - 2026-11-15

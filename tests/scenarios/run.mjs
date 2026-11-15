@@ -1,16 +1,16 @@
-// Runs ui_parity, then journeys 1 -> 5. Journeys 2-5 are skipped if journey 1 fails.
+// Runs ui_parity, then journeys 1 -> 6. Journeys 2-6 are skipped if journey 1 fails.
 // Usage: node tests/scenarios/run.mjs
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const dir = dirname(fileURLToPath(import.meta.url));
-const steps = ['ui_parity', 'journey1_connect', 'journey2_process_memory', 'journey3_scan', 'journey4_snapshot', 'journey5_analysis'];
+const steps = ['ui_parity', 'journey1_connect', 'journey2_process_memory', 'journey3_scan', 'journey4_snapshot', 'journey5_analysis', 'journey6_resilience'];
 const rows = [];
 let journey1Failed = false;
 
 for (const name of steps) {
-  if (journey1Failed && /^journey[2-5]/.test(name)) {
+  if (journey1Failed && /^journey[2-6]/.test(name)) {
     rows.push({ name, status: 'SKIP', ms: 0, detail: 'journey1 failed' });
     continue;
   }

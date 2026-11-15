@@ -38,3 +38,4 @@ CLAUDE.md
 GIT-IGNORED-PROJECT/
 research/
 .release/
+tests/scenarios/soak-*.jsonl

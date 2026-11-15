@@ -63,9 +63,16 @@ std::string MCPServer::HandleGetModules(const std::string& body) {
             return CreateErrorResponse("DMA not connected");
         }
 
+        if (!dma->GetProcessInfo(pid)) {
+            return CreateErrorResponse("Process not found: PID " + std::to_string(pid) + " does not exist or has terminated");
+        }
+
         auto modules = dma->GetModuleList(pid);
-        if (modules.empty() && dma->GetProcessInfo(pid)) {
-            return CreateErrorResponse("No modules could be read for pid " + std::to_string(pid) +
+        // Some live processes (MemCompression, Registry on some builds) genuinely
+        // have no modules. If the process's own memory map still reads, the
+        // session is fine and 0 modules is the real answer.
+        if (modules.empty() && dma->GetMemoryRegions(pid).empty()) {
+            return CreateErrorResponse("No modules or memory regions could be read for pid " + std::to_string(pid) +
                 ". If this happens for every process, the DMA session is stale: disconnect and reconnect DMA.");
         }
 
@@ -107,8 +114,12 @@ std::string MCPServer::HandleGetMemoryRegions(const std::string& body) {
             return CreateErrorResponse("DMA not connected");
         }
 
+        if (!dma->GetProcessInfo(pid)) {
+            return CreateErrorResponse("Process not found: PID " + std::to_string(pid) + " does not exist or has terminated");
+        }
+
         auto regions = dma->GetMemoryRegions(pid);
-        if (regions.empty() && dma->GetProcessInfo(pid)) {
+        if (regions.empty()) {
             return CreateErrorResponse("No memory regions could be read for pid " + std::to_string(pid) +
                 ". If this happens for every process, the DMA session is stale: disconnect and reconnect DMA.");
         }
