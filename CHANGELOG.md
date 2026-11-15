@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-15
+
+Analysis accuracy release. Function recovery, function lookups, and snapshot diffs were checked against live hardware and fixed where they gave wrong or incomplete answers.
+
+### Fixed
+- **Function recovery kept only part of the exception table (`.pdata`).** Parsing stopped at the first page that was paged out on the target, so on Explorer only 2,731 of 12,411 functions got exact bounds. Unreadable entries are now skipped instead, recovering 11,046. Function caches from older versions rebuild automatically once.
+- **False-positive functions inside real ones.** Prologue and call-target guesses that start inside a `.pdata` function are now discarded, so lookups no longer land on a bogus mid-function entry.
+- **`get_function_containing`** could match an earlier, size-unknown function across a gap. It now uses the nearest function, or reports that the address is between functions.
+- **`find_function_bounds`** returns exact bounds when functions have been recovered. Its fallback now decodes real instructions, so a `0xC3` byte inside another instruction is no longer taken as a `ret`, and heuristic results report "medium" confidence instead of "high".
+- **Snapshots could return stale memory.** Two snapshots taken seconds apart occasionally came back identical from MemProcFS's page cache. Snapshots and diffs now read directly from the device.
+- **`memory_diff`** could read past the end of a buffer when live memory came back shorter than the snapshot; it now compares the readable part and says so. Totals now cover the whole region even when results are cut off at `max_results`, and `truncated` is set only when more matches existed.
+
+### Added
+- Regression tests for all of the above in the scenario suite (50 tests across 5 user journeys).
+
 ## [0.2.2] - 2026-11-15
 
 Reliability release, verified against live hardware with a new scenario test suite.
@@ -205,7 +220,8 @@ React 19 shell driving the C++ core as a DLL over FFI in a single process.
 - ImGui-based GUI
 - MCP server for AI integration
 
-[Unreleased]: https://github.com/super2xl/orpheus/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/super2xl/orpheus/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/super2xl/orpheus/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/super2xl/orpheus/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/super2xl/orpheus/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/super2xl/orpheus/compare/v0.1.9...v0.2.0
