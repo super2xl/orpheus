@@ -64,6 +64,10 @@ std::string MCPServer::HandleGetModules(const std::string& body) {
         }
 
         auto modules = dma->GetModuleList(pid);
+        if (modules.empty() && dma->GetProcessInfo(pid)) {
+            return CreateErrorResponse("No modules could be read for pid " + std::to_string(pid) +
+                ". If this happens for every process, the DMA session is stale: disconnect and reconnect DMA.");
+        }
 
         json result;
         result["pid"] = pid;
@@ -104,6 +108,10 @@ std::string MCPServer::HandleGetMemoryRegions(const std::string& body) {
         }
 
         auto regions = dma->GetMemoryRegions(pid);
+        if (regions.empty() && dma->GetProcessInfo(pid)) {
+            return CreateErrorResponse("No memory regions could be read for pid " + std::to_string(pid) +
+                ". If this happens for every process, the DMA session is stale: disconnect and reconnect DMA.");
+        }
 
         json result;
         result["pid"] = pid;

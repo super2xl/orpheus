@@ -220,8 +220,10 @@ static const char* GetFPGADeviceName(uint64_t device_id) {
     }
 }
 
-// VMM config options for refresh
-static constexpr ULONG64 OPT_REFRESH_ALL = 0x2001ffff;
+// VMM config options for refresh (values from include/vmm/vmmdll.h — the option
+// ID lives in the upper 32 bits; a truncated value is silently rejected).
+static constexpr ULONG64 OPT_REFRESH_ALL = 0x2001ffff00000000ULL;          // all caches
+static constexpr ULONG64 OPT_REFRESH_FREQ_MEDIUM = 0x2001000100000000ULL;  // incl. full process refresh
 
 // Static function pointers
 static FN_Initialize fn_Initialize = nullptr;
@@ -417,10 +419,9 @@ std::vector<ProcessInfo> DMAInterface::GetProcessList() {
     std::vector<ProcessInfo> result;
     if (!IsConnected() || fn_ProcessGetInfoAll == nullptr) return result;
 
-    // Force refresh of process cache to get accurate, live data
-    if (fn_ConfigSet != nullptr) {
-        fn_ConfigSet(vmm_handle_, OPT_REFRESH_ALL, 1);
-    }
+    // No forced refresh here: the UI polls this every few seconds and MemProcFS
+    // already refreshes the process list in the background. (A forced
+    // OPT_REFRESH_ALL here was previously a no-op due to a truncated constant.)
 
     VMM_PROCESS_INFORMATION* pInfo = nullptr;
     DWORD count = 0;
@@ -505,12 +506,36 @@ std::optional<ProcessInfo> DMAInterface::GetProcessByName(const std::string& nam
     return std::nullopt;
 }
 
+// Per-process maps can go stale on a long-lived session (observed: every
+// process returning an empty module/VAD map while the process list still
+// worked; a reconnect fixed it). Escalate: process refresh, then full refresh.
+bool DMAInterface::WithRefreshRetry(uint32_t pid, const char* what,
+                                    const std::function<bool()>& fetch) {
+    if (fetch()) return true;
+    if (fn_ConfigSet == nullptr) return false;
+
+    LOG_WARN("{} failed for pid {}; retrying after process refresh", what, pid);
+    fn_ConfigSet(vmm_handle_, OPT_REFRESH_FREQ_MEDIUM, 1);
+    if (fetch()) return true;
+
+    LOG_WARN("{} still failing for pid {}; retrying after full refresh", what, pid);
+    fn_ConfigSet(vmm_handle_, OPT_REFRESH_ALL, 1);
+    if (fetch()) return true;
+
+    LOG_WARN("{} unavailable for pid {} after refresh; DMA session may be stale", what, pid);
+    return false;
+}
+
 std::vector<ModuleInfo> DMAInterface::GetModuleList(uint32_t pid) {
     std::vector<ModuleInfo> result;
     if (!IsConnected() || fn_MapGetModuleU == nullptr) return result;
 
     VMM_MAP_MODULE* pModuleMap = nullptr;
-    if (!fn_MapGetModuleU(vmm_handle_, pid, &pModuleMap, 0) || pModuleMap == nullptr) {
+    auto fetch = [&] {
+        pModuleMap = nullptr;
+        return fn_MapGetModuleU(vmm_handle_, pid, &pModuleMap, 0) && pModuleMap != nullptr;
+    };
+    if (!WithRefreshRetry(pid, "module map", fetch)) {
         return result;
     }
 
@@ -548,7 +573,11 @@ std::vector<MemoryRegion> DMAInterface::GetMemoryRegions(uint32_t pid) {
     if (!IsConnected() || fn_MapGetVadU == nullptr) return result;
 
     VMM_MAP_VAD* pVadMap = nullptr;
-    if (!fn_MapGetVadU(vmm_handle_, pid, TRUE, &pVadMap) || pVadMap == nullptr) {
+    auto fetch = [&] {
+        pVadMap = nullptr;
+        return fn_MapGetVadU(vmm_handle_, pid, TRUE, &pVadMap) && pVadMap != nullptr;
+    };
+    if (!WithRefreshRetry(pid, "VAD map", fetch)) {
         return result;
     }
 

@@ -281,6 +281,9 @@ public:
 private:
     void ReportError(const std::string& message);
 
+    // Run a per-process map fetch; on failure, refresh VMM caches and retry.
+    bool WithRefreshRetry(uint32_t pid, const char* what, const std::function<bool()>& fetch);
+
     // Uncached read (bypasses cache)
     std::vector<uint8_t> ReadMemoryDirect(uint32_t pid, uint64_t address, size_t size);
 
