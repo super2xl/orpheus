@@ -82,6 +82,17 @@ test('changing: KUSER_SHARED_DATA differs after ~1.5s (snapshot_vs_snapshot)', a
   assert.equal(first.delta, first.new_value - first.old_value);
 });
 
+test('truncated diff (max_results=1) still reports full totals', async () => {
+  const args = { mode: 'snapshot_vs_snapshot', snapshot_a: `${RUN}_kuser_a`, snapshot_b: `${RUN}_kuser_b`, filter: 'all', value_size: 4 };
+  const full = await call('memory_diff', { ...args, max_results: 100000 });
+  const cut = await call('memory_diff', { ...args, max_results: 1 });
+  assert.equal(full.total_values_checked, 0x1000 / 4);
+  assert.equal(cut.results_returned, 1);
+  assert.equal(cut.truncated, true);
+  assert.equal(cut.total_values_checked, full.total_values_checked, 'total_values_checked stops counting at max_results');
+  assert.equal(cut.total_changed, full.total_changed, 'total_changed stops counting at max_results');
+});
+
 test('changing: snapshot vs live memory also detects the change', async () => {
   const d = await call('memory_diff', { snapshot: `${RUN}_kuser_a`, filter: 'changed', max_results: 1000 });
   assert.ok(d.total_changed >= 1);

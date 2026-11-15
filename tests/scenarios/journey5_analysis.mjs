@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { call, resolveTarget, expectServerError, assertAlive, OrpheusError } from './lib.mjs';
 
 const hex = (v) => '0x' + BigInt(v).toString(16);
-let t, entry, funcStart, sig;
+let t, entry, funcStart, funcSize, sig;
 
 test('setup: main module entry point', async () => {
   t = await resolveTarget();
@@ -66,10 +66,24 @@ test('recover_functions on main module', async () => {
   assert.equal(BigInt(r.module_base), BigInt(t.main.base));
 });
 
+test('recover_functions uses (nearly) all of the module .pdata table', async () => {
+  // Read the PE exception directory size; each RUNTIME_FUNCTION is 12 bytes. A few pages may be
+  // paged out on the target, but the parser must not stop at the first one (it used to keep ~22%).
+  const rd = async (addr, size) => Buffer.from((await call('read_memory', { pid: t.pid, address: hex(addr), size, format: 'hex' })).hex, 'hex');
+  const base = BigInt(t.main.base);
+  const peOff = (await rd(base, 64)).readUInt32LE(0x3c);
+  const nt = await rd(base + BigInt(peOff), 0x108);
+  const pdataEntries = nt.readUInt32LE(0x18 + 0x70 + 3 * 8 + 4) / 12;
+  const r = await call('recover_functions', { pid: t.pid, module_base: t.main.base }, { timeout: 120000 });
+  const fromPdata = r.summary.from_pdata;
+  assert.ok(fromPdata >= pdataEntries * 0.8, `only ${fromPdata} of ${pdataEntries} .pdata entries recovered`);
+});
+
 test('get_function_containing(entry): start <= entry < start+size', async () => {
   const r = await call('get_function_containing', { pid: t.pid, address: hex(entry) });
   assert.equal(r.found, true, 'entry not inside any recovered function');
   funcStart = BigInt(r.function_start);
+  funcSize = BigInt(r.size || 0);
   assert.ok(funcStart <= entry);
   assert.equal(BigInt(r.offset_in_function), entry - funcStart);
   if (r.size > 0) assert.ok(entry < funcStart + BigInt(r.size), 'entry past end of function');
@@ -83,6 +97,62 @@ test('find_function_bounds(entry): start <= entry < end where reported', async (
   if (hasStart) assert.ok(BigInt(r.function_start) <= entry);
   if (hasEnd) assert.ok(BigInt(r.function_end) > entry);
   assert.ok(['low', 'medium', 'high'].includes(r.confidence));
+});
+
+// A function with exact bounds taken straight from the module's .pdata table (the first
+// RUNTIME_FUNCTION on a readable page), so these checks never depend on the entry point's
+// .pdata page being resident on the target.
+let pdataFn;
+const pdataFunction = async () => {
+  if (pdataFn) return pdataFn;
+  const rd = async (addr, size) => Buffer.from((await call('read_memory', { pid: t.pid, address: hex(addr), size, format: 'hex' })).hex, 'hex');
+  const base = BigInt(t.main.base);
+  const peOff = (await rd(base, 64)).readUInt32LE(0x3c);
+  const nt = await rd(base + BigInt(peOff), 0x108);
+  const rva = nt.readUInt32LE(0x18 + 0x70 + 3 * 8);
+  const size = nt.readUInt32LE(0x18 + 0x70 + 3 * 8 + 4);
+  for (let off = 0; off < size; off += 4096) {
+    let page;
+    try { page = await rd(base + BigInt(rva + off), Math.min(4096, size - off)); } catch { continue; }
+    // Skip the first few entries so the next one is preceded by other functions.
+    for (let i = 8 * 12; i + 12 <= page.length; i += 12) {
+      const begin = page.readUInt32LE(i), end = page.readUInt32LE(i + 4);
+      if (begin && end > begin + 8) return (pdataFn = { start: base + BigInt(begin), end: base + BigInt(end) });
+    }
+  }
+  return null;
+};
+
+test('find_function_bounds returns the exact .pdata range once functions are recovered', async (ctx) => {
+  const f = await pdataFunction();
+  if (!f) return ctx.skip('no readable .pdata page');
+  const mid = f.start + (f.end - f.start) / 2n;
+  const r = await call('find_function_bounds', { pid: t.pid, address: hex(mid) });
+  assert.equal(BigInt(r.function_start), f.start, `start ${r.function_start} != .pdata ${hex(f.start)} (reason ${r.start_reason})`);
+  assert.equal(BigInt(r.function_end), f.end, `end ${r.function_end} != .pdata ${hex(f.end)} (reason ${r.end_reason})`);
+  assert.equal(r.confidence, 'high');
+});
+
+test('find_function_bounds end is an instruction boundary (not a stray 0xC3 byte)', async () => {
+  // Inside the entry function, so the cache path cannot hide the heuristic: use an address
+  // in a function the heuristic must handle, then check the end lands on a decoded boundary.
+  const r = await call('find_function_bounds', { pid: t.pid, address: hex(entry) });
+  if (r.function_end === undefined) return;
+  const start = BigInt(r.function_start ?? entry);
+  const end = BigInt(r.function_end);
+  const d = await call('disassemble', { pid: t.pid, address: hex(start), count: 1000 }); // server max
+  const ends = new Set(d.instructions.map((i) => BigInt(i.addr) + BigInt(i.bytes.split(' ').length)));
+  assert.ok(ends.has(end), `function_end ${hex(end)} is not the end of any instruction decoded from ${hex(start)}`);
+});
+
+test('get_function_containing just past a .pdata function never returns an earlier function', async (ctx) => {
+  const f = await pdataFunction();
+  if (!f) return ctx.skip('no readable .pdata page');
+  const r = await call('get_function_containing', { pid: t.pid, address: hex(f.end) });
+  if (!r.found) return; // address is in padding between functions: correct
+  const s = BigInt(r.function_start);
+  assert.ok(s >= f.end, `returned function ${r.function_start} starts before ${hex(f.end)}, i.e. an earlier function was matched across a gap`);
+  if (r.size > 0) assert.ok(f.end < s + BigInt(r.size));
 });
 
 test('build_cfg at the entry function: entry node address == function start', async () => {
