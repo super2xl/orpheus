@@ -282,6 +282,21 @@ void MCPServer::SetupRoutes() {
         return httplib::Server::HandlerResponse::Unhandled;
     });
 
+    // Safety net: any handler that throws returns a JSON error instead of a bare,
+    // body-less HTTP 500 (which MCP clients report as "Invalid JSON response").
+    server->set_exception_handler([this](const httplib::Request& req, httplib::Response& res, std::exception_ptr ep) {
+        std::string msg = "Internal error";
+        try {
+            if (ep) std::rethrow_exception(ep);
+        } catch (const std::exception& e) {
+            msg = e.what();
+        } catch (...) {
+        }
+        LOG_WARN("Unhandled exception in {}: {}", req.path, msg);
+        res.status = 500;
+        res.set_content(CreateErrorResponse(msg), "application/json");
+    });
+
     // Helper macros for registering routes with permission checks
     // Eliminates repetitive boilerplate for each endpoint
     #define ROUTE_POST(path, handler) \
