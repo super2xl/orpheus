@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-15
+
+Reliability release, verified against live hardware with a new scenario test suite.
+
+### Added
+- **Bridge DMA session tools** (`mcp_bridge.js` 1.4.0) — `dma_status`, `connect_dma`, and `disconnect_dma`. AI clients can now start, check, and reset the DMA session without the UI. `connect_dma` waits for the connection to finish and returns the device name or the real error.
+- **Scenario test suite** (`tests/scenarios/`) — drives the MCP server against a live DMA target across the core user journeys (connect, processes → modules → memory, pattern/string scans, async tasks, xrefs), plus an offline check that every UI and bridge endpoint exists on the server. Run with `node tests/scenarios/run.mjs`.
+
+### Fixed
+- **Empty module and memory-region lists on long-running sessions.** A stale DMA session could return zero modules and regions for every process with no error. Orpheus now refreshes and retries, and if the map is still unavailable, reports a clear error telling you to reconnect instead of showing an empty list.
+- **MemProcFS refresh option had the wrong value** (`0x2001ffff` instead of `0x2001ffff00000000`), so the intended cache refresh was silently rejected.
+- **Task tools returned a bare HTTP 500** on a missing or unknown `task_id`, which MCP clients showed as "Invalid JSON response". They now return a JSON error, and a server-wide exception handler guarantees no endpoint returns a body-less 500.
+- Bridge network errors no longer show an empty message when the server is unreachable, and the bridge now reports its real version to MCP clients.
+
 ### Removed
 - **CS2 subsystem** — retired the CS2 schema dumper, entity tools, and decompiler type-injection. Deleted the dedicated handler/dumper/type-injector sources, removed the 14 `cs2_*` MCP endpoints and their `mcp_bridge.js` schemas, the frontend schema-cache panel, and the dead CS2 radar-map embedding in the build.
 
@@ -193,7 +207,8 @@ React 19 shell driving the C++ core as a DLL over FFI in a single process.
 - ImGui-based GUI
 - MCP server for AI integration
 
-[Unreleased]: https://github.com/super2xl/orpheus/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/super2xl/orpheus/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/super2xl/orpheus/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/super2xl/orpheus/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/super2xl/orpheus/compare/v0.1.9...v0.2.0
 [0.1.9]: https://github.com/super2xl/orpheus/compare/v0.1.8...v0.1.9

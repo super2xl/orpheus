@@ -1629,7 +1629,7 @@ async function handleRequest(request) {
           protocolVersion: '2024-11-05',
           serverInfo: {
             name: 'orpheus',
-            version: '1.0.0'
+            version: BRIDGE_VERSION
           },
           capabilities: {
             tools: {}
