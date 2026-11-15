@@ -61,7 +61,11 @@ std::map<uint64_t, FunctionInfo> FunctionRecovery::RecoverFunctions(
         DetectThunks(options);
     }
 
-    // Stage 6: Compute function bounds where possible
+    // Stage 6: .pdata ranges are authoritative; drop heuristic "functions" that start
+    // inside one (prologue/call-target false positives mid-function).
+    PruneInsideExceptionRanges();
+
+    // Stage 7: Compute function bounds where possible
     ComputeFunctionBounds();
 
     if (progress) progress("Complete", 1.0f);
@@ -277,9 +281,13 @@ std::optional<std::vector<RuntimeFunction>> FunctionRecovery::GetExceptionDirect
 
     const RuntimeFunction* entries = reinterpret_cast<const RuntimeFunction*>(data.data());
     for (size_t i = 0; i < count; i++) {
-        // Validate entry
-        if (entries[i].begin_address == 0 && entries[i].end_address == 0) break;
-        result.push_back(entries[i]);
+        // Skip, don't stop: pages of .pdata that are paged out on the target read back
+        // zero-padded. Stopping at the first zero entry dropped ~78% of Explorer's
+        // 12,411 entries because one page 32 KB in was non-resident.
+        const auto& rf = entries[i];
+        if (rf.begin_address == 0 || rf.end_address <= rf.begin_address) continue;
+        if (module_size_ != 0 && rf.end_address > module_size_) continue;
+        result.push_back(rf);
     }
 
     return result;
@@ -421,6 +429,24 @@ void FunctionRecovery::DetectThunks(const FunctionRecoveryOptions& options) {
             func.is_thunk = true;
             func.size = 6;
             func.end_address = addr + 6;
+        }
+    }
+}
+
+void FunctionRecovery::PruneInsideExceptionRanges() {
+    // functions_ is ordered by address. Walk it once, tracking the furthest end of any
+    // .pdata function seen so far; a non-.pdata entry starting before that end lies
+    // inside a known function body.
+    uint64_t covered_until = 0;
+    for (auto it = functions_.begin(); it != functions_.end();) {
+        const auto& f = it->second;
+        if (f.source == FunctionInfo::Source::ExceptionData) {
+            covered_until = std::max(covered_until, f.end_address);
+            ++it;
+        } else if (it->first < covered_until) {
+            it = functions_.erase(it);
+        } else {
+            ++it;
         }
     }
 }

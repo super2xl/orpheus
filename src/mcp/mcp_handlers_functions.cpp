@@ -11,15 +11,22 @@
 #include "core/orpheus_core.h"
 #include "core/dma_interface.h"
 #include "analysis/function_recovery.h"
+#include "analysis/disassembler.h"
 #include "utils/logger.h"
 
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <iomanip>
+#include <algorithm>
 
 using json = nlohmann::json;
 
 namespace orpheus::mcp {
+
+// Bump when recovery output changes in a way old caches can't express.
+// v2: .pdata parsing no longer stops at a paged-out (zero-filled) page.
+// v3: heuristic entries starting inside a .pdata function are pruned.
+static constexpr int kFunctionCacheVersion = 3;
 
 std::string MCPServer::HandleRecoverFunctions(const std::string& body) {
     try {
@@ -74,21 +81,26 @@ std::string MCPServer::HandleRecoverFunctions(const std::string& body) {
             std::string cached = function_cache_.Load(module_name, module_size);
             if (!cached.empty()) {
                 json cache_data = json::parse(cached);
+                bool stale = cache_data.value("cache_version", 1) < kFunctionCacheVersion;
+                if (stale) {
+                    LOG_INFO("Function cache for {} is an older format; rescanning", module_name);
+                }
+                if (!stale) {
+                    json result;
+                    result["status"] = "cached";
+                    result["module"] = module_name;
+                    result["module_base"] = FormatAddress(module_base);
+                    result["module_size"] = module_size;
+                    result["count"] = cache_data.value("count", 0);
+                    result["cache_file"] = function_cache_.GetFilePath(module_name, module_size);
+                    result["summary"] = cache_data.value("summary", json::object());
+                    result["hint"] = "Use get_function_at or get_function_containing to query functions";
 
-                json result;
-                result["status"] = "cached";
-                result["module"] = module_name;
-                result["module_base"] = FormatAddress(module_base);
-                result["module_size"] = module_size;
-                result["count"] = cache_data.value("count", 0);
-                result["cache_file"] = function_cache_.GetFilePath(module_name, module_size);
-                result["summary"] = cache_data.value("summary", json::object());
-                result["hint"] = "Use get_function_at or get_function_containing to query functions";
+                    LOG_INFO("Function cache hit for {} ({} functions)", module_name,
+                             cache_data.value("count", 0));
 
-                LOG_INFO("Function cache hit for {} ({} functions)", module_name,
-                         cache_data.value("count", 0));
-
-                return CreateSuccessResponse(result.dump());
+                    return CreateSuccessResponse(result.dump());
+                }
             }
         }
 
@@ -118,6 +130,7 @@ std::string MCPServer::HandleRecoverFunctions(const std::string& body) {
         cache_data["module_base"] = FormatAddress(module_base);
         cache_data["module_size"] = module_size;
         cache_data["count"] = functions.size();
+        cache_data["cache_version"] = kFunctionCacheVersion;
 
         // Summary stats
         int pdata_count = 0, prologue_count = 0, call_count = 0;
@@ -306,21 +319,30 @@ std::string MCPServer::HandleGetFunctionContaining(const std::string& body) {
         json cache_data = json::parse(cached);
         uint64_t target_rva = address - module_base;
 
-        // Find function containing address (largest RVA <= target)
+        // The candidate is the function with the nearest start <= target. If that
+        // function has a known size and the target is past its end, the address is in a
+        // gap: don't fall back to an earlier (often size-0) function further up.
+        // Among duplicates at the same start, prefer the one with a known size.
         json best_match;
         uint64_t best_rva = 0;
+        bool have_best = false;
 
         for (const auto& func : cache_data["functions"]) {
             uint64_t rva = func["rva"].get<uint64_t>();
-            uint32_t size = func.value("size", 0);
-
-            if (rva <= target_rva && rva > best_rva) {
-                // Check if address is within function bounds
-                if (size > 0 && target_rva >= rva + size) {
-                    continue;  // Address is past function end
-                }
+            if (rva > target_rva) continue;
+            bool better = !have_best || rva > best_rva ||
+                          (rva == best_rva && best_match.value("size", 0) == 0 && func.value("size", 0) > 0);
+            if (better) {
                 best_match = func;
                 best_rva = rva;
+                have_best = true;
+            }
+        }
+
+        if (have_best) {
+            uint32_t size = best_match.value("size", 0);
+            if (size > 0 && target_rva >= best_rva + size) {
+                best_match = json();  // in a gap after the nearest function
             }
         }
 
@@ -379,9 +401,42 @@ std::string MCPServer::HandleFindFunctionBounds(const std::string& body) {
             return CreateErrorResponse("Process not found: PID " + std::to_string(pid));
         }
 
+        // Exact bounds first: if functions were recovered for this module, .pdata gives
+        // authoritative start/end. The byte heuristics below are only a fallback.
+        {
+            json q;
+            q["pid"] = pid;
+            q["address"] = FormatAddress(address);
+            auto r = json::parse(HandleGetFunctionContaining(q.dump()));
+            if (r.value("success", false) && r.contains("data")) {
+                const auto& f = r["data"];
+                uint32_t fsize = f.value("size", 0);
+                if (f.value("found", false) && fsize > 0) {
+                    uint64_t fstart = std::stoull(f["function_start"].get<std::string>(), nullptr, 16);
+                    std::string reason = "recovered_functions:" + f.value("source", std::string("unknown"));
+                    json result;
+                    result["address"] = FormatAddress(address);
+                    result["context"] = FormatAddressWithContext(pid, address);
+                    result["function_start"] = FormatAddress(fstart);
+                    result["start_context"] = FormatAddressWithContext(pid, fstart);
+                    result["start_reason"] = reason;
+                    result["offset_in_function"] = address - fstart;
+                    result["function_end"] = FormatAddress(fstart + fsize);
+                    result["end_context"] = FormatAddressWithContext(pid, fstart + fsize);
+                    result["end_reason"] = reason;
+                    result["estimated_size"] = fsize;
+                    result["confidence"] = "high";
+                    return CreateSuccessResponse(result.dump());
+                }
+            }
+        }
+
+        max_search_up = std::clamp(max_search_up, 0, 1 << 20);
+        max_search_down = std::clamp(max_search_down, 1, 1 << 20);
+
         // Read memory region around the address
         uint64_t search_start = address > (uint64_t)max_search_up ? address - max_search_up : 0;
-        size_t total_size = max_search_up + max_search_down;
+        size_t total_size = static_cast<size_t>(max_search_up) + static_cast<size_t>(max_search_down);
         auto data = dma->ReadMemory(pid, search_start, total_size);
 
         if (data.empty()) {
@@ -389,6 +444,9 @@ std::string MCPServer::HandleFindFunctionBounds(const std::string& body) {
         }
 
         size_t offset_in_data = address - search_start;
+        if (offset_in_data >= data.size()) {
+            return CreateErrorResponse("Memory at " + FormatAddress(address) + " could not be read");
+        }
         uint64_t function_start = 0;
         uint64_t function_end = 0;
         std::string start_reason;
@@ -477,45 +535,30 @@ std::string MCPServer::HandleFindFunctionBounds(const std::string& body) {
             }
         }
 
-        // Scan forwards for function end
-        for (size_t i = offset_in_data; i < data.size() - 1; i++) {
-            // ret instruction
-            if (data[i] == 0xC3) {
-                // Check if followed by int3 padding or another function
-                if (i + 1 < data.size()) {
-                    uint8_t next = data[i + 1];
-                    if (next == 0xCC || next == 0x90 ||  // int3 or nop
-                        next == 0x55 ||                   // push rbp (next function)
-                        next == 0x48 ||                   // Possible sub rsp or mov
-                        next == 0x40) {                   // rex prefix
-                        function_end = search_start + i + 1;
-                        end_reason = "ret_instruction";
-                        break;
-                    }
-                }
-                // If followed by meaningful code, might be a conditional return
-                // Continue searching
-            }
+        // Scan forwards for function end by decoding real instructions from the
+        // address, so a 0xC3 byte inside an immediate or displacement is never
+        // mistaken for a ret. A ret (or jmp reg) counts as the end when it is followed
+        // by padding (int3/nop) or the end of readable data; a ret followed by more code
+        // is treated as an early return and the walk continues.
+        {
+            analysis::Disassembler disasm(true);  // x64
+            size_t i = offset_in_data;
+            while (i < data.size()) {
+                auto ins = disasm.DisassembleOne(data.data() + i, data.size() - i, search_start + i);
+                if (!ins || ins->length == 0) break;  // undecodable: stop, don't guess
+                size_t next = i + ins->length;
+                bool padding_follows = next >= data.size() || data[next] == 0xCC || data[next] == 0x90;
 
-            // int3 after instruction indicates function end
-            if (data[i] == 0xC3 || (data[i] == 0xC2 && i + 2 < data.size())) {
-                // ret or ret imm16
-                function_end = search_start + i + (data[i] == 0xC2 ? 3 : 1);
-                end_reason = data[i] == 0xC2 ? "ret_imm16" : "ret";
-                break;
-            }
+                bool is_jmp_reg = ins->is_jump && !ins->is_conditional && ins->bytes.size() >= 2 &&
+                                  ins->bytes[ins->bytes.size() - 2] == 0xFF &&
+                                  (ins->bytes.back() & 0xF8) == 0xE0;
 
-            // jmp rax/rcx/rdx etc (tail call or switch) can indicate function end
-            if (data[i] == 0xFF && i + 1 < data.size()) {
-                uint8_t modrm = data[i + 1];
-                if ((modrm & 0xF8) == 0xE0) {  // jmp reg
-                    // Check if followed by int3
-                    if (i + 2 < data.size() && data[i + 2] == 0xCC) {
-                        function_end = search_start + i + 2;
-                        end_reason = "jmp_reg_tail_call";
-                        break;
-                    }
+                if ((ins->is_ret || is_jmp_reg) && padding_follows) {
+                    function_end = search_start + next;
+                    end_reason = ins->is_ret ? "ret_then_padding" : "jmp_reg_tail_call";
+                    break;
                 }
+                i = next;
             }
         }
 
@@ -545,8 +588,9 @@ std::string MCPServer::HandleFindFunctionBounds(const std::string& body) {
             result["hint_end"] = "Could not detect function end - function may be very large or use unusual control flow";
         }
 
-        result["confidence"] = (function_start != 0 && function_end != 0) ? "high" :
-                               (function_start != 0 || function_end != 0) ? "medium" : "low";
+        // Heuristic bounds are never "high": only recovered (.pdata) bounds earn that.
+        result["confidence"] = (function_start != 0 && function_end != 0) ? "medium" : "low";
+        result["hint"] = "Heuristic bounds. Run recover_functions on this module for exact .pdata bounds.";
 
         return CreateSuccessResponse(result.dump());
 

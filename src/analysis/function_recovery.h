@@ -173,6 +173,7 @@ private:
     void AnalyzeCallGraph(const FunctionRecoveryOptions& options, ProgressCallback progress);
     void DetectThunks(const FunctionRecoveryOptions& options);
     void ComputeFunctionBounds();
+    void PruneInsideExceptionRanges();
 
     // PE parsing helpers
     std::optional<std::vector<RuntimeFunction>> GetExceptionDirectory();
