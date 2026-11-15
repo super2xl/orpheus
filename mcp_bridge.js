@@ -6,7 +6,7 @@
  */
 
 // Bridge version - increment when tools or functionality changes
-const BRIDGE_VERSION = '1.3.0';
+const BRIDGE_VERSION = '1.4.0';
 
 const http = require('http');
 const https = require('https');
@@ -160,7 +160,13 @@ function makeHttpRequest(method, path, body = null) {
     });
 
     req.on('error', (err) => {
-      reject(new Error(`Network error: ${err.message}`));
+      // Dual-stack connects (localhost -> ::1 and 127.0.0.1) fail with an AggregateError
+      // whose message is empty; surface the per-address errors instead.
+      const detail = err.message
+        || (err.errors || []).map((e) => e.message).join('; ')
+        || err.code
+        || 'unknown error';
+      reject(new Error(`Network error: ${detail}. Is Orpheus running with the MCP server enabled at ${MCP_URL}?`));
     });
 
     req.on('timeout', () => {
@@ -181,6 +187,39 @@ function makeHttpRequest(method, path, body = null) {
 // ============================================================================
 
 const MCP_TOOLS = [
+  {
+    name: 'dma_status',
+    description: 'Check whether Orpheus is connected to the DMA device. Returns connected, connecting, device_type, and the last connection error if any. Call this first if other tools fail with "DMA not connected".',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'connect_dma',
+    description: 'Connect Orpheus to the DMA device and wait for the result (initialization can take 5-30 seconds). Returns connected=true with the device name, or the connection error. Safe to call when already connected. To recover a stale session (e.g. get_modules erroring for every process), call disconnect_dma then connect_dma.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        device_type: {
+          type: 'string',
+          description: 'LeechCore device string (default: "fpga")'
+        },
+        wait_seconds: {
+          type: 'integer',
+          description: 'Max seconds to wait for the connection to finish (default 45, max 120)'
+        }
+      }
+    }
+  },
+  {
+    name: 'disconnect_dma',
+    description: 'Disconnect Orpheus from the DMA device, releasing it for other software. Use with connect_dma to reset a stale session.',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
   {
     name: 'read_memory',
     description: 'Read memory from a process via DMA. Returns structured data including hex string, byte array, hexdump, and type interpretations (int32, int64, float, ptr). Use format parameter to control output.',
@@ -1409,6 +1448,9 @@ const MCP_TOOLS = [
  * Map MCP tool names to HTTP endpoints
  */
 const TOOL_ENDPOINT_MAP = {
+  'dma_status': { method: 'GET', path: '/tools/dma_status' },
+  'connect_dma': { method: 'POST', path: '/tools/connect_dma' }, // handled by connectDmaAndWait
+  'disconnect_dma': { method: 'POST', path: '/tools/disconnect_dma' },
   'get_health': { method: 'GET', path: '/health' },
   'get_version': { method: 'GET', path: '/version' },
   'read_memory': { method: 'POST', path: '/tools/read_memory' },
@@ -1476,12 +1518,48 @@ const TOOL_ENDPOINT_MAP = {
 };
 
 /**
+ * Start a DMA connection and poll dma_status until it finishes.
+ * The server's connect_dma returns immediately ("Connecting..."), so without
+ * waiting an agent cannot tell success from failure.
+ */
+async function connectDmaAndWait(args) {
+  const waitSeconds = Math.min(Math.max(Number(args.wait_seconds) || 45, 1), 120);
+  const body = { device_type: args.device_type || 'fpga' };
+
+  try {
+    const res = await makeHttpRequest('POST', '/tools/connect_dma', body);
+    if (res && res.message === 'Already connected') {
+      return { connected: true, device_type: res.device_type, message: 'Already connected' };
+    }
+  } catch (e) {
+    // "Already connecting" is reported as an error; fall through and wait for it.
+    if (!/already connecting/i.test(e.message)) throw e;
+  }
+
+  const deadline = Date.now() + waitSeconds * 1000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 500));
+    const status = await makeHttpRequest('GET', '/tools/dma_status');
+    if (status.connecting) continue;
+    if (status.connected) {
+      return { connected: true, device_type: status.device_type, message: 'Connected' };
+    }
+    throw new Error(`DMA connection failed: ${status.error || 'unknown error'}`);
+  }
+  throw new Error(`DMA connection still in progress after ${waitSeconds}s; check dma_status`);
+}
+
+/**
  * Execute a tool call
  * @param {string} toolName - Name of the tool to execute
  * @param {object} args - Tool arguments
  * @returns {Promise<object>} Tool execution result
  */
 async function executeTool(toolName, args) {
+  if (toolName === 'connect_dma') {
+    return requestQueue.enqueue(() => connectDmaAndWait(args || {}));
+  }
+
   const endpoint = TOOL_ENDPOINT_MAP[toolName];
   if (!endpoint) {
     throw new Error(`Unknown tool: ${toolName}`);
