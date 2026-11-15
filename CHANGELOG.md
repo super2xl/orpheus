@@ -20,12 +20,10 @@ Reliability release, verified against live hardware with a new scenario test sui
 - **MemProcFS refresh option had the wrong value** (`0x2001ffff` instead of `0x2001ffff00000000`), so the intended cache refresh was silently rejected.
 - **Task tools returned a bare HTTP 500** on a missing or unknown `task_id`, which MCP clients showed as "Invalid JSON response". They now return a JSON error, and a server-wide exception handler guarantees no endpoint returns a body-less 500.
 - Bridge network errors no longer show an empty message when the server is unreachable, and the bridge now reports its real version to MCP clients.
+- Resolved all compiler warnings in first-party code: the config `port` read is now an explicit `uint16_t` cast (was a silent truncation), the unused `PagesNeeded` helper was removed, and the `WIN32_LEAN_AND_MEAN` redefinition is guarded.
 
 ### Removed
 - **CS2 subsystem** — retired the CS2 schema dumper, entity tools, and decompiler type-injection. Deleted the dedicated handler/dumper/type-injector sources, removed the 14 `cs2_*` MCP endpoints and their `mcp_bridge.js` schemas, the frontend schema-cache panel, and the dead CS2 radar-map embedding in the build.
-
-### Fixed
-- Resolved all compiler warnings in first-party code: the config `port` read is now an explicit `uint16_t` cast (was a silent truncation), the unused `PagesNeeded` helper was removed, and the `WIN32_LEAN_AND_MEAN` redefinition is guarded.
 
 ### Changed
 - Third-party header warnings (Ghidra, Unicorn) are suppressed by treating them as `SYSTEM` includes with `/external:W0`, keeping `/W4` meaningful for first-party code.
