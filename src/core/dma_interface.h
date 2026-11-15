@@ -157,6 +157,14 @@ public:
                                                    size_t size);
 
     /**
+     * Read memory straight from the device, bypassing Orpheus's and MemProcFS's
+     * caches. Use where observing change matters (snapshots, diffs).
+     */
+    [[nodiscard]] std::vector<uint8_t> ReadMemoryFresh(uint32_t pid,
+                                                        uint64_t address,
+                                                        size_t size);
+
+    /**
      * Read memory with template type
      */
     template<typename T>
@@ -280,6 +288,8 @@ public:
 
 private:
     void ReportError(const std::string& message);
+
+    std::vector<uint8_t> ReadMemoryWithFlags(uint32_t pid, uint64_t address, size_t size, uint64_t flags);
 
     // Run a per-process map fetch; on failure, refresh VMM caches and retry.
     bool WithRefreshRetry(uint32_t pid, const char* what, const std::function<bool()>& fetch);

@@ -17,6 +17,8 @@
 #include <sstream>
 #include <iomanip>
 #include <ctime>
+#include <cstring>
+#include <algorithm>
 
 using json = nlohmann::json;
 
@@ -42,7 +44,7 @@ std::string MCPServer::HandleMemorySnapshot(const std::string& body) {
         }
 
         // Read memory
-        auto data = dma->ReadMemory(pid, address, size);
+        auto data = dma->ReadMemoryFresh(pid, address, size);
         if (data.empty()) {
             return CreateErrorResponse("Failed to read memory at " + address_str);
         }
@@ -222,7 +224,7 @@ std::string MCPServer::HandleMemoryDiff(const std::string& body) {
                 return CreateErrorResponse("DMA not connected");
             }
 
-            data_b = dma->ReadMemory(pid, base_address, data_a.size());
+            data_b = dma->ReadMemoryFresh(pid, base_address, data_a.size());
             if (data_b.empty()) {
                 return CreateErrorResponse("Failed to read current memory");
             }
@@ -236,30 +238,27 @@ std::string MCPServer::HandleMemoryDiff(const std::string& body) {
         size_t total_checked = 0;
         size_t total_changed = 0;
 
-        for (size_t i = 0; i + value_size <= data_a.size() && result_count < max_results; i += value_size) {
+        // A live read can come back shorter than the snapshot (pages unmapped since);
+        // never index past either buffer.
+        const size_t compare_size = std::min(data_a.size(), data_b.size());
+        bool truncated = false;
+
+        // Unaligned-safe signed load of value_size bytes.
+        auto load = [value_size](const std::vector<uint8_t>& d, size_t i) -> int64_t {
+            switch (value_size) {
+                case 1: return d[i];
+                case 2: { int16_t v; std::memcpy(&v, &d[i], 2); return v; }
+                case 4: { int32_t v; std::memcpy(&v, &d[i], 4); return v; }
+                default: { int64_t v; std::memcpy(&v, &d[i], 8); return v; }
+            }
+        };
+
+        // Count every value; max_results only caps how many entries are returned.
+        for (size_t i = 0; i + value_size <= compare_size; i += value_size) {
             total_checked++;
 
-            // Read values based on size
-            int64_t val_a = 0, val_b = 0;
-
-            switch (value_size) {
-                case 1:
-                    val_a = data_a[i];
-                    val_b = data_b[i];
-                    break;
-                case 2:
-                    val_a = *reinterpret_cast<int16_t*>(&data_a[i]);
-                    val_b = *reinterpret_cast<int16_t*>(&data_b[i]);
-                    break;
-                case 4:
-                    val_a = *reinterpret_cast<int32_t*>(&data_a[i]);
-                    val_b = *reinterpret_cast<int32_t*>(&data_b[i]);
-                    break;
-                case 8:
-                    val_a = *reinterpret_cast<int64_t*>(&data_a[i]);
-                    val_b = *reinterpret_cast<int64_t*>(&data_b[i]);
-                    break;
-            }
+            int64_t val_a = load(data_a, i);
+            int64_t val_b = load(data_b, i);
 
             bool changed = (val_a != val_b);
             bool increased = (val_b > val_a);
@@ -288,7 +287,9 @@ std::string MCPServer::HandleMemoryDiff(const std::string& body) {
                 change_type = "unchanged";
             }
 
-            if (include) {
+            if (include && result_count >= max_results) {
+                truncated = true;
+            } else if (include) {
                 json diff_entry;
                 diff_entry["address"] = FormatAddress(base_address + i);
                 diff_entry["offset"] = i;
@@ -316,9 +317,15 @@ std::string MCPServer::HandleMemoryDiff(const std::string& body) {
         result["results_returned"] = result_count;
         result["differences"] = differences;
 
-        if (result_count >= max_results) {
+        if (truncated) {
             result["truncated"] = true;
-            result["message"] = "Results truncated at " + std::to_string(max_results);
+            result["message"] = "Results truncated at " + std::to_string(max_results) +
+                                "; totals cover the whole region";
+        }
+        if (data_b.size() < data_a.size()) {
+            result["compared_bytes"] = compare_size;
+            result["warning"] = "Current memory read returned " + std::to_string(data_b.size()) +
+                                " of " + std::to_string(data_a.size()) + " bytes; only the readable prefix was compared";
         }
 
         return CreateSuccessResponse(result.dump());

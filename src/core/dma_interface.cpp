@@ -167,6 +167,7 @@ struct VMM_MAP_VAD {
 static constexpr ULONG64 PROCESS_INFO_MAGIC = 0xc0ffee663df9301eULL;
 static constexpr WORD PROCESS_INFO_VERSION = 7;
 static constexpr DWORD OPT_STRING_PATH_USER_IMAGE = 2;
+static constexpr ULONG64 FLAG_NOCACHE = 0x0001ULL;          // VMMDLL_FLAG_NOCACHE
 static constexpr ULONG64 FLAG_ZEROPAD_ON_FAIL = 0x0002ULL;
 
 // ============================================================================
@@ -650,6 +651,16 @@ std::vector<uint8_t> DMAInterface::ReadMemory(uint32_t pid, uint64_t address, si
 }
 
 std::vector<uint8_t> DMAInterface::ReadMemoryDirect(uint32_t pid, uint64_t address, size_t size) {
+    return ReadMemoryWithFlags(pid, address, size, FLAG_ZEROPAD_ON_FAIL);
+}
+
+std::vector<uint8_t> DMAInterface::ReadMemoryFresh(uint32_t pid, uint64_t address, size_t size) {
+    // Bypass both Orpheus's cache and MemProcFS's page cache. Snapshots/diffs exist to
+    // observe change; a cached page made two snapshots 1.5s apart come back identical.
+    return ReadMemoryWithFlags(pid, address, size, FLAG_NOCACHE | FLAG_ZEROPAD_ON_FAIL);
+}
+
+std::vector<uint8_t> DMAInterface::ReadMemoryWithFlags(uint32_t pid, uint64_t address, size_t size, uint64_t flags) {
     std::vector<uint8_t> result;
     if (!IsConnected() || fn_MemReadEx == nullptr || size == 0) return result;
 
@@ -657,7 +668,7 @@ std::vector<uint8_t> DMAInterface::ReadMemoryDirect(uint32_t pid, uint64_t addre
     DWORD bytesRead = 0;
 
     BOOL success = fn_MemReadEx(vmm_handle_, pid, address, result.data(),
-                                 static_cast<DWORD>(size), &bytesRead, FLAG_ZEROPAD_ON_FAIL);
+                                 static_cast<DWORD>(size), &bytesRead, flags);
 
     if (!success || bytesRead == 0) {
         result.clear();
