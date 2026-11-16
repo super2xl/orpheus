@@ -143,6 +143,12 @@ Anonymous usage analytics help improve Orpheus. Disable anytime in **Settings > 
 
 Data goes to a Cloudflare Worker. Session IDs are random and unlinkable. [Source code](src/utils/telemetry.cpp) — 90 lines, fully readable.
 
+## Questions & feedback
+
+**Using Orpheus for something?** I'd genuinely like to know what — game research, malware analysis, CTFs, anti-cheat work, something I haven't thought of. [Open an issue](https://github.com/super2xl/orpheus/issues/new) and tell me your use case; it's what decides where this goes next.
+
+Questions, setup trouble, or just want to talk shop? Reach me at **`0x060`** on Discord.
+
 ## License
 
 Copyright (C) 2025 super2xl
